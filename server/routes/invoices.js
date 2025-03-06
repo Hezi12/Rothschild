@@ -1,9 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const PDFDocument = require('pdfkit');
+const PdfPrinter = require('pdfmake');
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
 const { protect, admin } = require('../middleware/auth');
+const fs = require('fs');
+const path = require('path');
+
+// הגדרת הגופנים עבור pdfmake
+const fonts = {
+  OpenSansHebrew: {
+    normal: path.join(__dirname, '../fonts/OpenSansHebrew-Regular.ttf'),
+    bold: path.join(__dirname, '../fonts/OpenSansHebrew-Bold.ttf'),
+    italics: path.join(__dirname, '../fonts/OpenSansHebrew-Regular.ttf'),
+    bolditalics: path.join(__dirname, '../fonts/OpenSansHebrew-Bold.ttf')
+  }
+};
 
 // @route   GET /api/invoices/:bookingId
 // @desc    יצירת חשבונית PDF להזמנה
@@ -20,80 +32,193 @@ router.get('/:bookingId', [protect, admin], async (req, res) => {
       });
     }
     
-    // יצירת מסמך PDF
-    const doc = new PDFDocument({ size: 'A4', margin: 50 });
-    
-    // הגדרת כותרת למסמך
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=invoice-${booking._id}.pdf`);
-    
-    // הזרמת ה-PDF לתגובה
-    doc.pipe(res);
-    
-    // הוספת לוגו וכותרת
-    doc.fontSize(20).text('מלונית רוטשילד 79', { align: 'right' });
-    doc.fontSize(12).text('רח\' רוטשילד 79, פתח תקווה', { align: 'right' });
-    doc.text('טלפון: 03-1234567', { align: 'right' });
-    doc.text('diamshotels@gmail.com', { align: 'right' });
-    
-    doc.moveDown();
-    doc.fontSize(16).text('חשבונית / קבלה', { align: 'center' });
-    doc.moveDown();
-    
-    // פרטי הזמנה
-    doc.fontSize(14).text('פרטי הזמנה:', { align: 'right' });
-    doc.fontSize(12).text(`מספר הזמנה: ${booking._id}`, { align: 'right' });
-    doc.text(`תאריך: ${new Date().toLocaleDateString('he-IL')}`, { align: 'right' });
-    doc.moveDown();
-    
-    // פרטי לקוח
-    doc.fontSize(14).text('פרטי לקוח:', { align: 'right' });
-    doc.fontSize(12).text(`שם: ${booking.guest.name}`, { align: 'right' });
-    doc.text(`טלפון: ${booking.guest.phone}`, { align: 'right' });
-    doc.text(`אימייל: ${booking.guest.email}`, { align: 'right' });
-    doc.moveDown();
-    
-    // פרטי שהייה
-    doc.fontSize(14).text('פרטי שהייה:', { align: 'right' });
-    doc.fontSize(12).text(`חדר מספר: ${booking.room.roomNumber}`, { align: 'right' });
-    doc.text(`סוג חדר: ${booking.room.type}`, { align: 'right' });
-    doc.text(`תאריך צ'ק-אין: ${booking.checkIn.toLocaleDateString('he-IL')}`, { align: 'right' });
-    doc.text(`תאריך צ'ק-אאוט: ${booking.checkOut.toLocaleDateString('he-IL')}`, { align: 'right' });
-    doc.text(`מספר לילות: ${booking.nights}`, { align: 'right' });
-    doc.moveDown();
-    
-    // פרטי תשלום
-    doc.fontSize(14).text('פרטי תשלום:', { align: 'right' });
-    
     // חישוב מחירים
     const basePrice = booking.room.basePrice * booking.nights;
     const vatRate = 0.17; // 17% מע"מ
     const vatAmount = booking.isTourist ? 0 : basePrice * vatRate;
     const totalPrice = booking.totalPrice;
+
+    // יצירת מסמך PDF
+    const printer = new PdfPrinter(fonts);
     
-    doc.fontSize(12).text(`מחיר בסיס: ${basePrice.toFixed(2)} ₪`, { align: 'right' });
+    // הגדרת תוכן המסמך
+    const docDefinition = {
+      // מאפשר תמיכה בעברית מימין לשמאל
+      rtl: true,
+      
+      // מידע על המסמך
+      info: {
+        title: 'חשבונית - ' + booking._id,
+        author: 'מלונית רוטשילד 79',
+        subject: 'חשבונית',
+      },
+      
+      // תוכן המסמך - פורמט פשוט יותר
+      content: [
+        // כותרת וסמל המלון
+        { text: 'מלונית רוטשילד 79', style: 'header', alignment: 'center' },
+        { text: 'רוטשילד 79, פתח תקווה', alignment: 'center' },
+        { text: 'טלפון: 03-1234567', alignment: 'center' },
+        { text: 'diamshotels@gmail.com', alignment: 'center', margin: [0, 0, 0, 20] },
+        
+        // כותרת החשבונית
+        { text: 'חשבונית / קבלה', style: 'subheader', alignment: 'center', margin: [0, 0, 0, 20] },
+        
+        // פרטי הזמנה - פסקאות פשוטות עם כותרת
+        { text: 'פרטי הזמנה', style: 'sectionHeader', fillColor: '#f0f0f0', margin: [0, 10, 0, 10] },
+        { columns: [
+            { text: 'מספר הזמנה:', width: '30%', alignment: 'right', bold: true },
+            { text: `${booking._id}`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 0]
+        },
+        { columns: [
+            { text: 'תאריך:', width: '30%', alignment: 'right', bold: true },
+            { text: `${new Date().toLocaleDateString('he-IL')}`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 15]
+        },
+        
+        // פרטי לקוח
+        { text: 'פרטי לקוח', style: 'sectionHeader', fillColor: '#f0f0f0', margin: [0, 10, 0, 10] },
+        { columns: [
+            { text: 'שם:', width: '30%', alignment: 'right', bold: true },
+            { text: `${booking.guest.name}`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 0]
+        },
+        { columns: [
+            { text: 'טלפון:', width: '30%', alignment: 'right', bold: true },
+            { text: `${booking.guest.phone}`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 0]
+        },
+        { columns: [
+            { text: 'אימייל:', width: '30%', alignment: 'right', bold: true },
+            { text: `${booking.guest.email}`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 15]
+        },
+        
+        // פרטי שהייה
+        { text: 'פרטי שהייה', style: 'sectionHeader', fillColor: '#f0f0f0', margin: [0, 10, 0, 10] },
+        { columns: [
+            { text: 'מספר חדר:', width: '30%', alignment: 'right', bold: true },
+            { text: `${booking.room.roomNumber}`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 0]
+        },
+        { columns: [
+            { text: 'סוג חדר:', width: '30%', alignment: 'right', bold: true },
+            { text: `${booking.room.type}`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 0]
+        },
+        { columns: [
+            { text: "תאריך צ'ק-אין:", width: '30%', alignment: 'right', bold: true },
+            { text: `${new Date(booking.checkIn).toLocaleDateString('he-IL')}`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 0]
+        },
+        { columns: [
+            { text: "תאריך צ'ק-אאוט:", width: '30%', alignment: 'right', bold: true },
+            { text: `${new Date(booking.checkOut).toLocaleDateString('he-IL')}`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 0]
+        },
+        { columns: [
+            { text: 'מספר לילות:', width: '30%', alignment: 'right', bold: true },
+            { text: `${booking.nights}`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 15]
+        },
+        
+        // פרטי תשלום
+        { text: 'פרטי תשלום', style: 'sectionHeader', fillColor: '#f0f0f0', margin: [0, 10, 0, 10] },
+        { columns: [
+            { text: 'מחיר בסיס:', width: '30%', alignment: 'right', bold: true },
+            { text: `₪ ${basePrice.toFixed(2)}`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 0]
+        },
+        { columns: [
+            { text: 'מע"מ:', width: '30%', alignment: 'right', bold: true },
+            { text: booking.isTourist ? 'פטור (תייר)' : `₪ ${vatAmount.toFixed(2)}`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 0]
+        },
+        { canvas: [ { type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1, lineColor: '#aaaaaa' } ], margin: [0, 10, 0, 10] },
+        { columns: [
+            { text: 'סה"כ לתשלום:', width: '30%', alignment: 'right', bold: true, fontSize: 14 },
+            { text: `₪ ${totalPrice.toFixed(2)}`, width: '70%', alignment: 'right', bold: true, fontSize: 14 }
+          ],
+          margin: [0, 5, 0, 10]
+        },
+        { columns: [
+            { text: 'סטטוס תשלום:', width: '30%', alignment: 'right', bold: true },
+            { text: `${booking.paymentStatus === 'paid' ? 'שולם' : 'ממתין לתשלום'}`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 0]
+        },
+        { columns: [
+            { text: 'אמצעי תשלום:', width: '30%', alignment: 'right', bold: true },
+            { text: `${
+              booking.paymentMethod === 'cash' ? 'מזומן' : 
+              booking.paymentMethod === 'credit' ? 'כרטיס אשראי' : 
+              'העברה בנקאית'
+            }`, width: '70%', alignment: 'right' }
+          ],
+          margin: [0, 5, 0, 20]
+        },
+        
+        // הערת סיום
+        { text: 'תודה שבחרתם במלונית רוטשילד 79!', style: 'footer', alignment: 'center', margin: [0, 30, 0, 0] }
+      ],
+      
+      // הגדרות עיצוב
+      styles: {
+        header: {
+          fontSize: 22,
+          bold: true,
+          margin: [0, 0, 0, 10]
+        },
+        subheader: {
+          fontSize: 18,
+          bold: true,
+          margin: [0, 10, 0, 5]
+        },
+        sectionHeader: {
+          fontSize: 14,
+          bold: true,
+          margin: [0, 10, 0, 5],
+          alignment: 'right'
+        },
+        footer: {
+          fontSize: 14,
+          italics: true,
+          alignment: 'center'
+        }
+      },
+      
+      // הגדרות דף
+      pageSize: 'A4',
+      pageMargins: [40, 40, 40, 40],
+      defaultStyle: {
+        font: 'OpenSansHebrew'
+      }
+    };
     
-    if (!booking.isTourist) {
-      doc.text(`מע"מ (17%): ${vatAmount.toFixed(2)} ₪`, { align: 'right' });
-    } else {
-      doc.text('מע"מ: פטור (תייר)', { align: 'right' });
-    }
+    // יצירת המסמך
+    const pdfDoc = printer.createPdfKitDocument(docDefinition);
     
-    doc.fontSize(14).text(`סה"כ לתשלום: ${totalPrice.toFixed(2)} ₪`, { align: 'right' });
-    doc.text(`סטטוס תשלום: ${booking.paymentStatus === 'paid' ? 'שולם' : 'ממתין לתשלום'}`, { align: 'right' });
-    doc.text(`אמצעי תשלום: ${
-      booking.paymentMethod === 'cash' ? 'מזומן' : 
-      booking.paymentMethod === 'credit' ? 'כרטיס אשראי' : 
-      'העברה בנקאית'
-    }`, { align: 'right' });
+    // הגדרת הכותרות בתגובה
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=invoice-${booking._id}.pdf`);
     
-    doc.moveDown(2);
+    // שליחת המסמך בתגובה
+    pdfDoc.pipe(res);
+    pdfDoc.end();
     
-    // חתימה
-    doc.fontSize(12).text('תודה שבחרתם במלונית רוטשילד 79!', { align: 'center' });
-    
-    // סיום המסמך
-    doc.end();
   } catch (error) {
     console.error('שגיאה ביצירת חשבונית:', error);
     res.status(500).json({ 
