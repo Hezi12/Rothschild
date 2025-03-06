@@ -8,6 +8,10 @@ exports.protect = async (req, res, next) => {
   // בדיקה אם יש טוקן בכותרת Authorization
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
+  } 
+  // בדיקה אם יש טוקן בפרמטרים של ה-URL (עבור בקשות PDF)
+  else if (req.query && req.query.token) {
+    token = req.query.token;
   }
 
   // אם אין טוקן, החזר שגיאה

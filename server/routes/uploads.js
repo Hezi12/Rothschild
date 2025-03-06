@@ -71,10 +71,14 @@ router.post('/room/:roomId', [protect, admin, upload.single('image')], async (re
       use_filename: true
     });
     
+    // בדיקה אם זו התמונה הראשונה, אם כן - היא תהיה ראשית
+    const isFirstImage = room.images.length === 0;
+    
     // הוספת התמונה לחדר
     room.images.push({
       url: result.secure_url,
-      publicId: result.public_id
+      publicId: result.public_id,
+      isPrimary: isFirstImage // אם זו התמונה הראשונה, היא תהיה ראשית
     });
     
     // שמירת השינויים
@@ -84,7 +88,8 @@ router.post('/room/:roomId', [protect, admin, upload.single('image')], async (re
       success: true,
       data: {
         url: result.secure_url,
-        publicId: result.public_id
+        publicId: result.public_id,
+        isPrimary: isFirstImage
       }
     });
   } catch (error) {
@@ -142,6 +147,56 @@ router.delete('/room/:roomId/:imageId', [protect, admin], async (req, res) => {
     });
   } catch (error) {
     console.error('שגיאה במחיקת תמונה:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת' 
+    });
+  }
+});
+
+// @route   PUT /api/uploads/room/:roomId/:imageId/primary
+// @desc    הגדרת תמונה כתמונה ראשית
+// @access  Private/Admin
+router.put('/room/:roomId/:imageId/primary', [protect, admin], async (req, res) => {
+  try {
+    const { roomId, imageId } = req.params;
+    
+    // בדיקה אם החדר קיים
+    const room = await Room.findById(roomId);
+    
+    if (!room) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'החדר לא נמצא' 
+      });
+    }
+    
+    // איפוס כל התמונות כך שאף אחת לא תהיה ראשית
+    room.images.forEach(image => {
+      image.isPrimary = false;
+    });
+    
+    // מציאת התמונה הרצויה והגדרתה כראשית
+    const imageIndex = room.images.findIndex(img => img._id.toString() === imageId);
+    
+    if (imageIndex === -1) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'התמונה לא נמצאה' 
+      });
+    }
+    
+    room.images[imageIndex].isPrimary = true;
+    
+    // שמירת השינויים
+    await room.save();
+    
+    res.json({
+      success: true,
+      message: 'התמונה הוגדרה כתמונה ראשית בהצלחה'
+    });
+  } catch (error) {
+    console.error('שגיאה בהגדרת תמונה ראשית:', error);
     res.status(500).json({ 
       success: false, 
       message: 'שגיאת שרת' 

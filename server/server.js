@@ -11,7 +11,15 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(cors());
+// הגדרות CORS דינמיות לפי סביבה
+const corsOptions = {
+  origin: '*', // מאפשר גישה מכל מקום בסביבת פיתוח
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'Cache-Control', 'Pragma', 'Expires'],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -34,6 +42,19 @@ app.use('/api/invoices', require('./routes/invoices'));
 app.get('/api/test', (req, res) => {
   res.json({ message: 'שרת API של מלונית רוטשילד 79 פועל!' });
 });
+
+// שירות קבצים סטטיים מתיקיית הבילד של האפליקציה במצב פרודקשן
+if (process.env.NODE_ENV === 'production') {
+  // שירות קבצים סטטיים
+  app.use(express.static(path.join(__dirname, '../client/build')));
+
+  // כל בקשה שאינה API תפנה לאפליקציית הריאקט
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api/')) {
+      res.sendFile(path.resolve(__dirname, '../client/build', 'index.html'));
+    }
+  });
+}
 
 // הגדרת פורט
 const PORT = process.env.PORT || 5000;

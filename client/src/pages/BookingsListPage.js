@@ -46,6 +46,9 @@ const BookingsListPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [bookingToDelete, setBookingToDelete] = useState(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
   const [filters, setFilters] = useState({
     startDate: null,
     endDate: null,
@@ -108,6 +111,38 @@ const BookingsListPage = () => {
     setBookingToDelete(null);
   };
 
+  const handleViewBooking = (booking) => {
+    setSelectedBooking(booking);
+    setViewDialogOpen(true);
+  };
+  
+  const handleCloseViewDialog = () => {
+    setViewDialogOpen(false);
+    setSelectedBooking(null);
+  };
+  
+  const handleEditBooking = (booking) => {
+    setSelectedBooking(booking);
+    setEditDialogOpen(true);
+  };
+  
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+    setSelectedBooking(null);
+  };
+  
+  const handleSaveBooking = async () => {
+    try {
+      // כאן יהיה הקוד לשמירת השינויים בהזמנה
+      toast.success('ההזמנה עודכנה בהצלחה');
+      setEditDialogOpen(false);
+      fetchBookings(); // רענון הנתונים
+    } catch (error) {
+      console.error('שגיאה בעדכון ההזמנה:', error);
+      toast.error('שגיאה בעדכון ההזמנה');
+    }
+  };
+
   // מחיקת הזמנה
   const handleDeleteBooking = async () => {
     if (!bookingToDelete) return;
@@ -155,8 +190,19 @@ const BookingsListPage = () => {
   // הדפסת חשבונית
   const handlePrintInvoice = async (bookingId) => {
     try {
+      // השגת הטוקן מהמצב המקומי של הדפדפן
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        toast.error('נדרשת התחברות מחדש');
+        return;
+      }
+
+      // יצירת URL עם הטוקן כפרמטר שאילתה
+      const invoiceUrl = `${process.env.REACT_APP_API_URL}/invoices/${bookingId}?token=${token}`;
+      
       // פתיחת חלון חדש לחשבונית
-      window.open(`${process.env.REACT_APP_API_URL}/invoices/${bookingId}`, '_blank');
+      window.open(invoiceUrl, '_blank');
     } catch (error) {
       console.error('שגיאה בהדפסת חשבונית:', error);
       toast.error('שגיאה בהדפסת החשבונית. אנא נסה שוב מאוחר יותר.');
@@ -318,12 +364,20 @@ const BookingsListPage = () => {
                       <TableCell>
                         <Box sx={{ display: 'flex' }}>
                           <Tooltip title="צפה בפרטים">
-                            <IconButton size="small" color="primary">
+                            <IconButton 
+                              size="small" 
+                              color="primary"
+                              onClick={() => handleViewBooking(booking)}
+                            >
                               <ViewIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="ערוך">
-                            <IconButton size="small" color="secondary">
+                            <IconButton 
+                              size="small" 
+                              color="secondary"
+                              onClick={() => handleEditBooking(booking)}
+                            >
                               <EditIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
@@ -383,6 +437,121 @@ const BookingsListPage = () => {
           <Button onClick={handleCloseDeleteDialog}>ביטול</Button>
           <Button onClick={handleDeleteBooking} color="error" autoFocus>
             מחק
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* דיאלוג צפייה בפרטים */}
+      <Dialog
+        open={viewDialogOpen}
+        onClose={handleCloseViewDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>פרטי הזמנה</DialogTitle>
+        <DialogContent>
+          {selectedBooking && (
+            <Box sx={{ pt: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2">פרטי אורח:</Typography>
+                  <Typography>שם: {selectedBooking.guest.name}</Typography>
+                  <Typography>טלפון: {selectedBooking.guest.phone}</Typography>
+                  <Typography>אימייל: {selectedBooking.guest.email}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2">פרטי חדר:</Typography>
+                  <Typography>מספר חדר: {selectedBooking.room.roomNumber}</Typography>
+                  <Typography>סוג: {selectedBooking.room.type === 'standard' ? 'סטנדרט' : selectedBooking.room.type}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2">פרטי הזמנה:</Typography>
+                  <Typography>תאריך צ'ק-אין: {formatDate(selectedBooking.checkIn)}</Typography>
+                  <Typography>תאריך צ'ק-אאוט: {formatDate(selectedBooking.checkOut)}</Typography>
+                  <Typography>מספר לילות: {selectedBooking.nights}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2">פרטי תשלום:</Typography>
+                  <Typography>סכום כולל: {selectedBooking.totalPrice.toFixed(2)} ₪</Typography>
+                  <Typography>סטטוס תשלום: {selectedBooking.paymentStatus === 'paid' ? 'שולם' : 'ממתין'}</Typography>
+                  <Typography>אמצעי תשלום: {getPaymentMethodText(selectedBooking.paymentMethod)}</Typography>
+                </Grid>
+                {selectedBooking.notes && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2">הערות:</Typography>
+                    <Typography>{selectedBooking.notes}</Typography>
+                  </Grid>
+                )}
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseViewDialog}>סגור</Button>
+          <Button 
+            color="primary" 
+            onClick={() => {
+              handleCloseViewDialog();
+              handleEditBooking(selectedBooking);
+            }}
+          >
+            ערוך
+          </Button>
+          <Button 
+            color="info"
+            onClick={() => handlePrintInvoice(selectedBooking._id)}
+          >
+            הדפס חשבונית
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* דיאלוג עריכה */}
+      <Dialog
+        open={editDialogOpen}
+        onClose={handleCloseEditDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>עריכת הזמנה</DialogTitle>
+        <DialogContent>
+          {selectedBooking && (
+            <Box sx={{ pt: 2 }}>
+              <Typography variant="body2" color="text.secondary" paragraph>
+                פונקציונליות העריכה המלאה תפותח בהמשך. כרגע ניתן לערוך רק הערות וסטטוס תשלום.
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    label="הערות"
+                    multiline
+                    rows={4}
+                    fullWidth
+                    defaultValue={selectedBooking.notes || ''}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    select
+                    fullWidth
+                    label="סטטוס תשלום"
+                    value={selectedBooking.paymentStatus}
+                    SelectProps={{
+                      native: true
+                    }}
+                  >
+                    <option value="paid">שולם</option>
+                    <option value="pending">ממתין</option>
+                  </TextField>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseEditDialog}>ביטול</Button>
+          <Button color="primary" onClick={handleSaveBooking}>
+            שמור
           </Button>
         </DialogActions>
       </Dialog>

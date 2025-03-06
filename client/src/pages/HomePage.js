@@ -28,7 +28,13 @@ const HomePage = () => {
     const fetchRoom = async () => {
       try {
         // קבלת חדר 6 (החדר הסטנדרטי)
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`);
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
         const rooms = response.data.data;
         
         // מציאת חדר 6
@@ -126,7 +132,7 @@ const HomePage = () => {
           <CardMedia
             component="img"
             height="300"
-            image={room.images[0]?.url || 'https://via.placeholder.com/800x400?text=חדר+סטנדרט'}
+            image={room.images.find(img => img.isPrimary)?.url || room.images[0]?.url || 'https://via.placeholder.com/800x400?text=חדר+סטנדרט'}
             alt={`חדר ${room.roomNumber}`}
           />
           <CardContent>
