@@ -194,20 +194,6 @@ const BookingsListPage = () => {
     }
   };
 
-  // פונקציה לצפייה בפרטי הזמנה
-  const handleViewBooking = (bookingId) => {
-    // מאחר שאין דף נפרד לצפייה בהזמנה, נציג הודעה
-    toast.info('תכונת צפייה בפרטי הזמנה בפיתוח. תהיה זמינה בקרוב!');
-    // אפשר גם לפתוח דיאלוג עם פרטי ההזמנה במקום לנווט לדף חדש
-  };
-
-  // פונקציה לעריכת הזמנה
-  const handleEditBooking = (bookingId) => {
-    // מאחר שאין דף נפרד לעריכת הזמנה, נציג הודעה
-    toast.info('תכונת עריכת הזמנה בפיתוח. תהיה זמינה בקרוב!');
-    // אפשר גם לפתוח דיאלוג עריכה במקום לנווט לדף חדש
-  };
-
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -332,20 +318,12 @@ const BookingsListPage = () => {
                       <TableCell>
                         <Box sx={{ display: 'flex' }}>
                           <Tooltip title="צפה בפרטים">
-                            <IconButton 
-                              size="small" 
-                              color="primary"
-                              onClick={() => handleViewBooking(booking._id)}
-                            >
+                            <IconButton size="small" color="primary">
                               <ViewIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="ערוך">
-                            <IconButton 
-                              size="small" 
-                              color="secondary"
-                              onClick={() => handleEditBooking(booking._id)}
-                            >
+                            <IconButton size="small" color="secondary">
                               <EditIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
