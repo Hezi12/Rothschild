@@ -34,8 +34,36 @@ const RoomPage = () => {
   useEffect(() => {
     const fetchRoom = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/${id}`);
-        setRoom(response.data.data);
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/${id}`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
+        
+        const roomData = response.data.data;
+        
+        // סידור התמונות כך שהתמונה הראשית תהיה ראשונה
+        if (roomData.images && roomData.images.length > 0) {
+          // מציאת התמונה הראשית
+          const primaryIndex = roomData.images.findIndex(img => img.isPrimary);
+          
+          // אם יש תמונה ראשית והיא לא במקום הראשון
+          if (primaryIndex > 0) {
+            // יצירת עותק של מערך התמונות
+            const sortedImages = [...roomData.images];
+            // הוצאת התמונה הראשית
+            const primaryImage = sortedImages.splice(primaryIndex, 1)[0];
+            // הוספת התמונה הראשית בתחילת המערך
+            sortedImages.unshift(primaryImage);
+            
+            // עדכון נתוני החדר עם התמונות המסודרות
+            roomData.images = sortedImages;
+          }
+        }
+        
+        setRoom(roomData);
       } catch (error) {
         console.error('שגיאה בטעינת החדר:', error);
         setError('לא ניתן לטעון את פרטי החדר. אנא נסה שוב מאוחר יותר.');

@@ -389,8 +389,8 @@ exports.deleteBooking = async (req, res) => {
       });
     }
     
-    // מחיקת ההזמנה
-    await booking.remove();
+    // מחיקת ההזמנה - שימוש בשיטה המומלצת בגרסאות עדכניות של Mongoose
+    await Booking.findByIdAndDelete(req.params.id);
     
     res.json({
       success: true,

@@ -1,0 +1,17 @@
+{
+  "name": "rothschild-79",
+  "version": "1.0.0",
+  "description": "אפליקציית ניהול למלונית רוטשילד 79",
+  "main": "index.js",
+  "scripts": {
+    "install-all": "npm install && cd client && npm install && cd ../server && npm install",
+    "client": "cd client && npm start",
+    "server": "cd server && npm run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "cd client && npm run build",
+    "start-prod": "cd server && npm run production"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+} 

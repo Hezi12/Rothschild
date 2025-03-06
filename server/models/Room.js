@@ -32,6 +32,10 @@ const RoomSchema = new mongoose.Schema({
     },
     publicId: {
       type: String
+    },
+    isPrimary: {
+      type: Boolean,
+      default: false
     }
   }],
   amenities: [{

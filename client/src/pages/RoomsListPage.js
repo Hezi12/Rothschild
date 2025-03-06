@@ -32,7 +32,8 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
-  PhotoCamera as CameraIcon
+  PhotoCamera as CameraIcon,
+  Star as StarIcon
 } from '@mui/icons-material';
 
 const RoomsListPage = () => {
@@ -184,15 +185,13 @@ const RoomsListPage = () => {
         }
       );
       
-      // עדכון החדר עם התמונה החדשה
-      const updatedRoom = {
-        ...roomForUpload,
-        images: [...roomForUpload.images, response.data.data]
-      };
+      // קבלת החדר המעודכן מהשרת לאחר העלאת התמונה
+      const updatedRoomResponse = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/${roomForUpload._id}`);
+      const updatedRoomData = updatedRoomResponse.data.data;
       
-      // עדכון הרשימה
+      // עדכון הרשימה עם החדר המעודכן
       setRooms(rooms.map(room => 
-        room._id === roomForUpload._id ? updatedRoom : room
+        room._id === roomForUpload._id ? updatedRoomData : room
       ));
       
       toast.success('התמונה הועלתה בהצלחה');
@@ -208,24 +207,58 @@ const RoomsListPage = () => {
   // מחיקת תמונה
   const handleDeleteImage = async (roomId, imageId) => {
     try {
+      if (!window.confirm('האם אתה בטוח שברצונך למחוק את התמונה?')) {
+        return;
+      }
+      
       await axios.delete(`${process.env.REACT_APP_API_URL}/uploads/room/${roomId}/${imageId}`);
       
-      // עדכון הרשימה
-      const updatedRooms = rooms.map(room => {
-        if (room._id === roomId) {
-          return {
-            ...room,
-            images: room.images.filter(img => img._id !== imageId)
-          };
+      // קבלת החדר המעודכן מהשרת
+      const updatedRoomResponse = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/${roomId}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
-        return room;
       });
+      const updatedRoomData = updatedRoomResponse.data.data;
       
-      setRooms(updatedRooms);
+      // עדכון הרשימה
+      setRooms(rooms.map(room => 
+        room._id === roomId ? updatedRoomData : room
+      ));
+      
       toast.success('התמונה נמחקה בהצלחה');
     } catch (error) {
       console.error('שגיאה במחיקת תמונה:', error);
       toast.error('שגיאה במחיקת התמונה. אנא נסה שוב מאוחר יותר.');
+    }
+  };
+
+  // הגדרת תמונה ראשית
+  const handleSetPrimaryImage = async (roomId, imageId) => {
+    try {
+      await axios.put(`${process.env.REACT_APP_API_URL}/uploads/room/${roomId}/${imageId}/primary`);
+      
+      // קבלת החדר המעודכן מהשרת
+      const updatedRoomResponse = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/${roomId}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      const updatedRoomData = updatedRoomResponse.data.data;
+      
+      // עדכון הרשימה
+      setRooms(rooms.map(room => 
+        room._id === roomId ? updatedRoomData : room
+      ));
+      
+      toast.success('התמונה הוגדרה כתמונה ראשית בהצלחה');
+    } catch (error) {
+      console.error('שגיאה בהגדרת תמונה ראשית:', error);
+      toast.error('שגיאה בהגדרת התמונה כראשית. אנא נסה שוב מאוחר יותר.');
     }
   };
 
@@ -261,100 +294,135 @@ const RoomsListPage = () => {
                 <CardMedia
                   component="img"
                   height="200"
-                  image={room.images[0]?.url || 'https://via.placeholder.com/300x200?text=אין+תמונה'}
+                  image={room.images.find(img => img.isPrimary)?.url || room.images[0]?.url || 'https://via.placeholder.com/400x200?text=אין+תמונה'}
                   alt={`חדר ${room.roomNumber}`}
                 />
                 <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="h6" component="div">
-                      חדר {room.roomNumber}
-                    </Typography>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={room.isActive}
-                          onChange={async (e) => {
-                            try {
-                              const response = await axios.put(`${process.env.REACT_APP_API_URL}/rooms/${room._id}`, {
-                                isActive: e.target.checked
-                              });
-                              
-                              // עדכון הרשימה
-                              setRooms(rooms.map(r => 
-                                r._id === room._id ? response.data.data : r
-                              ));
-                              
-                              toast.success(`החדר ${e.target.checked ? 'הופעל' : 'הושבת'} בהצלחה`);
-                            } catch (error) {
-                              console.error('שגיאה בעדכון סטטוס חדר:', error);
-                              toast.error('שגיאה בעדכון סטטוס החדר');
-                            }
-                          }}
-                          color="primary"
-                          size="small"
-                        />
-                      }
-                      label={room.isActive ? 'פעיל' : 'לא פעיל'}
-                    />
-                  </Box>
-                  
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    {room.type === 'standard' ? 'סטנדרט' : room.type}
+                  <Typography variant="h6">
+                    חדר {room.roomNumber} - {room.type === 'standard' ? 'סטנדרט' : room.type}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {room.description.substring(0, 100)}...
+                  </Typography>
+                  <Typography variant="body1" color="primary" sx={{ mt: 1 }}>
+                    {room.basePrice} ₪ / לילה
                   </Typography>
                   
-                  <Typography variant="body1" sx={{ mb: 1 }}>
-                    <strong>מחיר:</strong> {room.basePrice} ₪
-                  </Typography>
-                  
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>תפוסה מקסימלית:</strong> {room.maxOccupancy} אנשים
-                  </Typography>
-                  
-                  <Typography variant="body2" paragraph>
-                    {room.description.length > 100 
-                      ? `${room.description.substring(0, 100)}...` 
-                      : room.description}
-                  </Typography>
-                  
-                  <Box sx={{ mt: 1 }}>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>שירותים:</strong>
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {room.amenities.map((amenity, index) => (
-                        <Chip 
-                          key={index} 
-                          label={amenity} 
-                          size="small" 
-                          variant="outlined"
-                        />
-                      ))}
+                  {/* תמונות החדר */}
+                  {room.images.length > 0 && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        תמונות:
+                      </Typography>
+                      <Grid container spacing={1}>
+                        {room.images.map(image => (
+                          <Grid item xs={4} key={image._id}>
+                            <Box 
+                              sx={{ 
+                                position: 'relative', 
+                                height: 80, 
+                                border: image.isPrimary ? '2px solid #1976d2' : '1px solid #ddd',
+                                borderRadius: 1,
+                                overflow: 'hidden'
+                              }}
+                            >
+                              <Box
+                                component="img"
+                                src={image.url}
+                                alt="תמונת חדר"
+                                sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                              <Box 
+                                sx={{ 
+                                  position: 'absolute', 
+                                  top: 0, 
+                                  right: 0, 
+                                  left: 0, 
+                                  bottom: 0, 
+                                  display: 'flex', 
+                                  justifyContent: 'center', 
+                                  alignItems: 'center', 
+                                  opacity: 0, 
+                                  bgcolor: 'rgba(0,0,0,0.5)', 
+                                  transition: 'opacity 0.3s',
+                                  '&:hover': {
+                                    opacity: 1
+                                  }
+                                }}
+                              >
+                                <IconButton 
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => handleSetPrimaryImage(room._id, image._id)}
+                                  title="הגדר כתמונה ראשית"
+                                  sx={{ 
+                                    color: 'white', 
+                                    bgcolor: 'rgba(25, 118, 210, 0.7)',
+                                    mr: 0.5,
+                                    '&:hover': {
+                                      bgcolor: 'rgba(25, 118, 210, 0.9)'
+                                    } 
+                                  }}
+                                >
+                                  <StarIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton 
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleDeleteImage(room._id, image._id)}
+                                  title="מחק תמונה"
+                                  sx={{ 
+                                    color: 'white', 
+                                    bgcolor: 'rgba(211, 47, 47, 0.7)',
+                                    '&:hover': {
+                                      bgcolor: 'rgba(211, 47, 47, 0.9)'
+                                    } 
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
+                              {image.isPrimary && (
+                                <Box 
+                                  sx={{ 
+                                    position: 'absolute', 
+                                    top: 0, 
+                                    left: 0, 
+                                    bgcolor: 'primary.main', 
+                                    color: 'white',
+                                    px: 0.5,
+                                    py: 0.2,
+                                    fontSize: '0.6rem'
+                                  }}
+                                >
+                                  ראשי
+                                </Box>
+                              )}
+                            </Box>
+                          </Grid>
+                        ))}
+                      </Grid>
                     </Box>
-                  </Box>
+                  )}
                 </CardContent>
                 
-                <Divider />
-                
-                <CardActions sx={{ justifyContent: 'space-between' }}>
-                  <Box>
-                    <IconButton 
-                      color="primary" 
-                      onClick={() => handleOpenEditDialog(room)}
-                      title="ערוך חדר"
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton 
-                      color="error" 
-                      onClick={() => handleOpenDeleteDialog(room)}
-                      title="מחק חדר"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Box>
-                  
-                  <Button
-                    startIcon={<CameraIcon />}
+                <CardActions>
+                  <Button 
+                    size="small" 
+                    onClick={() => handleOpenEditDialog(room)}
+                  >
+                    ערוך
+                  </Button>
+                  <Button 
+                    size="small" 
+                    color="error" 
+                    onClick={() => handleOpenDeleteDialog(room)}
+                  >
+                    מחק
+                  </Button>
+                  <Button 
+                    size="small" 
+                    color="primary" 
                     onClick={() => handleOpenUploadDialog(room)}
                   >
                     העלה תמונה
