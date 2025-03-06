@@ -4,11 +4,19 @@ const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const Room = require('../models/Room');
 const { protect, admin } = require('../middleware/auth');
+const fs = require('fs');
+const path = require('path');
+
+// יוצר את תיקיית ההעלאות אם היא לא קיימת
+const uploadDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // הגדרת אחסון זמני עם multer
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
-    cb(null, 'uploads/');
+    cb(null, uploadDir);
   },
   filename: function(req, file, cb) {
     cb(null, new Date().toISOString().replace(/:/g, '-') + '-' + file.originalname);
