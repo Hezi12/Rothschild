@@ -32,7 +32,8 @@ import {
   Visibility as ViewIcon,
   Print as PrintIcon,
   FilterList as FilterIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  CalendarMonth as CalendarIcon
 } from '@mui/icons-material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -242,82 +243,96 @@ const BookingsListPage = () => {
   };
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          ניהול הזמנות
-        </Typography>
+    <Box sx={{ p: 3 }}>
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h5" component="h1">
+            ניהול הזמנות
+          </Typography>
+          
+          <Box>
+            <Button 
+              variant="outlined" 
+              startIcon={<CalendarIcon />}
+              component={Link}
+              to="/dashboard/bookings/calendar"
+              sx={{ ml: 1 }}
+            >
+              תצוגת לוח שנה
+            </Button>
+            <Button 
+              variant="outlined" 
+              startIcon={<FilterIcon />}
+              onClick={() => setShowFilters(!showFilters)}
+              sx={{ ml: 1 }}
+            >
+              {showFilters ? 'הסתר סינון' : 'הצג סינון'}
+            </Button>
+          </Box>
+        </Box>
         
-        <Button
-          variant="outlined"
-          startIcon={<FilterIcon />}
-          onClick={() => setShowFilters(!showFilters)}
-        >
-          {showFilters ? 'הסתר פילטרים' : 'הצג פילטרים'}
-        </Button>
-      </Box>
-      
-      {/* פילטרים */}
-      {showFilters && (
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={3}>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-                <DatePicker
-                  label="מתאריך"
-                  value={filters.startDate}
-                  onChange={(date) => handleFilterChange('startDate', date)}
-                  renderInput={(params) => <TextField {...params} fullWidth size="small" />}
-                />
-              </LocalizationProvider>
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-                <DatePicker
-                  label="עד תאריך"
-                  value={filters.endDate}
-                  onChange={(date) => handleFilterChange('endDate', date)}
-                  renderInput={(params) => <TextField {...params} fullWidth size="small" />}
-                />
-              </LocalizationProvider>
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="סטטוס תשלום"
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                SelectProps={{
-                  native: true
-                }}
-              >
-                <option value="">הכל</option>
-                <option value="paid">שולם</option>
-                <option value="pending">ממתין</option>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={3}>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  variant="contained"
-                  startIcon={<SearchIcon />}
-                  onClick={applyFilters}
+        {/* פילטרים */}
+        {showFilters && (
+          <Paper sx={{ p: 2, mb: 3 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} sm={3}>
+                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+                  <DatePicker
+                    label="מתאריך"
+                    value={filters.startDate}
+                    onChange={(date) => handleFilterChange('startDate', date)}
+                    renderInput={(params) => <TextField {...params} fullWidth size="small" />}
+                  />
+                </LocalizationProvider>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+                  <DatePicker
+                    label="עד תאריך"
+                    value={filters.endDate}
+                    onChange={(date) => handleFilterChange('endDate', date)}
+                    renderInput={(params) => <TextField {...params} fullWidth size="small" />}
+                  />
+                </LocalizationProvider>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="סטטוס תשלום"
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                  SelectProps={{
+                    native: true
+                  }}
                 >
-                  חפש
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={resetFilters}
-                >
-                  אפס
-                </Button>
-              </Box>
+                  <option value="">הכל</option>
+                  <option value="paid">שולם</option>
+                  <option value="pending">ממתין</option>
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    variant="contained"
+                    startIcon={<SearchIcon />}
+                    onClick={applyFilters}
+                  >
+                    חפש
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={resetFilters}
+                  >
+                    אפס
+                  </Button>
+                </Box>
+              </Grid>
             </Grid>
-          </Grid>
-        </Paper>
-      )}
+          </Paper>
+        )}
+      </Paper>
       
       {/* טבלת הזמנות */}
       <Paper>
