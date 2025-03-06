@@ -8,14 +8,36 @@ const fs = require('fs');
 const path = require('path');
 
 // הגדרת הגופנים עבור pdfmake
-const fonts = {
-  OpenSansHebrew: {
-    normal: path.join(__dirname, '../fonts/OpenSansHebrew-Regular.ttf'),
-    bold: path.join(__dirname, '../fonts/OpenSansHebrew-Bold.ttf'),
-    italics: path.join(__dirname, '../fonts/OpenSansHebrew-Regular.ttf'),
-    bolditalics: path.join(__dirname, '../fonts/OpenSansHebrew-Bold.ttf')
-  }
-};
+let fonts = {};
+try {
+  // נסה להשתמש בגופנים המותקנים
+  fonts = {
+    OpenSansHebrew: {
+      normal: path.join(__dirname, '../fonts/OpenSansHebrew-Regular.ttf'),
+      bold: path.join(__dirname, '../fonts/OpenSansHebrew-Bold.ttf'),
+      italics: path.join(__dirname, '../fonts/OpenSansHebrew-Regular.ttf'),
+      bolditalics: path.join(__dirname, '../fonts/OpenSansHebrew-Bold.ttf')
+    }
+  };
+  
+  // בדוק אם הקבצים קיימים
+  fs.accessSync(path.join(__dirname, '../fonts/OpenSansHebrew-Regular.ttf'), fs.constants.F_OK);
+  fs.accessSync(path.join(__dirname, '../fonts/OpenSansHebrew-Bold.ttf'), fs.constants.F_OK);
+} catch (error) {
+  console.error('שגיאה בטעינת גופנים עבריים:', error);
+  
+  // אם אין גישה לגופנים, השתמש בגופנים מערכתיים
+  fonts = {
+    Roboto: {
+      normal: 'Helvetica',
+      bold: 'Helvetica-Bold',
+      italics: 'Helvetica-Oblique',
+      bolditalics: 'Helvetica-BoldOblique'
+    }
+  };
+  
+  console.log('משתמש בגופני מערכת במקום גופנים עבריים');
+}
 
 // @route   GET /api/invoices/:bookingId
 // @desc    יצירת חשבונית PDF להזמנה
@@ -40,6 +62,9 @@ router.get('/:bookingId', [protect, admin], async (req, res) => {
 
     // יצירת מסמך PDF
     const printer = new PdfPrinter(fonts);
+    
+    // בדיקה איזה גופן להשתמש
+    const fontName = Object.keys(fonts)[0];
     
     // הגדרת תוכן המסמך
     const docDefinition = {
@@ -204,20 +229,29 @@ router.get('/:bookingId', [protect, admin], async (req, res) => {
       pageSize: 'A4',
       pageMargins: [40, 40, 40, 40],
       defaultStyle: {
-        font: 'OpenSansHebrew'
+        font: fontName
       }
     };
     
-    // יצירת המסמך
-    const pdfDoc = printer.createPdfKitDocument(docDefinition);
-    
-    // הגדרת הכותרות בתגובה
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=invoice-${booking._id}.pdf`);
-    
-    // שליחת המסמך בתגובה
-    pdfDoc.pipe(res);
-    pdfDoc.end();
+    try {
+      // יצירת המסמך
+      const pdfDoc = printer.createPdfKitDocument(docDefinition);
+      
+      // הגדרת הכותרות בתגובה
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=invoice-${booking._id}.pdf`);
+      
+      // שליחת המסמך בתגובה
+      pdfDoc.pipe(res);
+      pdfDoc.end();
+    } catch (pdfError) {
+      console.error('שגיאה ביצירת מסמך PDF:', pdfError);
+      res.status(500).json({ 
+        success: false, 
+        message: 'שגיאה ביצירת חשבונית PDF',
+        error: pdfError.message
+      });
+    }
     
   } catch (error) {
     console.error('שגיאה ביצירת חשבונית:', error);
