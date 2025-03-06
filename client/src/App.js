@@ -14,6 +14,7 @@ import BookingPage from './pages/BookingPage';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import BookingsListPage from './pages/BookingsListPage';
+import BookingsCalendarPage from './pages/BookingsCalendarPage';
 import RoomsListPage from './pages/RoomsListPage';
 import NotFoundPage from './pages/NotFoundPage';
 
@@ -77,6 +78,11 @@ function App() {
             <Route path="dashboard/bookings" element={
               <ProtectedRoute>
                 <BookingsListPage />
+              </ProtectedRoute>
+            } />
+            <Route path="dashboard/bookings/calendar" element={
+              <ProtectedRoute>
+                <BookingsCalendarPage />
               </ProtectedRoute>
             } />
             <Route path="dashboard/rooms" element={
