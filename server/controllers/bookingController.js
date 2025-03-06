@@ -1,6 +1,7 @@
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
 const { validationResult } = require('express-validator');
+const { sendBookingConfirmation } = require('../utils/emailService');
 
 // @desc    קבלת כל ההזמנות
 // @route   GET /api/bookings
@@ -188,6 +189,15 @@ exports.createBooking = async (req, res) => {
     
     // שמירת ההזמנה במסד הנתונים
     await booking.save();
+    
+    // שליחת אימייל אישור
+    try {
+      await sendBookingConfirmation(booking, room);
+      console.log('אימייל אישור הזמנה נשלח ללקוח');
+    } catch (emailError) {
+      console.error('שגיאה בשליחת אימייל אישור:', emailError);
+      // ממשיכים למרות שגיאה בשליחת האימייל
+    }
     
     res.status(201).json({
       success: true,
