@@ -55,6 +55,7 @@ const BookingsListPage = () => {
     status: ''
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [showFullCardNumber, setShowFullCardNumber] = useState(false);
 
   // טעינת הזמנות
   useEffect(() => {
@@ -475,6 +476,34 @@ const BookingsListPage = () => {
                   <Typography>סכום כולל: {selectedBooking.totalPrice.toFixed(2)} ₪</Typography>
                   <Typography>סטטוס תשלום: {selectedBooking.paymentStatus === 'paid' ? 'שולם' : 'ממתין'}</Typography>
                   <Typography>אמצעי תשלום: {getPaymentMethodText(selectedBooking.paymentMethod)}</Typography>
+                  
+                  {/* פרטי כרטיס אשראי */}
+                  {selectedBooking.paymentMethod === 'credit' && selectedBooking.creditCardDetails && (
+                    <>
+                      <Typography variant="subtitle2" sx={{ mt: 1 }}>פרטי כרטיס אשראי:</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography>
+                          מספר כרטיס: {showFullCardNumber 
+                            ? selectedBooking.creditCardDetails.cardNumber 
+                            : '*'.repeat(selectedBooking.creditCardDetails.cardNumber?.length - 4) + 
+                              selectedBooking.creditCardDetails.cardNumber?.slice(-4) || 'לא הוזן'}
+                        </Typography>
+                        <Button 
+                          size="small" 
+                          sx={{ ml: 1 }}
+                          onClick={() => setShowFullCardNumber(!showFullCardNumber)}
+                        >
+                          {showFullCardNumber ? 'הסתר' : 'הצג מלא'}
+                        </Button>
+                      </Box>
+                      <Typography>
+                        תוקף: {selectedBooking.creditCardDetails.expiryDate || 'לא הוזן'}
+                      </Typography>
+                      <Typography>
+                        CVV: {selectedBooking.creditCardDetails.cvv || 'לא הוזן'}
+                      </Typography>
+                    </>
+                  )}
                 </Grid>
                 {selectedBooking.notes && (
                   <Grid item xs={12}>
@@ -544,6 +573,34 @@ const BookingsListPage = () => {
                     <option value="pending">ממתין</option>
                   </TextField>
                 </Grid>
+                
+                {/* פרטי כרטיס אשראי בעריכה */}
+                {selectedBooking.paymentMethod === 'credit' && (
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2">פרטי כרטיס אשראי:</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Typography variant="body2">
+                        מספר כרטיס: {showFullCardNumber 
+                          ? selectedBooking.creditCardDetails?.cardNumber 
+                          : '*'.repeat(selectedBooking.creditCardDetails?.cardNumber?.length - 4) + 
+                            selectedBooking.creditCardDetails?.cardNumber?.slice(-4) || 'לא הוזן'}
+                      </Typography>
+                      <Button 
+                        size="small" 
+                        sx={{ ml: 1 }}
+                        onClick={() => setShowFullCardNumber(!showFullCardNumber)}
+                      >
+                        {showFullCardNumber ? 'הסתר' : 'הצג מלא'}
+                      </Button>
+                    </Box>
+                    <Typography variant="body2">
+                      תוקף: {selectedBooking.creditCardDetails?.expiryDate || 'לא הוזן'}
+                    </Typography>
+                    <Typography variant="body2">
+                      CVV: {selectedBooking.creditCardDetails?.cvv || 'לא הוזן'}
+                    </Typography>
+                  </Grid>
+                )}
               </Grid>
             </Box>
           )}
