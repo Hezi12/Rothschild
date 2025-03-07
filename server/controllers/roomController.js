@@ -1,5 +1,6 @@
 const Room = require('../models/Room');
 const Booking = require('../models/Booking');
+const BlockedDate = require('../models/BlockedDate');
 const cloudinary = require('../config/cloudinary');
 const { validationResult } = require('express-validator');
 
@@ -196,7 +197,7 @@ exports.deleteRoom = async (req, res) => {
     }
     
     // מחיקת החדר
-    await room.remove();
+    await room.deleteOne();
     
     res.json({
       success: true,
@@ -271,6 +272,190 @@ exports.checkAvailability = async (req, res) => {
     });
   } catch (error) {
     console.error('שגיאה בבדיקת זמינות:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת' 
+    });
+  }
+};
+
+// --- פונקציות לניהול תאריכים חסומים ---
+
+// @desc    קבלת תאריכים חסומים בטווח מסוים
+// @route   GET /api/rooms/blocked-dates
+// @access  Public
+exports.getBlockedDates = async (req, res) => {
+  const { startDate, endDate, roomId } = req.query;
+  
+  try {
+    let query = {};
+    
+    // אם סופקו תאריכים, מסננים לפי טווח
+    if (startDate && endDate) {
+      try {
+        const startDateObj = new Date(startDate);
+        const endDateObj = new Date(endDate);
+        
+        // וידוא שהתאריכים תקינים
+        if (!isNaN(startDateObj.getTime()) && !isNaN(endDateObj.getTime())) {
+          query = {
+            $or: [
+              // חסימה שמתחילה בטווח
+              { 
+                startDate: { 
+                  $gte: startDateObj,
+                  $lt: endDateObj
+                }
+              },
+              // חסימה שמסתיימת בטווח
+              { 
+                endDate: { 
+                  $gt: startDateObj,
+                  $lte: endDateObj
+                }
+              },
+              // חסימה שמכילה את כל הטווח
+              {
+                startDate: { $lte: startDateObj },
+                endDate: { $gte: endDateObj }
+              }
+            ]
+          };
+        }
+      } catch (err) {
+        console.error('שגיאה בפרסור תאריכים:', err);
+      }
+    }
+    
+    // אם סופק מזהה חדר ספציפי
+    if (roomId) {
+      query.room = roomId;
+    }
+    
+    // מביא את כל החסימות ועושה populate לנתוני החדר
+    const blockedDates = await BlockedDate.find(query)
+      .populate('room', 'roomNumber type')
+      .sort({ startDate: 1 });
+    
+    res.json({
+      success: true,
+      count: blockedDates.length,
+      data: blockedDates
+    });
+  } catch (error) {
+    console.error('שגיאה בקבלת תאריכים חסומים:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת',
+      error: error.message 
+    });
+  }
+};
+
+// @desc    חסימת תאריכים לחדר
+// @route   POST /api/rooms/block-dates
+// @access  Private/Admin
+exports.blockDates = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+
+  const { roomId, startDate, endDate, reason } = req.body;
+
+  try {
+    // בדיקה שהחדר קיים
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'החדר לא נמצא' 
+      });
+    }
+    
+    // וידוא שתאריך הסיום מאוחר מתאריך ההתחלה
+    if (new Date(startDate) >= new Date(endDate)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'תאריך הסיום חייב להיות מאוחר מתאריך ההתחלה' 
+      });
+    }
+    
+    // בדיקה אם יש הזמנות חופפות בטווח התאריכים
+    const overlappingBookings = await Booking.find({
+      room: roomId,
+      $or: [
+        // צ'ק-אין בתוך תקופת החסימה
+        { 
+          checkIn: { $gte: new Date(startDate), $lt: new Date(endDate) }
+        },
+        // צ'ק-אאוט בתוך תקופת החסימה
+        { 
+          checkOut: { $gt: new Date(startDate), $lte: new Date(endDate) }
+        },
+        // טווח ההזמנה מכיל את החסימה
+        {
+          checkIn: { $lte: new Date(startDate) },
+          checkOut: { $gte: new Date(endDate) }
+        }
+      ],
+      // לא כולל הזמנות מבוטלות
+      paymentStatus: { $ne: 'בוטל' }
+    });
+    
+    if (overlappingBookings.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'קיימות הזמנות בטווח התאריכים שנבחרו' 
+      });
+    }
+    
+    // יצירת רשומת תאריך חסום חדשה
+    const blockedDate = new BlockedDate({
+      room: roomId,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      reason: reason || '',
+      createdBy: req.user._id
+    });
+    
+    await blockedDate.save();
+    
+    res.status(201).json({
+      success: true,
+      data: blockedDate
+    });
+  } catch (error) {
+    console.error('שגיאה בחסימת תאריכים:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת' 
+    });
+  }
+};
+
+// @desc    הסרת חסימת תאריכים
+// @route   DELETE /api/rooms/blocked-dates/:id
+// @access  Private/Admin
+exports.unblockDates = async (req, res) => {
+  try {
+    const blockedDate = await BlockedDate.findById(req.params.id);
+    
+    if (!blockedDate) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'החסימה לא נמצאה' 
+      });
+    }
+    
+    await blockedDate.deleteOne();
+    
+    res.json({
+      success: true,
+      message: 'החסימה הוסרה בהצלחה'
+    });
+  } catch (error) {
+    console.error('שגיאה בהסרת חסימת תאריכים:', error);
     res.status(500).json({ 
       success: false, 
       message: 'שגיאת שרת' 

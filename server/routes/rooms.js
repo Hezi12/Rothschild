@@ -4,6 +4,40 @@ const { check } = require('express-validator');
 const roomController = require('../controllers/roomController');
 const { protect, admin } = require('../middleware/auth');
 
+// --- ניתובים עבור תאריכים חסומים ---
+
+// @route   GET /api/rooms/blocked-dates
+// @desc    קבלת כל התאריכים החסומים בטווח תאריכים
+// @access  Public
+router.get('/blocked-dates', roomController.getBlockedDates);
+
+// @route   POST /api/rooms/block-dates
+// @desc    חסימת תאריכים לחדר
+// @access  Private/Admin
+router.post(
+  '/block-dates',
+  [
+    protect,
+    admin,
+    [
+      check('roomId', 'נא לספק מזהה חדר').not().isEmpty(),
+      check('startDate', 'נא לספק תאריך התחלה תקין').isISO8601(),
+      check('endDate', 'נא לספק תאריך סיום תקין').isISO8601()
+    ]
+  ],
+  roomController.blockDates
+);
+
+// @route   DELETE /api/rooms/blocked-dates/:id
+// @desc    הסרת חסימת תאריכים
+// @access  Private/Admin
+router.delete('/blocked-dates/:id', [protect, admin], roomController.unblockDates);
+
+// @route   POST /api/rooms/check-availability
+// @desc    בדיקת זמינות חדר
+// @access  Public
+router.post('/check-availability', roomController.checkAvailability);
+
 // @route   GET /api/rooms
 // @desc    קבלת כל החדרים
 // @access  Public
@@ -54,10 +88,5 @@ router.put(
 // @desc    מחיקת חדר
 // @access  Private/Admin
 router.delete('/:id', [protect, admin], roomController.deleteRoom);
-
-// @route   POST /api/rooms/check-availability
-// @desc    בדיקת זמינות חדר
-// @access  Public
-router.post('/check-availability', roomController.checkAvailability);
 
 module.exports = router; 

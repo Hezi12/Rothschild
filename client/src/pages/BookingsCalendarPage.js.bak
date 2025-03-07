@@ -56,7 +56,7 @@ import {
   Cancel as CancelIcon
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
-import { format, addDays, startOfWeek, endOfWeek, addWeeks, subWeeks, isSameDay, isWithinInterval, parseISO, isToday, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, subDays } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, addWeeks, subWeeks, isSameDay, isWithinInterval, parseISO, isToday, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth } from 'date-fns';
 import { he } from 'date-fns/locale';
 
 const BookingsCalendarPage = () => {
@@ -137,11 +137,9 @@ const BookingsCalendarPage = () => {
   // עדכון טווח התאריכים כשהתאריך הנוכחי משתנה
   useEffect(() => {
     if (viewMode === 'week') {
-      // הגדרה חדשה: יומיים אחורה + היום הנוכחי + 14 ימים קדימה
-      setDaysToShow(17); // 2 + 1 + 14 = 17
-      const twoDatesBefore = subDays(new Date(), 2); // יומיים לפני היום הנוכחי
-      setStartDate(twoDatesBefore);
-      setEndDate(addDays(new Date(), 14)); // 14 ימים קדימה מהיום הנוכחי
+      setDaysToShow(14); // שבועיים
+      setStartDate(startOfWeek(currentDate, { weekStartsOn: 0 }));
+      setEndDate(endOfWeek(addDays(currentDate, daysToShow - 7), { weekStartsOn: 0 }));
     } else {
       // תצוגת חודש
       setDaysToShow(31); // מקסימום ימים בחודש
@@ -194,34 +192,13 @@ const BookingsCalendarPage = () => {
       
       if (response.data && response.data.data) {
         // המרת תאריכים לאובייקטי Date לטיפול עקבי
-        const formattedBookings = response.data.data.map(booking => {
-          // פיצול שם האורח לשם פרטי ושם משפחה
-          let guestWithFirstLast = booking.guest || { name: '', phone: '', email: '' };
-          
-          if (guestWithFirstLast.name) {
-            const nameParts = guestWithFirstLast.name.split(' ');
-            guestWithFirstLast = {
-              ...guestWithFirstLast,
-              firstName: nameParts[0] || '',
-              lastName: nameParts.slice(1).join(' ') || ''
-            };
-          } else {
-            guestWithFirstLast = {
-              ...guestWithFirstLast,
-              firstName: 'אורח',
-              lastName: 'ללא שם'
-            };
-          }
-          
-          return {
-            ...booking,
-            checkIn: booking.checkIn,
-            checkOut: booking.checkOut,
-            room: booking.room || { _id: null, roomNumber: 'לא ידוע' },
-            guest: guestWithFirstLast
-          };
-        });
-        
+        const formattedBookings = response.data.data.map(booking => ({
+          ...booking,
+          checkIn: booking.checkIn,  // שמירה כמחרוזת ISO עבור parseISO
+          checkOut: booking.checkOut, // שמירה כמחרוזת ISO עבור parseISO
+          // בדיקה שאובייקט החדר קיים ותקין
+          room: booking.room || { _id: null, roomNumber: 'לא ידוע' }
+        }));
         setBookings(formattedBookings);
       }
     } catch (error) {
@@ -313,7 +290,7 @@ const BookingsCalendarPage = () => {
   // מעבר לתקופה הבאה (שבוע או חודש)
   const handleNextPeriod = () => {
     if (viewMode === 'week') {
-      setCurrentDate(addDays(currentDate, 14)); // גלילה של שבועיים קדימה במקום שבוע אחד
+      setCurrentDate(addWeeks(currentDate, 1));
     } else {
       setCurrentDate(addMonths(currentDate, 1));
     }
@@ -322,7 +299,7 @@ const BookingsCalendarPage = () => {
   // מעבר לתקופה הקודמת
   const handlePrevPeriod = () => {
     if (viewMode === 'week') {
-      setCurrentDate(subDays(currentDate, 14)); // גלילה של שבועיים אחורה במקום שבוע אחד
+      setCurrentDate(subWeeks(currentDate, 1));
     } else {
       setCurrentDate(subMonths(currentDate, 1));
     }
@@ -600,7 +577,15 @@ const BookingsCalendarPage = () => {
       <Box sx={{ 
         display: 'flex', 
         mb: 1,
-        flex: 1
+        pr: 15, // השארת מקום לכותרת "חדרים"
+        overflowX: 'auto',
+        '&::-webkit-scrollbar': {
+          height: '8px',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: '#bdbdbd',
+          borderRadius: '4px',
+        },
       }}>
         {days}
       </Box>
@@ -637,14 +622,14 @@ const BookingsCalendarPage = () => {
     // בודק אם יש הזמנה בתאריך ובחדר הזה
     const bookingsForCell = bookings.filter(booking => {
       try {
-      const checkIn = parseISO(booking.checkIn);
-      const checkOut = parseISO(booking.checkOut);
-      
-      return (
-        booking.room._id === room._id &&
-        date >= checkIn &&
-        date < checkOut
-      );
+        const checkIn = parseISO(booking.checkIn);
+        const checkOut = parseISO(booking.checkOut);
+        
+        return (
+          booking.room._id === room._id &&
+          date >= checkIn &&
+          date < checkOut
+        );
       } catch (err) {
         console.error('שגיאה בפרסור תאריכי הזמנה:', err);
         return false;
@@ -684,7 +669,6 @@ const BookingsCalendarPage = () => {
           justifyContent: 'center',
           alignItems: 'center',
           minWidth: 80,
-          width: 80, // קובע רוחב קבוע לכל התאים
           transition: 'all 0.2s',
           '&:hover': {
             backgroundColor: 'rgba(0, 0, 0, 0.04)',
@@ -703,7 +687,7 @@ const BookingsCalendarPage = () => {
               
               return (
                 <Tooltip
-              key={booking._id}
+                  key={booking._id}
                   title={
                     <Box>
                       <Typography variant="subtitle2">{booking.guest.firstName} {booking.guest.lastName}</Typography>
@@ -717,90 +701,94 @@ const BookingsCalendarPage = () => {
                   placement="top"
                 >
                   <Box
-              onClick={() => handleOpenBookingDetails(booking)}
-              sx={{
-                width: '100%',
-                maxWidth: '78px',
-                height: '100%',
-                backgroundColor: statusColors.bg,
-                border: `2px solid ${statusColors.border}`,
-                borderRadius: '4px',
-                p: 0.8,
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                textAlign: 'center',
-                position: 'relative',
-                overflow: 'hidden', // מונע גלישה של תוכן מחוץ לאריח
-                '&:hover': {
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-                  transform: 'translateY(-2px)',
-                  transition: 'all 0.2s',
-                },
-                // מוסיף אייקון ליום הצ'ק-אין
-                '&::before': isCheckInDay ? {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '0',
-                  height: '0',
-                  borderStyle: 'solid',
-                  borderWidth: '12px 12px 0 0',
-                  borderColor: '#2196f3 transparent transparent transparent',
-                } : {},
-                // מוסיף אייקון ליום שלפני הצ'ק-אאוט
-                '&::after': isCheckOutEve ? {
-                  content: '""',
-                  position: 'absolute',
-                  bottom: 0,
-                  right: 0,
-                  width: '0',
-                  height: '0',
-                  borderStyle: 'solid',
-                  borderWidth: '0 0 12px 12px',
-                  borderColor: 'transparent transparent #f44336 transparent',
-                } : {}
-              }}
-            >
-              <Typography 
-                variant="subtitle2" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  fontSize: '0.75rem', 
-                  mb: 0.1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  width: '100%',
-                  textAlign: 'center',
-                  color: '#000000'
-                }} 
-                noWrap
-              >
-                {booking.guest?.firstName || 'אורח'}
-              </Typography>
-              
-              {/* שם משפחה בשורה נפרדת */}
-              {booking.guest?.lastName && (
-                <Typography 
-                  variant="subtitle2" 
-                  sx={{ 
-                    fontWeight: 'bold',
-                    fontSize: '0.75rem',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    width: '100%',
-                    textAlign: 'center',
-                    color: '#000000'
-                  }}
-                  noWrap
-                >
-                  {booking.guest.lastName}
-                </Typography>
-              )}
-            </Box>
+                    onClick={() => handleOpenBookingDetails(booking)}
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      backgroundColor: statusColors.bg,
+                      border: `2px solid ${statusColors.border}`,
+                      borderRadius: '4px',
+                      p: 0.8,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                      position: 'relative',
+                      '&:hover': {
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                        transform: 'translateY(-2px)',
+                        transition: 'all 0.2s',
+                      },
+                      // מוסיף אייקון ליום הצ'ק-אין
+                      '&::before': isCheckInDay ? {
+                        content: '""',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '0',
+                        height: '0',
+                        borderStyle: 'solid',
+                        borderWidth: '12px 12px 0 0',
+                        borderColor: '#2196f3 transparent transparent transparent',
+                      } : {},
+                      // מוסיף אייקון ליום שלפני הצ'ק-אאוט
+                      '&::after': isCheckOutEve ? {
+                        content: '""',
+                        position: 'absolute',
+                        bottom: 0,
+                        right: 0,
+                        width: '0',
+                        height: '0',
+                        borderStyle: 'solid',
+                        borderWidth: '0 0 12px 12px',
+                        borderColor: 'transparent transparent #f44336 transparent',
+                      } : {}
+                    }}
+                  >
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 'bold', 
+                        fontSize: '0.8rem', 
+                        mb: 0.5,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        width: '100%',
+                        textAlign: 'center',
+                        color: theme.palette.text.primary
+                      }} 
+                      noWrap
+                    >
+                      {booking.guest.firstName} {booking.guest.lastName}
+                    </Typography>
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        fontSize: '0.7rem',
+                        lineHeight: 1,
+                        mb: 0.5,
+                        color: theme.palette.text.secondary
+                      }}
+                    >
+                      {format(parseISO(booking.checkIn), 'dd/MM')} - {format(parseISO(booking.checkOut), 'dd/MM')}
+                    </Typography>
+                    <Box 
+                      sx={{ 
+                        display: 'inline-block',
+                        px: 1, 
+                        py: 0.3,
+                        borderRadius: '12px',
+                        fontSize: '0.65rem',
+                        fontWeight: 'bold',
+                        backgroundColor: statusColors.border,
+                        color: 'white',
+                      }}
+                    >
+                      {booking.paymentStatus === 'pending' ? 'לא שולם' : booking.paymentStatus}
+                    </Box>
+                  </Box>
                 </Tooltip>
               );
             } catch (err) {
@@ -858,24 +846,24 @@ const BookingsCalendarPage = () => {
             }
           }}>
             <Tooltip title="הוסף הזמנה חדשה">
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={() => handleOpenBookingDialog(room, date)}
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={() => handleOpenBookingDialog(room, date)}
                 sx={{ 
                   '&:hover': { 
                     backgroundColor: 'rgba(25, 118, 210, 0.1)',
                     transform: 'scale(1.1)'
                   } 
                 }}
-            >
-              <AddIcon />
-            </IconButton>
+              >
+                <AddIcon />
+              </IconButton>
             </Tooltip>
             <Tooltip title="חסום תאריך">
-            <IconButton
-              size="small"
-              color="error"
+              <IconButton
+                size="small"
+                color="error"
                 onClick={() => toggleBlockDate(room, date)}
                 sx={{ 
                   '&:hover': { 
@@ -883,9 +871,9 @@ const BookingsCalendarPage = () => {
                     transform: 'scale(1.1)'
                   } 
                 }}
-            >
-              <BlockIcon />
-            </IconButton>
+              >
+                <BlockIcon />
+              </IconButton>
             </Tooltip>
           </Box>
         )}
@@ -898,11 +886,11 @@ const BookingsCalendarPage = () => {
     // אם הנתונים עדיין נטענים, נציג שורת חדר ריקה עם אפקט טעינה
     if (loadingBookings || loadingBlockedDates) {
       return (
-        <Box key={room._id} sx={{ display: 'flex', mb: 1, position: 'relative' }}>
+        <Box key={room._id} sx={{ display: 'flex', mb: 1 }}>
           <Box
             sx={{
-              width: '100px',
-              minWidth: '100px',
+              width: '150px',
+              minWidth: '150px',
               p: 1,
               display: 'flex',
               flexDirection: 'column',
@@ -913,9 +901,6 @@ const BookingsCalendarPage = () => {
               mr: 1,
               border: '1px solid #e0e0e0',
               boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              position: 'sticky',
-              right: 0,
-              zIndex: 1
             }}
           >
             <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
@@ -924,8 +909,15 @@ const BookingsCalendarPage = () => {
             <Typography variant="caption">
               {room.type}
             </Typography>
+            {room.maxGuests && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                  {room.maxGuests} אורחים
+                </Typography>
+              </Box>
+            )}
           </Box>
-          <Box sx={{ display: 'flex', flex: 1 }}>
+          <Box sx={{ display: 'flex', flex: 1, overflowX: 'auto' }}>
             {/* תאי טעינה */}
             {Array.from({ length: daysToShow }).map((_, i) => (
               <Box key={i} sx={{ flex: 1 }}>
@@ -966,8 +958,8 @@ const BookingsCalendarPage = () => {
       <Box key={room._id} sx={{ display: 'flex', mb: 1 }}>
         <Box
           sx={{
-            width: '100px',
-            minWidth: '100px',
+            width: '150px',
+            minWidth: '150px',
             p: 1,
             display: 'flex',
             flexDirection: 'column',
@@ -978,9 +970,6 @@ const BookingsCalendarPage = () => {
             mr: 1,
             border: '1px solid #e0e0e0',
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-            position: 'sticky',
-            right: 0,
-            zIndex: 1
           }}
         >
           <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
@@ -989,8 +978,15 @@ const BookingsCalendarPage = () => {
           <Typography variant="caption">
             {room.type}
           </Typography>
+          {room.maxGuests && (
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+              <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                {room.maxGuests} אורחים
+              </Typography>
+            </Box>
+          )}
         </Box>
-        <Box sx={{ display: 'flex', flex: 1 }}>
+        <Box sx={{ display: 'flex', flex: 1, overflowX: 'auto' }}>
           {cells}
         </Box>
       </Box>
@@ -1281,15 +1277,8 @@ const BookingsCalendarPage = () => {
   
   // עדכון תאריך צ'ק-אאוט
   const handleCheckOutDateChange = (date) => {
-    // וידוא שהתאריך תקין
-    if (!date || isNaN(date.getTime())) return;
-    
-    // תאריך צ'ק-אאוט חייב להיות לפחות יום אחד אחרי תאריך צ'ק-אין
-    if (date <= selectedDates.start) {
-      // אם התאריך לא תקין, נקבע אותו ליום אחד אחרי הצ'ק-אין
-      date = addDays(selectedDates.start, 1);
-      toast.info('תאריך צ\'ק-אאוט חייב להיות אחרי תאריך צ\'ק-אין');
-    }
+    // וידוא שהתאריך תקין ומאוחר מהצ'ק-אין
+    if (!date || isNaN(date.getTime()) || date <= selectedDates.start) return;
     
     setSelectedDates(prev => ({
       ...prev,
@@ -1357,19 +1346,19 @@ const BookingsCalendarPage = () => {
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingData);
       
       // הוספת ההזמנה החדשה למערך ההזמנות המקומי
-      const booking = response.data.data;
-      const nameParts = booking.guest.name.split(' ');
+      const serverBooking = response.data.data;
+      const nameParts = serverBooking.guest.name.split(' ');
       
       const newBookingWithDetails = {
-        ...booking,
+        ...serverBooking,
         room: selectedRoom, // שימוש באובייקט החדר המלא במקום רק ה-ID
         checkIn: selectedDates.start.toISOString(),
         checkOut: selectedDates.end.toISOString(),
-        paymentStatus: booking.paymentStatus === 'paid' ? 'שולם' : 'לא שולם',
-        paymentMethod: booking.paymentMethod === 'credit' ? 'creditCard' : 
-                        (booking.paymentMethod === 'bank_transfer' ? 'bankTransfer' : 'cash'),
+        paymentStatus: serverBooking.paymentStatus === 'paid' ? 'שולם' : 'לא שולם',
+        paymentMethod: serverBooking.paymentMethod === 'credit' ? 'creditCard' : 
+                        (serverBooking.paymentMethod === 'bank_transfer' ? 'bankTransfer' : 'cash'),
         guest: {
-          ...booking.guest,
+          ...serverBooking.guest,
           firstName: nameParts[0] || '',
           lastName: nameParts.slice(1).join(' ') || '',
           idNumber: newBooking.guest.idNumber || ''
@@ -1564,33 +1553,13 @@ const BookingsCalendarPage = () => {
                 variant="outlined"
                 value={format(selectedDates.end, 'dd/MM/yyyy')}
                 size="small"
-                helperText="לחץ על האייקון לשינוי תאריך יציאה"
                 InputProps={{
                   endAdornment: (
                     <IconButton 
                       size="small" 
                       onClick={() => {
-                        // פתיחה ישירה של בוחר תאריכים במקום לחיצה על אלמנט מוסתר
-                        const input = document.createElement('input');
-                        input.type = 'date';
-                        input.min = format(addDays(selectedDates.start, 1), 'yyyy-MM-dd');
-                        input.value = format(selectedDates.end, 'yyyy-MM-dd');
-                        
-                        input.onchange = (e) => {
-                          const date = new Date(e.target.value);
-                          handleCheckOutDateChange(date);
-                        };
-                        
-                        // פתיחת בוחר התאריכים באופן תכנותי
-                        input.showPicker && input.showPicker();
-                        // אם showPicker לא זמין, ננסה לדמות קליק
-                        if (!input.showPicker) {
-                          input.style.position = 'absolute';
-                          input.style.opacity = 0;
-                          document.body.appendChild(input);
-                          input.click();
-                          setTimeout(() => document.body.removeChild(input), 1000);
-                        }
+                        const datePicker = document.getElementById('check-out-date-picker');
+                        if (datePicker) datePicker.click();
                       }}
                     >
                       <TodayIcon />
@@ -1603,7 +1572,6 @@ const BookingsCalendarPage = () => {
                 type="date"
                 style={{ display: 'none' }}
                 value={format(selectedDates.end, 'yyyy-MM-dd')}
-                min={format(addDays(selectedDates.start, 1), 'yyyy-MM-dd')} // מוסיף מגבלה של מינימום יום אחרי צ'ק-אין
                 onChange={(e) => {
                   const date = new Date(e.target.value);
                   handleCheckOutDateChange(date);
@@ -2036,9 +2004,9 @@ const BookingsCalendarPage = () => {
         {/* כותרת ואפשרויות לוח השנה */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Box>
-          <Typography variant="h5" component="h1" gutterBottom>
-            ניהול הזמנות - תצוגת לוח
-          </Typography>
+            <Typography variant="h5" component="h1" gutterBottom>
+              ניהול הזמנות - תצוגת לוח
+            </Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <Chip 
                 icon={<AssignmentIcon />} 
@@ -2103,15 +2071,15 @@ const BookingsCalendarPage = () => {
                 </MenuItem>
               </Menu>
               
-            <Button
-              variant="outlined"
-              onClick={goToToday}
-              startIcon={<CalendarIcon />}
+              <Button
+                variant="outlined"
+                onClick={goToToday}
+                startIcon={<CalendarIcon />}
                 size="small"
                 sx={{ mr: 1 }}
-            >
-              היום
-            </Button>
+              >
+                היום
+              </Button>
               
               <ToggleButtonGroup
                 value={viewMode}
@@ -2133,17 +2101,17 @@ const BookingsCalendarPage = () => {
             </Box>
             
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <IconButton onClick={handlePrevPeriod} color="primary">
-              <PrevIcon />
-            </IconButton>
+              <IconButton onClick={handlePrevPeriod} color="primary">
+                <PrevIcon />
+              </IconButton>
               <Typography variant="subtitle1" component="span" sx={{ mx: 1, fontWeight: 'bold' }}>
                 {viewMode === 'week' 
                   ? `${format(startDate, 'dd/MM/yyyy')} - ${format(addDays(startDate, daysToShow - 1), 'dd/MM/yyyy')}`
                   : format(currentDate, 'MMMM yyyy', { locale: he })}
-            </Typography>
-            <IconButton onClick={handleNextPeriod} color="primary">
-              <NextIcon />
-            </IconButton>
+              </Typography>
+              <IconButton onClick={handleNextPeriod} color="primary">
+                <NextIcon />
+              </IconButton>
             </Box>
           </Box>
         </Box>
@@ -2160,34 +2128,10 @@ const BookingsCalendarPage = () => {
         
         {legendOpen && renderLegend()}
 
-        <Paper sx={{ 
-          p: 1, 
-          overflowX: 'auto', 
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-          '&::-webkit-scrollbar': {
-            height: '8px',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            backgroundColor: '#bdbdbd',
-            borderRadius: '4px',
-          },
-          position: 'relative', // הוספת מיקום יחסי לאפשר קיבוע עמודה
-          maxWidth: '100%',
-          scrollBehavior: 'smooth' // גלילה חלקה
-        }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 'fit-content' }}>
-            <Box sx={{ display: 'flex', mb: 1, position: 'relative' }}>
-              <Box sx={{ 
-                width: '100px', 
-                minWidth: '100px',
-                textAlign: 'center', 
-                mr: 1,
-                position: 'sticky',
-                right: 0,
-                zIndex: 2,
-                backgroundColor: 'white',
-                boxShadow: '2px 0 5px rgba(0,0,0,0.1)'
-              }}>
+        <Paper sx={{ p: 1, overflowX: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ display: 'flex', mb: 1 }}>
+              <Box sx={{ width: '150px', minWidth: '150px', textAlign: 'center', mr: 1 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                   חדרים
                 </Typography>

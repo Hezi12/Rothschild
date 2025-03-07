@@ -7,6 +7,12 @@ const path = require('path');
 // טעינת משתני סביבה מקובץ .env
 dotenv.config();
 
+// טעינת מודלים
+require('./models/Room');
+require('./models/Booking');
+require('./models/User');
+require('./models/BlockedDate');
+
 // יצירת אפליקציית Express
 const app = express();
 
