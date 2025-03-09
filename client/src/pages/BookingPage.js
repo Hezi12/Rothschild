@@ -368,18 +368,39 @@ const BookingPage = () => {
         checkIn: bookingData.checkIn,
         checkOut: bookingData.checkOut,
         isTourist: bookingData.isTourist,
-        paymentMethod: bookingData.paymentMethod,
-        creditCardDetails: bookingData.paymentMethod === 'credit' ? bookingData.creditCardDetails : undefined,
+        paymentMethod: 'credit', // קיבוע לסוג תשלום בכרטיס אשראי
+        creditCardDetails: bookingData.creditCardDetails,
         notes: bookingData.notes
       };
       
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingPayload);
+      // רישום מידע לצורכי דיבוג
+      console.log('שולח הזמנה:', JSON.stringify(bookingPayload, null, 2));
       
-      toast.success('ההזמנה נשלחה בהצלחה!');
-      setActiveStep(steps.length);
+      try {
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingPayload);
+        console.log('תשובה מהשרת:', response.data);
+        
+        toast.success('ההזמנה נשלחה בהצלחה!');
+        setActiveStep(steps.length);
+      } catch (apiError) {
+        console.error('שגיאת API מפורטת:', {
+          status: apiError.response?.status,
+          statusText: apiError.response?.statusText,
+          data: apiError.response?.data,
+          message: apiError.message
+        });
+        
+        // הצג הודעת שגיאה מפורטת יותר
+        const errorMessage = apiError.response?.data?.message || 
+                            apiError.response?.statusText || 
+                            apiError.message || 
+                            'שגיאה בשליחת ההזמנה. אנא נסה שוב מאוחר יותר.';
+                            
+        toast.error(`שגיאה: ${errorMessage}`);
+      }
     } catch (error) {
-      console.error('שגיאה בשליחת ההזמנה:', error);
-      toast.error(error.response?.data?.message || 'שגיאה בשליחת ההזמנה. אנא נסה שוב מאוחר יותר.');
+      console.error('שגיאה כללית בשליחת ההזמנה:', error);
+      toast.error('שגיאה בשליחת ההזמנה. אנא נסה שוב מאוחר יותר.');
     } finally {
       setLoading(false);
     }
