@@ -91,6 +91,32 @@ const DashboardPage = () => {
         </Typography>
       </Box>
 
+      {/* כרטיס iCal */}
+      <Card sx={{ mb: 4, border: '2px solid #f50057', boxShadow: 3 }}>
+        <CardContent sx={{ bgcolor: 'rgba(245, 0, 87, 0.05)' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <EditIcon color="secondary" sx={{ fontSize: 28, mr: 1 }} />
+            <Typography variant="h6" color="secondary">
+              עדכון יומן iCal לבוקינג.קום
+            </Typography>
+          </Box>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            בעמוד זה תוכל לערוך את קובץ ה-iCal הסטטי באופן ידני ולהורידו למחשבך. השתמש בכלי זה אם הקישור הדינמי אינו עובד.
+          </Typography>
+          <Button
+            variant="contained"
+            color="secondary"
+            size="large"
+            component={Link}
+            to="/dashboard/ical-editor"
+            startIcon={<EditIcon />}
+            fullWidth
+          >
+            פתח את עורך ה-iCal
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* כרטיסי סטטיסטיקה */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={4}>
