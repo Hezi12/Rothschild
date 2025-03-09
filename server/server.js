@@ -21,7 +21,6 @@ const app = express();
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? [
-        'https://rothschild-79.onrender.com', 
         'https://rothschild-79-client.onrender.com',
         process.env.CLIENT_URL || '*'
       ] 
