@@ -21,6 +21,7 @@ import IcalEditorPage from './pages/IcalEditorPage';
 import SearchResultsPage from './pages/SearchResultsPage';
 import InstallationGuidePage from './pages/InstallationGuidePage';
 import CancellationRequestPage from './pages/CancellationRequestPage';
+import CancellationRedirectPage from './pages/CancellationRedirectPage';
 
 // רכיבים
 import Layout from './components/Layout';
@@ -74,7 +75,9 @@ function App() {
             <Route path="booking" element={<BookingPage />} />
             <Route path="login" element={<LoginPage />} />
             <Route path="installation-guide" element={<InstallationGuidePage />} />
+            <Route path="/cancel-booking/:id" element={<CancellationRequestPage />} />
             <Route path="cancel-booking/:id" element={<CancellationRequestPage />} />
+            <Route path="cancel-redirect/:id" element={<CancellationRedirectPage />} />
             
             {/* נתיבים מוגנים (רק למנהלים) */}
             <Route path="dashboard" element={

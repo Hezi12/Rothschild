@@ -30,9 +30,14 @@ const CancellationRequestPage = () => {
   const [openDialog, setOpenDialog] = useState(false);
   
   useEffect(() => {
+    // הדפסת דיבוג
+    console.log("דף ביטול נטען עם ID:", id);
+    
     const fetchBookingDetails = async () => {
       try {
+        console.log("מנסה לבצע בקשת API עם ID:", id);
         const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings/cancel-request/${id}`);
+        console.log("תשובה מהשרת:", response.data);
         
         if (response.data.success) {
           setBooking(response.data.data.booking);
@@ -41,7 +46,7 @@ const CancellationRequestPage = () => {
           setError('לא ניתן למצוא את פרטי ההזמנה');
         }
       } catch (err) {
-        console.error('שגיאה בטעינת פרטי ההזמנה:', err);
+        console.error('שגיאה בטעינת פרטי ההזמנה:', err.response?.data || err.message);
         setError('חלה שגיאה בטעינת פרטי ההזמנה');
       } finally {
         setLoading(false);

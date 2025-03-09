@@ -16,6 +16,16 @@ router.get('/', [protect, admin], bookingController.getBookings);
 // @access  Public
 router.get('/cancel-request/:id', async (req, res) => {
   try {
+    console.log('קיבלנו בקשת ביטול עם מזהה:', req.params.id);
+    
+    // וידוא שהמזהה תקין
+    if (!req.params.id || !req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'מזהה הזמנה לא תקין' 
+      });
+    }
+    
     const booking = await Booking.findById(req.params.id)
       .populate('room', 'roomNumber type basePrice');
     
