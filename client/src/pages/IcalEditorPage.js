@@ -11,14 +11,27 @@ import {
   Snackbar,
   Card,
   CardContent,
-  Divider,
-  Grid
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  IconButton,
+  Tabs,
+  Tab,
+  Divider
 } from '@mui/material';
 import { 
   Save as SaveIcon, 
   ContentCopy as CopyIcon, 
   Refresh as RefreshIcon,
-  Download as DownloadIcon
+  Download as DownloadIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 
 const IcalEditorPage = () => {
@@ -27,18 +40,25 @@ const IcalEditorPage = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [roomId, setRoomId] = useState('67c9bf6e2ac03c8869a0b03f');
+  const [tabValue, setTabValue] = useState(0);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'success'
   });
 
-  // יצירת כתובת מותאמת לחדר - גישה לקובץ סטטיים
-  const getIcalLink = () => {
+  // רשימת חדרים לדוגמה - בעתיד אפשר לטעון מהשרת
+  const rooms = [
+    { _id: '67c9bf6e2ac03c8869a0b03f', roomNumber: '6', type: 'חדר סטנדרט' },
+    // בעתיד יתווספו כאן עוד חדרים
+  ];
+
+  // יצירת כתובת מותאמת לחדר - גישה לקובץ סטטי
+  const getIcalLink = (id) => {
     const baseUrl = window.location.hostname.includes('localhost') 
       ? window.location.origin 
       : 'https://rothschild-gamma.vercel.app';
-    return `${baseUrl}/ical/${roomId}.ics`;
+    return `${baseUrl}/ical/${id || roomId}.ics`;
   };
 
   // טעינת התוכן הנוכחי של קובץ ה-iCal
@@ -72,14 +92,24 @@ END:VCALENDAR`);
     }
   };
 
-  // טעינת התוכן בעת טעינת הדף
+  // טעינת התוכן בעת טעינת הדף או שינוי חדר
   useEffect(() => {
     loadIcalContent();
   }, [roomId]);
 
+  // שינוי חדר נבחר
+  const handleRoomChange = (event) => {
+    setRoomId(event.target.value);
+  };
+
+  // שינוי טאב
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
+
   // העתקת הקישור ללוח
-  const handleCopyLink = () => {
-    const link = getIcalLink();
+  const handleCopyLink = (id) => {
+    const link = getIcalLink(id);
     navigator.clipboard.writeText(link)
       .then(() => {
         setSnackbar({
@@ -167,9 +197,10 @@ END:VCALENDAR`);
 
   return (
     <Box>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          עדכון קובץ iCal סטטי
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h5" component="h1">
+          <EditIcon sx={{ mr: 1, verticalAlign: 'middle' }} color="secondary" />
+          עדכון קבצי iCal סטטיים
         </Typography>
         <Box>
           <Button
@@ -177,6 +208,7 @@ END:VCALENDAR`);
             startIcon={<RefreshIcon />}
             onClick={loadIcalContent}
             disabled={loading}
+            size="small"
             sx={{ mr: 1 }}
           >
             רענון
@@ -186,102 +218,137 @@ END:VCALENDAR`);
             startIcon={<DownloadIcon />}
             onClick={handleDownloadFile}
             disabled={loading}
+            size="small"
             sx={{ mr: 1 }}
             color="secondary"
           >
-            הורד קובץ
+            הורד
           </Button>
           <Button
             variant="contained"
             startIcon={<SaveIcon />}
             onClick={handleSaveContent}
             disabled={loading}
+            size="small"
           >
-            שמור שינויים
+            שמור
           </Button>
         </Box>
       </Box>
 
-      <Card sx={{ mb: 4 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            הוראות שימוש
-          </Typography>
-          <Typography variant="body1" paragraph>
-            עמוד זה מאפשר לך לעדכן ידנית את תוכן קובץ ה-iCal הסטטי, אם אין אפשרות לעדכונים אוטומטיים.
-          </Typography>
-          <Typography variant="body1" paragraph>
-            <strong>שימוש:</strong>
-            <ol>
-              <li>ערוך את תוכן ה-iCal בשדה למטה</li>
-              <li>לחץ על "הורד קובץ" כדי לשמור את הקובץ במחשב שלך</li>
-              <li>העלה את הקובץ ידנית לשרת או העתק אותו לתיקיית <code>client/public/ical/</code> בפרויקט</li>
-              <li>דחוף את השינויים לגיט והם יעלו לשרת</li>
-            </ol>
-          </Typography>
-          <Typography variant="body1" paragraph>
-            <strong>הקישור לקובץ:</strong> {getIcalLink()}
-            <Button 
-              variant="text" 
-              size="small" 
-              onClick={handleCopyLink}
-              startIcon={<CopyIcon />}
-              sx={{ ml: 2 }}
-            >
-              העתק
-            </Button>
-          </Typography>
-        </CardContent>
-      </Card>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert severity="success" sx={{ mb: 3 }}>
-          התוכן נשמר בהצלחה במערכת המקומית. כעת הורד את הקובץ והעלה אותו ידנית לשרת או לתיקיית הפרויקט.
-        </Alert>
-      )}
-
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <TextField
-          label="תוכן קובץ ה-iCal"
-          multiline
-          fullWidth
-          rows={20}
-          value={icalContent}
-          onChange={(e) => setIcalContent(e.target.value)}
-          disabled={loading}
-          variant="outlined"
-          InputProps={{
-            sx: { fontFamily: 'monospace' }
-          }}
-        />
+      <Paper sx={{ mb: 2 }}>
+        <Tabs value={tabValue} onChange={handleTabChange} aria-label="מצבי תצוגה">
+          <Tab label="עריכת תוכן" />
+          <Tab label="רשימת חדרים" />
+        </Tabs>
       </Paper>
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-        <Button
-          variant="outlined"
-          color="secondary"
-          startIcon={<DownloadIcon />}
-          onClick={handleDownloadFile}
-          disabled={loading}
-          sx={{ mr: 2 }}
-        >
-          הורד קובץ
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<SaveIcon />}
-          onClick={handleSaveContent}
-          disabled={loading}
-        >
-          {loading ? <CircularProgress size={24} /> : 'שמור שינויים'}
-        </Button>
+      {/* תצוגת טאב 0 - עריכת תוכן */}
+      {tabValue === 0 && (
+        <>
+          <Box sx={{ mb: 2 }}>
+            <FormControl fullWidth variant="outlined" size="small">
+              <InputLabel>בחר חדר</InputLabel>
+              <Select
+                value={roomId}
+                onChange={handleRoomChange}
+                label="בחר חדר"
+              >
+                {rooms.map(room => (
+                  <MenuItem key={room._id} value={room._id}>
+                    חדר {room.roomNumber} ({room.type})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          {success && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              התוכן נשמר בהצלחה. הורד את הקובץ והעלה אותו ידנית לשרת/גיט.
+            </Alert>
+          )}
+
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <TextField
+              label={`תוכן iCal לחדר ${rooms.find(r => r._id === roomId)?.roomNumber || ''}`}
+              multiline
+              fullWidth
+              rows={15}
+              value={icalContent}
+              onChange={(e) => setIcalContent(e.target.value)}
+              disabled={loading}
+              variant="outlined"
+              InputProps={{
+                sx: { fontFamily: 'monospace' }
+              }}
+            />
+          </Paper>
+        </>
+      )}
+
+      {/* תצוגת טאב 1 - רשימת חדרים */}
+      {tabValue === 1 && (
+        <TableContainer component={Paper}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>מספר</TableCell>
+                <TableCell>סוג</TableCell>
+                <TableCell>קישור</TableCell>
+                <TableCell>פעולות</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rooms.map((room) => (
+                <TableRow key={room._id}>
+                  <TableCell>{room.roomNumber}</TableCell>
+                  <TableCell>{room.type}</TableCell>
+                  <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {getIcalLink(room._id)}
+                  </TableCell>
+                  <TableCell>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleCopyLink(room._id)}
+                      title="העתק קישור"
+                    >
+                      <CopyIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => setRoomId(room._id)}
+                      title="ערוך"
+                      color="secondary"
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
+      <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
+        <Typography variant="body2" color="text.secondary">
+          <strong>הקישור הנוכחי:</strong> {getIcalLink()}
+          <IconButton 
+            size="small" 
+            onClick={() => handleCopyLink()}
+            title="העתק קישור"
+            sx={{ ml: 1 }}
+          >
+            <CopyIcon fontSize="small" />
+          </IconButton>
+        </Typography>
       </Box>
 
       <Snackbar
