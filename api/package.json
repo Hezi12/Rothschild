@@ -1,0 +1,10 @@
+{
+  "name": "rothschild-79-api",
+  "version": "1.0.0",
+  "description": "API functions for Rothschild 79",
+  "main": "index.js",
+  "dependencies": {
+    "mongodb": "^4.12.0",
+    "dotenv": "^16.0.3"
+  }
+} 
