@@ -1147,20 +1147,28 @@ const BookingPage = () => {
 
   // תצוגת שלב סיום
   const renderComplete = () => (
-    <Box sx={{ textAlign: 'center', py: 3 }}>
-      <Typography variant="h5" gutterBottom>
+    <Box sx={{ textAlign: 'center', py: 4 }}>
+      <Typography variant="h4" gutterBottom sx={{ color: '#4CAF50', fontWeight: 'bold', mb: 3 }}>
         תודה על הזמנתך!
       </Typography>
-      <Typography variant="subtitle1" paragraph>
-        ההזמנה שלך התקבלה בהצלחה. אישור הזמנה נשלח לכתובת האימייל שלך.
-      </Typography>
-      <Typography paragraph>
-        מספר הזמנה: {bookingId ? <strong>{bookingId}</strong> : 'ממתין לאישור מהשרת...'}
-      </Typography>
+      
+      <Box sx={{ bgcolor: '#f5f5f5', p: 3, borderRadius: 2, maxWidth: 600, mx: 'auto', mb: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          ההזמנה שלך התקבלה בהצלחה
+        </Typography>
+        <Typography variant="body1" paragraph>
+          אישור הזמנה מפורט עם כל הפרטים נשלח לכתובת האימייל שלך.
+        </Typography>
+        <Typography variant="body1" paragraph>
+          אנו מצפים לארח אותך במלונית רוטשילד 79!
+        </Typography>
+      </Box>
+      
       <Button
         variant="contained"
         onClick={handleReset}
-        sx={{ mt: 3 }}
+        sx={{ mt: 2, px: 4, py: 1.5 }}
+        size="large"
       >
         חזרה לדף הבית
       </Button>
