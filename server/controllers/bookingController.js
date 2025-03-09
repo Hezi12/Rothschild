@@ -2,6 +2,7 @@ const Booking = require('../models/Booking');
 const Room = require('../models/Room');
 const { validationResult } = require('express-validator');
 const { sendBookingConfirmation } = require('../utils/emailService');
+const { generateCancellationToken } = require('../utils/tokenUtils');
 
 // @desc    קבלת כל ההזמנות
 // @route   GET /api/bookings
@@ -94,9 +95,13 @@ exports.getBooking = async (req, res) => {
 // @route   POST /api/bookings
 // @access  Public
 exports.createBooking = async (req, res) => {
+  // בדיקת תקינות הנתונים
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ success: false, errors: errors.array() });
+    return res.status(400).json({ 
+      success: false, 
+      errors: errors.array() 
+    });
   }
 
   const { 
@@ -137,7 +142,8 @@ exports.createBooking = async (req, res) => {
     
     // בדיקה אם החדר זמין בתאריכים המבוקשים
     const overlappingBookings = await Booking.find({
-      room: roomId,
+      roomId: roomId,
+      status: 'confirmed',
       $or: [
         // צ'ק-אין בתוך תקופת הזמנה קיימת
         { 
@@ -172,9 +178,9 @@ exports.createBooking = async (req, res) => {
       totalPrice = totalPrice * 1.17; // 17% מע"מ
     }
     
-    // יצירת הזמנה חדשה
+    // יצירת הזמנה חדשה (שימו לב: עדיין אין לנו מזהה)
     const booking = new Booking({
-      room: roomId,
+      roomId,
       guest,
       checkIn: checkInDate,
       checkOut: checkOutDate,
@@ -184,8 +190,12 @@ exports.createBooking = async (req, res) => {
       paymentMethod,
       creditCardDetails,
       notes,
-      createdBy: req.user ? req.user.id : null
+      status: 'confirmed'
     });
+    
+    // יצירת טוקן ביטול ייחודי לפני השמירה
+    // נשתמש ב"_id" זמני שנוצר אוטומטית
+    booking.cancellationToken = generateCancellationToken(booking._id.toString(), guest.email);
     
     // שמירת ההזמנה במסד הנתונים
     await booking.save();
@@ -199,15 +209,25 @@ exports.createBooking = async (req, res) => {
       // ממשיכים למרות שגיאה בשליחת האימייל
     }
     
+    // החזרת תשובה חיובית
     res.status(201).json({
       success: true,
-      data: booking
+      booking: {
+        id: booking._id,
+        guest: booking.guest,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        nights: booking.nights,
+        totalPrice: booking.totalPrice,
+        paymentStatus: booking.paymentStatus
+      }
     });
-  } catch (error) {
-    console.error('שגיאה ביצירת הזמנה:', error);
+  } catch (err) {
+    console.error('שגיאה ביצירת הזמנה:', err);
     res.status(500).json({ 
       success: false, 
-      message: 'שגיאת שרת' 
+      message: 'שגיאת שרת', 
+      error: err.message 
     });
   }
 };

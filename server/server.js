@@ -50,6 +50,8 @@ const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/uploads');
 const chatRoutes = require('./routes/chatRoutes');
 const manageBookingRoutes = require('./routes/manageBookingRoutes');
+const invoiceRoutes = require('./routes/invoices');
+const cancelBookingRoutes = require('./routes/cancelBooking');
 
 // Routes
 app.use('/api/rooms', roomRoutes);
@@ -58,12 +60,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/manage-booking', manageBookingRoutes);
+app.use('/api/invoices', invoiceRoutes);
+app.use('/api/cancel', cancelBookingRoutes);
 
 // נתיבי API נוספים
-app.use('/api/invoices', require('./routes/invoices'));
-
-// נתיב בדיקה בסיסי
-app.get('/api/test', (req, res) => {
+app.use('/api/test', (req, res) => {
   res.json({ message: 'שרת API של מלונית רוטשילד 79 פועל!' });
 });
 

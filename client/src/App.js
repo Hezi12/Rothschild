@@ -23,6 +23,7 @@ import CalendarLinksPage from './pages/CalendarLinksPage';
 import ManageBookingPage from './pages/ManageBookingPage';
 import SearchResultsPage from './pages/SearchResultsPage';
 import FindBookingPage from './pages/FindBookingPage';
+import CancelBookingPage from './pages/CancelBookingPage';
 
 // Protected Route Component
 import ProtectedRoute from './components/ProtectedRoute';
@@ -43,6 +44,7 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/manage-booking/:id" element={<ManageBookingPage />} />
               <Route path="/find-booking" element={<FindBookingPage />} />
+              <Route path="/cancel-booking" element={<CancelBookingPage />} />
 
               {/* ניתובים מוגנים */}
               <Route path="/admin" element={<ProtectedRoute Component={DashboardPage} />} />

@@ -24,9 +24,13 @@ const sendBookingConfirmation = async (booking, room) => {
     cancelDate.setDate(cancelDate.getDate() - 3);
     const freeCancelUntil = cancelDate.toLocaleDateString('he-IL');
     
-    // ליצירת קישור לניהול ההזמנה - משתמש בכתובת האתר ולא בכתובת ה-API
+    // יצירת קישור לניהול ההזמנה - משתמש בכתובת האתר ולא בכתובת ה-API
     const siteUrl = process.env.FRONTEND_URL || 'https://rothschild-gamma.vercel.app';
     const findBookingUrl = `${siteUrl}/find-booking`;
+    
+    // יצירת קישור ישיר לביטול ההזמנה
+    const apiUrl = process.env.API_URL || 'https://rothschild-79-server.onrender.com';
+    const cancelBookingUrl = `${siteUrl}/cancel-booking?token=${booking.cancellationToken}`;
     
     // תוכן המייל
     const mailOptions = {
@@ -53,10 +57,14 @@ const sendBookingConfirmation = async (booking, room) => {
           </div>
           
           <div style="margin: 20px 0; padding: 15px; border-left: 4px solid #1976d2; background-color: #e3f2fd;">
-            <h3 style="margin-top: 0; color: #1976d2;">ניהול ההזמנה</h3>
-            <p>לצפייה, עדכון או ביטול ההזמנה, אנא השתמש במספר ההזמנה ובאימייל שלך בקישור הבא:</p>
+            <h3 style="margin-top: 0; color: #1976d2;">ביטול הזמנה</h3>
+            <p>לביטול ההזמנה שלך, לחץ על הכפתור למטה:</p>
             <p style="margin: 15px 0;">
-              <a href="${findBookingUrl}" style="background-color: #1976d2; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;">לניהול ההזמנה</a>
+              <a href="${cancelBookingUrl}" style="background-color: #e91e63; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;">ביטול הזמנה</a>
+            </p>
+            <p style="font-size: 0.85em; color: #666;">
+              שים לב: ניתן לבטל ללא עלות עד לתאריך ${freeCancelUntil} (3 ימים לפני ההגעה).
+              לאחר תאריך זה לא ניתן יהיה לקבל החזר.
             </p>
           </div>
           
