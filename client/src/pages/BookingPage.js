@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { 
@@ -28,7 +28,6 @@ import {
   Container,
   MobileStepper,
   StepContent,
-  Link
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -1150,29 +1149,19 @@ const BookingPage = () => {
   const renderComplete = () => (
     <Box sx={{ textAlign: 'center', py: 3 }}>
       <Typography variant="h5" gutterBottom>
-        תודה על הזמנתך!
+        תודה על ההזמנה שלך!
       </Typography>
       <Typography variant="subtitle1" paragraph>
-        ההזמנה שלך התקבלה בהצלחה. אישור הזמנה נשלח לכתובת האימייל שלך.
+        ההזמנה שלך התקבלה בהצלחה. אישור נשלח לכתובת האימייל שלך.
       </Typography>
       <Typography paragraph>
         מספר הזמנה: {bookingId ? <strong>{bookingId}</strong> : 'ממתין לאישור מהשרת...'}
       </Typography>
 
-      {/* קישור לניהול ההזמנה */}
-      <Typography paragraph>
-        <Link 
-          component="button" 
-          variant="body2" 
-          onClick={() => {
-            // השתמש בדומיין של האתר עצמו ולא של ה-API
-            const siteUrl = window.location.origin; // לדוגמה: https://rothschild-gamma.vercel.app
-            window.location.href = `${siteUrl}/manage-booking/${bookingId}`;
-          }}
-          sx={{ textDecoration: 'none', fontWeight: 'bold' }}
-        >
-          לניהול ההזמנה שלך
-        </Link>
+      {/* הודעה במקום קישור */}
+      <Typography paragraph sx={{ backgroundColor: '#f5f5f5', p: 2, borderRadius: 1, maxWidth: '400px', mx: 'auto', mt: 2 }}>
+        <strong>שמור על מספר ההזמנה הזה!</strong><br />
+        כדי לנהל את ההזמנה שלך בעתיד, תצטרך להשתמש במספר הזמנה זה ובכתובת האימייל שלך.
       </Typography>
       
       {/* מדיניות ביטול במסך אישור */}
@@ -1200,6 +1189,17 @@ const BookingPage = () => {
           • ביטול מ-3 ימים לפני מועד ההגעה ועד למועד ההגעה - חיוב מלא (100%)
         </Typography>
       </Box>
+      
+      {/* קישור לדף חיפוש הזמנה */}
+      <Button
+        variant="outlined"
+        color="primary"
+        component={Link}
+        to="/find-booking"
+        sx={{ mt: 2 }}
+      >
+        מעבר לדף ניהול הזמנות
+      </Button>
       
       <Button
         variant="contained"

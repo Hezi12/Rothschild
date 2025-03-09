@@ -22,6 +22,7 @@ import IcalEditorPage from './pages/IcalEditorPage';
 import CalendarLinksPage from './pages/CalendarLinksPage';
 import ManageBookingPage from './pages/ManageBookingPage';
 import SearchResultsPage from './pages/SearchResultsPage';
+import FindBookingPage from './pages/FindBookingPage';
 
 // Protected Route Component
 import ProtectedRoute from './components/ProtectedRoute';
@@ -41,6 +42,7 @@ function App() {
               <Route path="/search" element={<SearchResultsPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/manage-booking/:id" element={<ManageBookingPage />} />
+              <Route path="/find-booking" element={<FindBookingPage />} />
 
               {/* ניתובים מוגנים */}
               <Route path="/admin" element={<ProtectedRoute Component={DashboardPage} />} />

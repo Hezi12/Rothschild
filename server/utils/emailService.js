@@ -26,7 +26,7 @@ const sendBookingConfirmation = async (booking, room) => {
     
     // ליצירת קישור לניהול ההזמנה - משתמש בכתובת האתר ולא בכתובת ה-API
     const siteUrl = process.env.FRONTEND_URL || 'https://rothschild-gamma.vercel.app';
-    const manageBookingUrl = `${siteUrl}/manage-booking/${booking._id}`;
+    const findBookingUrl = `${siteUrl}/find-booking`;
     
     // תוכן המייל
     const mailOptions = {
@@ -54,9 +54,9 @@ const sendBookingConfirmation = async (booking, room) => {
           
           <div style="margin: 20px 0; padding: 15px; border-left: 4px solid #1976d2; background-color: #e3f2fd;">
             <h3 style="margin-top: 0; color: #1976d2;">ניהול ההזמנה</h3>
-            <p>לצפייה, עדכון או ביטול ההזמנה, אנא לחץ על הקישור הבא:</p>
+            <p>לצפייה, עדכון או ביטול ההזמנה, אנא השתמש במספר ההזמנה ובאימייל שלך בקישור הבא:</p>
             <p style="margin: 15px 0;">
-              <a href="${manageBookingUrl}" style="background-color: #1976d2; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;">לניהול ההזמנה</a>
+              <a href="${findBookingUrl}" style="background-color: #1976d2; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;">לניהול ההזמנה</a>
             </p>
           </div>
           
@@ -103,7 +103,7 @@ const sendCancellationConfirmation = async (booking, room, cancellationDetails) 
     
     // ליצירת קישור לצפייה בהזמנה המבוטלת
     const siteUrl = process.env.FRONTEND_URL || 'https://rothschild-gamma.vercel.app';
-    const viewBookingUrl = `${siteUrl}/manage-booking/${booking._id}`;
+    const findBookingUrl = `${siteUrl}/find-booking`;
     
     // תוכן המייל
     const mailOptions = {
@@ -141,9 +141,9 @@ const sendCancellationConfirmation = async (booking, room, cancellationDetails) 
           `}
           
           <div style="margin: 20px 0;">
-            <p>לצפייה בפרטי ההזמנה המבוטלת, אנא לחץ על הקישור הבא:</p>
+            <p>לצפייה בפרטי ההזמנה המבוטלת, אנא השתמש במספר ההזמנה ובאימייל שלך בקישור הבא:</p>
             <p style="margin: 15px 0;">
-              <a href="${viewBookingUrl}" style="background-color: #9e9e9e; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;">לצפייה בהזמנה המבוטלת</a>
+              <a href="${findBookingUrl}" style="background-color: #9e9e9e; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;">לצפייה בהזמנה המבוטלת</a>
             </p>
           </div>
           
