@@ -357,16 +357,23 @@ const BookingPage = () => {
     try {
       setLoading(true);
       
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, {
+      // יצירת אובייקט המכיל את הנתונים בפורמט הישן (שם מלא במקום שם פרטי ושם משפחה)
+      const bookingPayload = {
         roomId: bookingData.roomId,
-        guest: bookingData.guest,
+        guest: {
+          name: `${bookingData.guest.firstName} ${bookingData.guest.lastName}`, // איחוד שם פרטי ושם משפחה
+          phone: bookingData.guest.phone,
+          email: bookingData.guest.email
+        },
         checkIn: bookingData.checkIn,
         checkOut: bookingData.checkOut,
         isTourist: bookingData.isTourist,
         paymentMethod: bookingData.paymentMethod,
         creditCardDetails: bookingData.paymentMethod === 'credit' ? bookingData.creditCardDetails : undefined,
         notes: bookingData.notes
-      });
+      };
+      
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingPayload);
       
       toast.success('ההזמנה נשלחה בהצלחה!');
       setActiveStep(steps.length);
