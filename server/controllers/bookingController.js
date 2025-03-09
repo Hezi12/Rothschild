@@ -425,4 +425,96 @@ exports.getRoomBookings = async (req, res) => {
       message: 'שגיאת שרת' 
     });
   }
+};
+
+// @desc    קבלת פרטי הזמנה ספציפית (גישה ציבורית)
+// @route   GET /api/bookings/public/:id
+// @access  Public
+exports.getPublicBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id)
+      .populate('roomId', 'name roomNumber type basePrice description features'); // קבלת פרטי החדר
+    
+    if (!booking) {
+      return res.status(404).json({ message: 'הזמנה לא נמצאה' });
+    }
+    
+    res.json(booking);
+  } catch (error) {
+    console.error('שגיאה בקבלת פרטי הזמנה:', error);
+    res.status(500).json({ message: 'שגיאת שרת' });
+  }
+};
+
+// @desc    ביטול הזמנה
+// @route   POST /api/bookings/:id/cancel
+// @access  Public
+exports.cancelBooking = async (req, res) => {
+  try {
+    const { cancellationFee } = req.body;
+    
+    // מציאת ההזמנה
+    const booking = await Booking.findById(req.params.id);
+    
+    if (!booking) {
+      return res.status(404).json({ message: 'הזמנה לא נמצאה' });
+    }
+    
+    // בדיקה שההזמנה טרם בוטלה וטרם הגיע מועד ההגעה
+    if (booking.status === 'cancelled') {
+      return res.status(400).json({ message: 'הזמנה זו כבר בוטלה' });
+    }
+    
+    if (new Date(booking.checkIn) < new Date()) {
+      return res.status(400).json({ message: 'לא ניתן לבטל הזמנה לאחר מועד ההגעה' });
+    }
+    
+    // חישוב דמי ביטול בהתאם למדיניות
+    let calculatedCancellationFee = 0;
+    const today = new Date();
+    const checkInDate = new Date(booking.checkIn);
+    const daysUntilCheckIn = Math.ceil((checkInDate - today) / (1000 * 60 * 60 * 24));
+    
+    // מדיניות ביטול: אפס עד 3 ימים לפני, מחיר מלא פחות מ-3 ימים
+    if (daysUntilCheckIn < 3) {
+      calculatedCancellationFee = booking.totalPrice;
+    }
+    
+    // עדכון סטטוס ההזמנה
+    booking.status = 'cancelled';
+    booking.cancellationDate = new Date();
+    booking.cancellationFee = calculatedCancellationFee;
+    
+    await booking.save();
+    
+    // שחרור החדר לתאריכים המבוטלים בהזמנה
+    try {
+      const room = await Room.findById(booking.roomId);
+      if (room) {
+        // לוגיקה לעדכון זמינות החדר
+        console.log(`שחרור חדר ${room._id} לתאריכים ${booking.checkIn} עד ${booking.checkOut}`);
+      }
+    } catch (roomError) {
+      console.error('שגיאה בשחרור זמינות החדר:', roomError);
+      // לא מפסיקים את התהליך אם יש שגיאה בשחרור החדר
+    }
+    
+    // שליחת מייל על ביטול ההזמנה
+    try {
+      // ניתן להוסיף שליחת מייל אישור על ביטול ההזמנה
+      // await sendCancellationEmail(booking);
+    } catch (emailError) {
+      console.error('שגיאה בשליחת אימייל ביטול:', emailError);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'ההזמנה בוטלה בהצלחה', 
+      cancellationFee: calculatedCancellationFee 
+    });
+    
+  } catch (error) {
+    console.error('שגיאה בביטול הזמנה:', error);
+    res.status(500).json({ message: 'שגיאת שרת', error: error.message });
+  }
 }; 

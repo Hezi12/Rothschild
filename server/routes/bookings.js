@@ -14,6 +14,11 @@ router.get('/', [protect, admin], bookingController.getBookings);
 // @access  Private/Admin
 router.get('/:id', [protect, admin], bookingController.getBooking);
 
+// @route   GET /api/bookings/public/:id
+// @desc    קבלת פרטי הזמנה ספציפית ללא הגנה (לצורך ניהול הזמנה על ידי לקוח)
+// @access  Public
+router.get('/public/:id', bookingController.getPublicBooking);
+
 // @route   POST /api/bookings
 // @desc    יצירת הזמנה חדשה
 // @access  Public
@@ -54,5 +59,10 @@ router.delete('/:id', [protect, admin], bookingController.deleteBooking);
 // @desc    קבלת כל ההזמנות לחדר מסוים
 // @access  Private/Admin
 router.get('/room/:roomId', [protect, admin], bookingController.getRoomBookings);
+
+// @route   POST /api/bookings/:id/cancel
+// @desc    ביטול הזמנה
+// @access  Public
+router.post('/:id/cancel', bookingController.cancelBooking);
 
 module.exports = router; 

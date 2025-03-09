@@ -40,6 +40,7 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import { alpha } from '@mui/material/styles';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import LockIcon from '@mui/icons-material/Lock';
+import InfoOutlined from '@mui/icons-material/InfoOutlined';
 
 const steps = ['בחירת תאריכים', 'פרטי אורח', 'פרטי תשלום', 'סיכום'];
 
@@ -1125,6 +1126,20 @@ const BookingPage = () => {
             </Alert>
           </Grid>
         </Grid>
+        
+        {/* מדיניות ביטול */}
+        <Box sx={{ mb: 3, p: 2, bgcolor: '#f8f8f8', borderRadius: 1, border: '1px dashed #ccc' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1, display: 'flex', alignItems: 'center' }}>
+            <InfoOutlined sx={{ mr: 1, fontSize: '1.2rem', color: 'primary.main' }} />
+            מדיניות ביטול
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            • ביטול עד 3 ימים לפני מועד ההגעה: ללא עלות
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            • ביטול פחות מ-3 ימים לפני מועד ההגעה: חיוב בעלות מלאה (100%)
+          </Typography>
+        </Box>
       </Paper>
     </Box>
   );
