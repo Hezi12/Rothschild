@@ -19,19 +19,13 @@ const app = express();
 // Middleware
 // הגדרות CORS דינמיות לפי סביבה
 const corsOptions = {
-  origin: ['https://rothschild-gamma.vercel.app', 'https://rothschild-79.vercel.app', 'http://localhost:3000', 'http://localhost:3001'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  origin: '*', // מאפשר גישה מכל מקום בסביבת פיתוח
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'Cache-Control', 'Pragma', 'Expires'],
-  credentials: true,
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  credentials: true
 };
 
 app.use(cors(corsOptions));
-
-// הוספת middleware כדי לטפל באופן מפורש בבקשות preflight
-app.options('*', cors(corsOptions));
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -47,24 +41,20 @@ mongoose.connect(process.env.MONGODB_URI, {
 const roomRoutes = require('./routes/rooms');
 const bookingRoutes = require('./routes/bookings');
 const authRoutes = require('./routes/auth');
-const uploadRoutes = require('./routes/uploads');
 const chatRoutes = require('./routes/chatRoutes');
-const manageBookingRoutes = require('./routes/manageBookingRoutes');
-const invoiceRoutes = require('./routes/invoices');
-const cancelBookingRoutes = require('./routes/cancelBooking');
 
 // Routes
 app.use('/api/rooms', roomRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/upload', uploadRoutes);
 app.use('/api/chat', chatRoutes);
-app.use('/manage-booking', manageBookingRoutes);
-app.use('/api/invoices', invoiceRoutes);
-app.use('/api/cancel', cancelBookingRoutes);
 
-// נתיבי API נוספים
-app.use('/api/test', (req, res) => {
+// נתיבי API
+app.use('/api/uploads', require('./routes/uploads'));
+app.use('/api/invoices', require('./routes/invoices'));
+
+// נתיב בדיקה בסיסי
+app.get('/api/test', (req, res) => {
   res.json({ message: 'שרת API של מלונית רוטשילד 79 פועל!' });
 });
 

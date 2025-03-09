@@ -1,71 +1,108 @@
 import React from 'react';
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import { rtlCache, theme } from './theme';
+import { Routes, Route } from 'react-router-dom';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import rtlPlugin from 'stylis-plugin-rtl';
+import { prefixer } from 'stylis';
 import { CacheProvider } from '@emotion/react';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { LocalizationProvider } from '@mui/x-date-pickers';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { he } from 'date-fns/locale';
+import createCache from '@emotion/cache';
+import CssBaseline from '@mui/material/CssBaseline';
 
-// Pages
+// דפים
 import HomePage from './pages/HomePage';
-import BookingPage from './pages/BookingPage';
 import RoomPage from './pages/RoomPage';
-import RoomsListPage from './pages/RoomsListPage';
+import BookingPage from './pages/BookingPage';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import BookingsCalendarPage from './pages/BookingsCalendarPage';
-import IcalEditorPage from './pages/IcalEditorPage';
+import RoomsListPage from './pages/RoomsListPage';
+import NotFoundPage from './pages/NotFoundPage';
 import CalendarLinksPage from './pages/CalendarLinksPage';
-import ManageBookingPage from './pages/ManageBookingPage';
+import IcalEditorPage from './pages/IcalEditorPage';
 import SearchResultsPage from './pages/SearchResultsPage';
-import FindBookingPage from './pages/FindBookingPage';
-import CancelBookingPage from './pages/CancelBookingPage';
 
-// Protected Route Component
+// רכיבים
+import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+
+// יצירת קאש RTL
+const cacheRtl = createCache({
+  key: 'muirtl',
+  stylisPlugins: [prefixer, rtlPlugin],
+});
+
+// יצירת ערכת נושא מותאמת אישית
+const theme = createTheme({
+  direction: 'rtl',
+  palette: {
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#f50057',
+    },
+    background: {
+      default: '#f5f5f5',
+    },
+  },
+  typography: {
+    fontFamily: 'Rubik, Arial, sans-serif',
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          fontWeight: 'bold',
+        },
+      },
+    },
+  },
+});
 
 function App() {
   return (
-    <CacheProvider value={rtlCache}>
+    <CacheProvider value={cacheRtl}>
       <ThemeProvider theme={theme}>
-        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-          <CssBaseline />
-          <Router>
-            <Routes>
-              {/* ניתובים ציבוריים */}
-              <Route path="/" element={<HomePage />} />
-              <Route path="/room/:id" element={<RoomPage />} />
-              <Route path="/booking/:roomId?" element={<BookingPage />} />
-              <Route path="/search" element={<SearchResultsPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/manage-booking/:id" element={<ManageBookingPage />} />
-              <Route path="/find-booking" element={<FindBookingPage />} />
-              <Route path="/cancel-booking" element={<CancelBookingPage />} />
-
-              {/* ניתובים מוגנים */}
-              <Route path="/admin" element={<ProtectedRoute Component={DashboardPage} />} />
-              <Route path="/admin/rooms" element={<ProtectedRoute Component={RoomsListPage} />} />
-              <Route path="/admin/bookings" element={<ProtectedRoute Component={BookingsCalendarPage} />} />
-              <Route path="/admin/ical-editor" element={<ProtectedRoute Component={IcalEditorPage} />} />
-              <Route path="/admin/calendar-links" element={<ProtectedRoute Component={CalendarLinksPage} />} />
-            </Routes>
-          </Router>
-          <ToastContainer 
-            position="bottom-right"
-            rtl={true}
-            autoClose={5000}
-            hideProgressBar={false}
-            newestOnTop
-            closeOnClick
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-          />
-        </LocalizationProvider>
+        <CssBaseline />
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            {/* נתיבים ציבוריים */}
+            <Route index element={<HomePage />} />
+            <Route path="room/:id" element={<RoomPage />} />
+            <Route path="search-results" element={<SearchResultsPage />} />
+            <Route path="booking" element={<BookingPage />} />
+            <Route path="login" element={<LoginPage />} />
+            
+            {/* נתיבים מוגנים (רק למנהלים) */}
+            <Route path="dashboard" element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="dashboard/bookings" element={
+              <ProtectedRoute>
+                <BookingsCalendarPage />
+              </ProtectedRoute>
+            } />
+            <Route path="dashboard/rooms" element={
+              <ProtectedRoute>
+                <RoomsListPage />
+              </ProtectedRoute>
+            } />
+            <Route path="dashboard/calendar-links" element={
+              <ProtectedRoute>
+                <CalendarLinksPage />
+              </ProtectedRoute>
+            } />
+            <Route path="dashboard/ical-editor" element={
+              <ProtectedRoute>
+                <IcalEditorPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* דף 404 */}
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+        </Routes>
       </ThemeProvider>
     </CacheProvider>
   );

@@ -150,60 +150,12 @@ const Layout = () => {
             </Box>
           </Box>
 
-          {/* קישורי ניווט במרכז */}
-          <Box sx={{ 
-            display: { xs: 'none', md: 'flex' }, 
-            gap: 3, 
-            alignItems: 'center', 
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)'
-          }}>
-            <Button 
-              component={Link} 
-              to="/" 
-              color="inherit"
-              sx={{ 
-                fontWeight: 500,
-                '&:hover': { color: theme.palette.primary.main },
-                transition: 'all 0.2s ease'
-              }}
-            >
-              דף הבית
-            </Button>
-            <Button 
-              component={Link} 
-              to="/booking" 
-              color="inherit"
-              sx={{ 
-                fontWeight: 500,
-                '&:hover': { color: theme.palette.primary.main },
-                transition: 'all 0.2s ease'
-              }}
-            >
-              הזמנת חדר
-            </Button>
-            <Button 
-              component={Link} 
-              to="/find-booking" 
-              color="inherit"
-              sx={{ 
-                fontWeight: 500,
-                '&:hover': { color: theme.palette.primary.main },
-                transition: 'all 0.2s ease'
-              }}
-            >
-              ניהול הזמנות
-            </Button>
-          </Box>
-
           {/* הודעת האתר בבנייה - במרכז הסרגל */}
           {!isMobile ? (
             <Chip
               icon={<ConstructionIcon style={{ color: isBlinking ? '#ff9800' : '#f57c00' }} />}
               label="האתר בבנייה - ייתכנו תקלות זמניות"
               sx={{
-                display: { xs: 'none', lg: 'flex' },
                 position: 'absolute',
                 left: '50%',
                 transform: 'translateX(-50%)',
