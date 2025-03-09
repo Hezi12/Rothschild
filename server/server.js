@@ -19,8 +19,14 @@ const app = express();
 // Middleware
 // הגדרות CORS דינמיות לפי סביבה
 const corsOptions = {
-  origin: '*', // מאפשר גישה מכל מקום בסביבת פיתוח
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: process.env.NODE_ENV === 'production' 
+    ? [
+        'https://rothschild-79.onrender.com', 
+        'https://rothschild-79-client.onrender.com',
+        process.env.CLIENT_URL || '*'
+      ] 
+    : '*', // מאפשר גישה מכל מקום בסביבת פיתוח
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'Cache-Control', 'Pragma', 'Expires'],
   credentials: true
 };
@@ -58,6 +64,14 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'שרת API של מלונית רוטשילד 79 פועל!' });
 });
 
+// Middleware לניהול שגיאות 404 בנתיבי API
+app.use('/api/*', (req, res) => {
+  res.status(404).json({
+    error: 'נתיב לא נמצא',
+    path: req.originalUrl
+  });
+});
+
 // שירות קבצים סטטיים מתיקיית הבילד של האפליקציה במצב פרודקשן
 if (process.env.NODE_ENV === 'production') {
   // שירות קבצים סטטיים
@@ -65,11 +79,18 @@ if (process.env.NODE_ENV === 'production') {
 
   // כל בקשה שאינה API תפנה לאפליקציית הריאקט
   app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api/')) {
-      res.sendFile(path.resolve(__dirname, '../client/build', 'index.html'));
-    }
+    res.sendFile(path.resolve(__dirname, '../client/build', 'index.html'));
   });
 }
+
+// Middleware לטיפול בשגיאות כללי
+app.use((err, req, res, next) => {
+  console.error('שגיאת שרת:', err);
+  res.status(err.status || 500).json({
+    error: process.env.NODE_ENV === 'production' ? 'שגיאת שרת פנימית' : err.message,
+    details: process.env.NODE_ENV === 'production' ? undefined : err.stack
+  });
+});
 
 // הגדרת פורט
 const PORT = process.env.PORT || 5000;
