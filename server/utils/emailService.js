@@ -20,7 +20,7 @@ const sendBookingConfirmation = async (booking, room) => {
     const checkOut = new Date(booking.checkOut).toLocaleDateString('he-IL');
     
     // יצירת ה-URL של דף ניהול ההזמנה
-    const managementLink = `${process.env.CLIENT_URL || 'https://rothschild-79.onrender.com'}/manage-booking/${booking._id}`;
+    const managementLink = `${process.env.CLIENT_URL || 'https://rothschild-79-client.onrender.com'}/manage-booking/${booking._id}`;
     
     // חישוב תאריך אחרון לביטול ללא עלות (3 ימים לפני ההגעה)
     const checkInDate = new Date(booking.checkIn);
