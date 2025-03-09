@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { CircularProgress, Box } from '@mui/material';
 
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ Component, ...rest }) => {
   const { isAuthenticated, isAdmin, loading } = useContext(AuthContext);
 
   // אם עדיין טוען, הצג אנימציית טעינה
@@ -21,7 +21,7 @@ const ProtectedRoute = ({ children }) => {
   }
 
   // אחרת, הצג את התוכן המוגן
-  return children;
+  return <Component {...rest} />;
 };
 
 export default ProtectedRoute; 

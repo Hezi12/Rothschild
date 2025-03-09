@@ -19,13 +19,8 @@ const app = express();
 // Middleware
 // הגדרות CORS דינמיות לפי סביבה
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? [
-        'https://rothschild-79-client.onrender.com',
-        process.env.CLIENT_URL || '*'
-      ] 
-    : '*', // מאפשר גישה מכל מקום בסביבת פיתוח
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  origin: '*', // מאפשר גישה מכל מקום בסביבת פיתוח
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'Cache-Control', 'Pragma', 'Expires'],
   credentials: true
 };
@@ -43,16 +38,24 @@ mongoose.connect(process.env.MONGODB_URI, {
 .catch(err => console.error('שגיאה בחיבור למסד הנתונים:', err));
 
 // Import Routes
-const roomRoutes = require('./routes/rooms');
-const bookingRoutes = require('./routes/bookings');
-const authRoutes = require('./routes/auth');
+const roomRoutes = require('./routes/roomRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const icalsRoutes = require('./routes/icalsRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const manageBookingRoutes = require('./routes/manageBookingRoutes');
 
 // Routes
 app.use('/api/rooms', roomRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/icals', icalsRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/manage-booking', manageBookingRoutes);
 
 // נתיבי API
 app.use('/api/uploads', require('./routes/uploads'));
@@ -63,14 +66,6 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'שרת API של מלונית רוטשילד 79 פועל!' });
 });
 
-// Middleware לניהול שגיאות 404 בנתיבי API
-app.use('/api/*', (req, res) => {
-  res.status(404).json({
-    error: 'נתיב לא נמצא',
-    path: req.originalUrl
-  });
-});
-
 // שירות קבצים סטטיים מתיקיית הבילד של האפליקציה במצב פרודקשן
 if (process.env.NODE_ENV === 'production') {
   // שירות קבצים סטטיים
@@ -78,18 +73,11 @@ if (process.env.NODE_ENV === 'production') {
 
   // כל בקשה שאינה API תפנה לאפליקציית הריאקט
   app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../client/build', 'index.html'));
+    if (!req.path.startsWith('/api/')) {
+      res.sendFile(path.resolve(__dirname, '../client/build', 'index.html'));
+    }
   });
 }
-
-// Middleware לטיפול בשגיאות כללי
-app.use((err, req, res, next) => {
-  console.error('שגיאת שרת:', err);
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production' ? 'שגיאת שרת פנימית' : err.message,
-    details: process.env.NODE_ENV === 'production' ? undefined : err.stack
-  });
-});
 
 // הגדרת פורט
 const PORT = process.env.PORT || 5000;

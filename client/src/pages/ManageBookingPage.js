@@ -1,400 +1,414 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { format, differenceInDays, addDays } from 'date-fns';
-import { he } from 'date-fns/locale';
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  Grid, 
-  Button, 
-  Divider, 
-  useTheme, 
-  useMediaQuery,
+import {
+  Container,
+  Paper,
+  Typography,
+  Box,
+  Grid,
+  Button,
+  Divider,
   CircularProgress,
-  Chip,
+  Alert,
   Dialog,
-  DialogTitle,
+  DialogActions,
   DialogContent,
   DialogContentText,
-  DialogActions,
-  Alert,
-  AlertTitle
+  DialogTitle,
+  Chip
 } from '@mui/material';
-import { 
-  CalendarToday, 
-  AccessTime, 
-  Person, 
-  Hotel, 
-  Payment, 
-  EventBusy, 
-  Cancel,
-  ReceiptLong,
-  ArrowBack,
-  CheckCircleOutline,
-  ErrorOutline
-} from '@mui/icons-material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import Layout from '../components/Layout';
+import { format } from 'date-fns';
+import { he } from 'date-fns/locale';
+import DoneIcon from '@mui/icons-material/Done';
+import CloseIcon from '@mui/icons-material/Close';
+import WarningIcon from '@mui/icons-material/Warning';
+import EventIcon from '@mui/icons-material/Event';
+import HotelIcon from '@mui/icons-material/Hotel';
+import PersonIcon from '@mui/icons-material/Person';
+import PaymentIcon from '@mui/icons-material/Payment';
+import CancelIcon from '@mui/icons-material/Cancel';
+import InfoIcon from '@mui/icons-material/Info';
 
 const ManageBookingPage = () => {
-  const { bookingId } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
-  const [booking, setBooking] = useState(null);
-  const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [cancellationStatus, setCancellationStatus] = useState(null);
-  const [cancellationFee, setCancellationFee] = useState(0);
+  const [booking, setBooking] = useState(null);
+  const [room, setRoom] = useState(null);
+  const [cancellationDetails, setCancellationDetails] = useState(null);
+  const [openCancelDialog, setOpenCancelDialog] = useState(false);
+  const [cancellationLoading, setCancellationLoading] = useState(false);
+  const [cancellationSuccess, setCancellationSuccess] = useState(false);
+  const [cancellationError, setCancellationError] = useState(null);
   
-  useEffect(() => {
-    const fetchBookingDetails = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings/${bookingId}`);
-        
-        if (response.data) {
-          setBooking(response.data);
-          
-          // שליפת פרטי החדר
-          const roomResponse = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/${response.data.roomId}`);
-          if (roomResponse.data) {
-            setRoom(roomResponse.data);
-          }
-          
-          // חישוב דמי ביטול
-          calculateCancellationFee(response.data);
-        }
-      } catch (err) {
-        console.error('שגיאה בטעינת פרטי ההזמנה:', err);
-        setError('לא ניתן לטעון את פרטי ההזמנה. אנא נסה שוב מאוחר יותר.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchBookingDetails();
-  }, [bookingId]);
-  
-  // חישוב דמי ביטול בהתאם למדיניות הביטול
-  const calculateCancellationFee = (bookingData) => {
-    if (!bookingData?.checkIn) return;
-    
-    const today = new Date();
-    const checkInDate = new Date(bookingData.checkIn);
-    const daysUntilCheckIn = differenceInDays(checkInDate, today);
-    
-    // חישוב מחיר ביטול לפי מדיניות - אפס עד 3 ימים לפני, מחיר מלא פחות מ-3 ימים
-    if (daysUntilCheckIn >= 3) {
-      setCancellationFee(0);
-    } else {
-      setCancellationFee(bookingData.totalPrice);
+  // פונקציה להצגת תאריך בפורמט עברי
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return format(date, 'EEEE, d בMMM yyyy', { locale: he });
+    } catch (error) {
+      return dateString;
     }
   };
   
-  // ביטול ההזמנה
-  const handleCancelBooking = async () => {
+  // פונקציה לטעינת פרטי ההזמנה
+  const fetchBookingDetails = async () => {
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings/${bookingId}/cancel`, {
-        cancellationFee
+      setLoading(true);
+      setError(null);
+      
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/manage-booking/details/${id}`);
+      setBooking(response.data.booking);
+      setRoom(response.data.room);
+      setCancellationDetails(response.data.cancellationDetails);
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('שגיאה בטעינת פרטי ההזמנה:', error);
+      setError('לא ניתן לטעון את פרטי ההזמנה. אנא נסה שוב מאוחר יותר.');
+      setLoading(false);
+    }
+  };
+  
+  // פונקציה לביטול ההזמנה
+  const cancelBooking = async () => {
+    try {
+      setCancellationLoading(true);
+      setCancellationError(null);
+      
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/manage-booking/cancel/${id}`);
+      
+      // עדכון פרטי ההזמנה אחרי הביטול
+      setBooking({
+        ...booking,
+        status: 'canceled',
+        cancellationDetails: response.data.cancellationDetails
       });
       
-      if (response.data.success) {
-        setCancellationStatus('success');
-        setBooking(prev => ({
-          ...prev,
-          status: 'cancelled',
-          cancellationDate: new Date(),
-          cancellationFee
-        }));
-      } else {
-        setCancellationStatus('error');
-      }
-    } catch (err) {
-      console.error('שגיאה בביטול ההזמנה:', err);
-      setCancellationStatus('error');
-    } finally {
-      setCancelDialogOpen(false);
+      setCancellationSuccess(true);
+      setOpenCancelDialog(false);
+      setCancellationLoading(false);
+    } catch (error) {
+      console.error('שגיאה בביטול ההזמנה:', error);
+      setCancellationError('אירעה שגיאה בתהליך ביטול ההזמנה. אנא נסה שוב מאוחר יותר.');
+      setCancellationLoading(false);
     }
   };
+  
+  useEffect(() => {
+    if (id) {
+      fetchBookingDetails();
+    }
+  }, [id]);
+  
+  // סטטוס צ'יפ עם צבע מתאים
+  const getStatusChip = (status) => {
+    switch (status) {
+      case 'confirmed':
+        return <Chip color="success" icon={<DoneIcon />} label="מאושרת" />;
+      case 'pending':
+        return <Chip color="warning" icon={<WarningIcon />} label="ממתינה לאישור" />;
+      case 'canceled':
+        return <Chip color="error" icon={<CancelIcon />} label="בוטלה" />;
+      default:
+        return <Chip label={status} />;
+    }
+  };
+  
+  // פונקציה לבדיקה אם ההזמנה בוטלה
+  const isCanceled = booking?.status === 'canceled';
+  
+  // בודק אם ההזמנה כבר עברה (צ'ק-אין בעבר)
+  const isPastBooking = booking && new Date(booking.checkIn) < new Date();
   
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
-        <CircularProgress />
-      </Box>
+      <Layout>
+        <Container sx={{ py: 8, textAlign: 'center' }}>
+          <CircularProgress />
+          <Typography sx={{ mt: 2 }}>טוען את פרטי ההזמנה...</Typography>
+        </Container>
+      </Layout>
     );
   }
   
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">
-          <AlertTitle>שגיאה</AlertTitle>
-          {error}
-        </Alert>
-        <Button 
-          startIcon={<ArrowBack />} 
-          onClick={() => navigate('/')} 
-          sx={{ mt: 2 }}
-        >
-          חזרה לדף הבית
-        </Button>
-      </Box>
+      <Layout>
+        <Container sx={{ py: 8 }}>
+          <Alert severity="error">{error}</Alert>
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Button variant="contained" onClick={() => navigate('/')}>
+              חזרה לדף הבית
+            </Button>
+          </Box>
+        </Container>
+      </Layout>
     );
   }
   
   if (!booking || !room) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="warning">
-          <AlertTitle>לא נמצאו פרטים</AlertTitle>
-          לא נמצאו פרטים להזמנה המבוקשת.
-        </Alert>
-        <Button 
-          startIcon={<ArrowBack />} 
-          onClick={() => navigate('/')} 
-          sx={{ mt: 2 }}
-        >
-          חזרה לדף הבית
-        </Button>
-      </Box>
+      <Layout>
+        <Container sx={{ py: 8 }}>
+          <Alert severity="warning">לא נמצאו פרטי הזמנה</Alert>
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Button variant="contained" onClick={() => navigate('/')}>
+              חזרה לדף הבית
+            </Button>
+          </Box>
+        </Container>
+      </Layout>
     );
   }
   
-  // חישוב תאריך אחרון לביטול ללא עלות (3 ימים לפני הצ'ק-אין)
-  const freeCancellationDeadline = addDays(new Date(booking.checkIn), -3);
-  const isPastFreeCancellationDeadline = new Date() > freeCancellationDeadline;
-  
-  // בדיקה האם ניתן לבטל את ההזמנה
-  const canCancel = booking.status !== 'cancelled' && new Date(booking.checkIn) > new Date();
-  
   return (
-    <Box sx={{ maxWidth: 'lg', mx: 'auto', p: { xs: 2, sm: 3 } }}>
-      {/* כפתור חזרה */}
-      <Button 
-        startIcon={<ArrowBack />} 
-        onClick={() => navigate('/')} 
-        sx={{ mb: 3 }}
-      >
-        חזרה לדף הבית
-      </Button>
-      
-      {/* כותרת */}
-      <Typography 
-        variant={isMobile ? "h5" : "h4"} 
-        component="h1" 
-        gutterBottom 
-        sx={{ fontWeight: 'bold' }}
-      >
-        ניהול הזמנה
-      </Typography>
-      
-      {/* הודעת סטטוס לאחר ביטול */}
-      {cancellationStatus === 'success' && (
-        <Alert severity="success" sx={{ mb: 3 }}>
-          <AlertTitle>הזמנתך בוטלה בהצלחה</AlertTitle>
-          פרטי הביטול נשלחו לכתובת האימייל שלך.
-          {cancellationFee > 0 && ` דמי ביטול בסך ${cancellationFee} ₪ יחויבו בהתאם למדיניות הביטול.`}
-        </Alert>
-      )}
-      
-      {cancellationStatus === 'error' && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          <AlertTitle>שגיאה בביטול ההזמנה</AlertTitle>
-          אירעה שגיאה בתהליך ביטול ההזמנה. אנא נסה שוב או צור קשר עם שירות הלקוחות.
-        </Alert>
-      )}
-      
-      {/* פרטי הזמנה */}
-      <Paper elevation={2} sx={{ mb: 4, p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>פרטי הזמנה</Typography>
-          <Chip 
-            label={
-              booking.status === 'confirmed' ? 'מאושרת' : 
-              booking.status === 'cancelled' ? 'מבוטלת' : 
-              booking.status === 'completed' ? 'הושלמה' : 'ממתינה'
-            }
-            color={
-              booking.status === 'confirmed' ? 'success' : 
-              booking.status === 'cancelled' ? 'error' : 
-              booking.status === 'completed' ? 'info' : 'warning'
-            }
-          />
-        </Box>
-        
-        <Divider sx={{ mb: 2 }} />
-        
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-              <ReceiptLong sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="body1"><strong>מספר הזמנה:</strong> {booking._id}</Typography>
-            </Box>
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-              <CalendarToday sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="body1">
-                <strong>תאריך הזמנה:</strong> {format(new Date(booking.createdAt), 'dd.MM.yyyy', { locale: he })}
-              </Typography>
-            </Box>
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-              <Hotel sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="body1"><strong>חדר:</strong> {room.name}</Typography>
-            </Box>
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-              <Person sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="body1"><strong>אורח:</strong> {booking.guest.name}</Typography>
-            </Box>
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-              <CalendarToday sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="body1">
-                <strong>תאריך הגעה:</strong> {format(new Date(booking.checkIn), 'EEEE, dd.MM.yyyy', { locale: he })}
-              </Typography>
-            </Box>
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-              <CalendarToday sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="body1">
-                <strong>תאריך יציאה:</strong> {format(new Date(booking.checkOut), 'EEEE, dd.MM.yyyy', { locale: he })}
-              </Typography>
-            </Box>
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-              <AccessTime sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="body1"><strong>מספר לילות:</strong> {booking.nights}</Typography>
-            </Box>
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-              <Payment sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="body1"><strong>מחיר כולל:</strong> ₪{booking.totalPrice}</Typography>
-            </Box>
-          </Grid>
-          
-          {booking.status === 'cancelled' && (
-            <Grid item xs={12}>
-              <Alert severity="info" sx={{ mt: 1 }}>
-                <strong>ההזמנה בוטלה בתאריך:</strong> {format(new Date(booking.cancellationDate || new Date()), 'dd.MM.yyyy', { locale: he })}
-                {booking.cancellationFee > 0 && ` (דמי ביטול: ₪${booking.cancellationFee})`}
-              </Alert>
-            </Grid>
-          )}
-        </Grid>
-      </Paper>
-      
-      {/* מדיניות ביטול והסבר */}
-      <Paper elevation={2} sx={{ mb: 4, p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
-        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, display: 'flex', alignItems: 'center' }}>
-          <EventBusy sx={{ mr: 1, fontSize: '1.3rem', color: 'primary.main' }} />
-          מדיניות ביטול
-        </Typography>
-        
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="body2" sx={{ mb: 1 }}>
-            • <strong>ביטול עד 3 ימים לפני מועד ההגעה:</strong> ללא עלות
-          </Typography>
-          <Typography variant="body2">
-            • <strong>ביטול פחות מ-3 ימים לפני מועד ההגעה:</strong> חיוב בעלות מלאה (100%)
-          </Typography>
-        </Box>
-        
-        <Alert severity={isPastFreeCancellationDeadline ? "warning" : "info"} sx={{ mb: 2 }}>
-          {isPastFreeCancellationDeadline ? (
-            <>
-              <AlertTitle>התאריך האחרון לביטול ללא עלות חלף</AlertTitle>
-              במקרה של ביטול ההזמנה בשלב זה, יחול חיוב מלא בסך ₪{booking.totalPrice}.
-            </>
-          ) : (
-            <>
-              <AlertTitle>ניתן לבטל ללא עלות עד {format(freeCancellationDeadline, 'EEEE, dd.MM.yyyy', { locale: he })}</AlertTitle>
-              אתה עדיין בתקופת הביטול ללא עלות. ביטול ההזמנה לא יגרור תשלום.
-            </>
-          )}
-        </Alert>
-        
-        {canCancel && (
-          <Button 
-            variant="outlined" 
-            color="error" 
-            startIcon={<Cancel />} 
-            onClick={() => setCancelDialogOpen(true)}
-            fullWidth={isMobile}
-            sx={{ mt: 1 }}
-          >
-            בטל הזמנה
-          </Button>
-        )}
-        
-        {!canCancel && booking.status !== 'cancelled' && (
-          <Alert severity="error">
-            <AlertTitle>לא ניתן לבטל</AlertTitle>
-            לא ניתן לבטל הזמנה לאחר מועד ההגעה.
+    <Layout>
+      <Container maxWidth="md" sx={{ py: { xs: 4, md: 8 } }}>
+        {cancellationSuccess && (
+          <Alert severity="success" sx={{ mb: 3 }}>
+            ההזמנה בוטלה בהצלחה. אישור ביטול נשלח לכתובת האימייל שלך.
           </Alert>
         )}
-      </Paper>
+        
+        <Paper elevation={2} sx={{ p: { xs: 2, md: 4 }, borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 1 }}>
+            <Typography variant={isMobile ? "h6" : "h5"} component="h1" fontWeight="bold">
+              פרטי הזמנה
+            </Typography>
+            {getStatusChip(booking.status)}
+          </Box>
+          
+          <Divider sx={{ mb: 3 }} />
+          
+          <Grid container spacing={3}>
+            {/* פרטי חדר */}
+            <Grid item xs={12} md={6}>
+              <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <HotelIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+                  פרטי חדר
+                </Typography>
+                <Typography variant="body1">
+                  <strong>מספר חדר:</strong> {room.roomNumber}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>סוג:</strong> {room.type}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>מחיר ללילה:</strong> ₪{room.price}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>מספר לילות:</strong> {booking.nights}
+                </Typography>
+                <Typography variant="body1" sx={{ mt: 1, fontWeight: 'bold', color: theme.palette.primary.main }}>
+                  <strong>סה"כ לתשלום:</strong> ₪{booking.totalPrice}
+                </Typography>
+              </Paper>
+            </Grid>
+            
+            {/* פרטי תאריכים */}
+            <Grid item xs={12} md={6}>
+              <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <EventIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+                  תאריכי שהייה
+                </Typography>
+                <Typography variant="body1">
+                  <strong>צ'ק-אין:</strong> {formatDate(booking.checkIn)}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>צ'ק-אאוט:</strong> {formatDate(booking.checkOut)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  <strong>צ'ק-אין:</strong> בין השעות 15:00-22:00
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>צ'ק-אאוט:</strong> עד השעה 11:00
+                </Typography>
+              </Paper>
+            </Grid>
+            
+            {/* פרטי אורח */}
+            <Grid item xs={12} md={6}>
+              <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <PersonIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+                  פרטי אורח
+                </Typography>
+                <Typography variant="body1">
+                  <strong>שם:</strong> {booking.guest.name}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>טלפון:</strong> {booking.guest.phone}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>אימייל:</strong> {booking.guest.email}
+                </Typography>
+              </Paper>
+            </Grid>
+            
+            {/* פרטי תשלום */}
+            <Grid item xs={12} md={6}>
+              <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <PaymentIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+                  פרטי תשלום
+                </Typography>
+                <Typography variant="body1">
+                  <strong>אמצעי תשלום:</strong> {booking.paymentMethod === 'credit' ? 'כרטיס אשראי' : booking.paymentMethod}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>סטטוס תשלום:</strong> {
+                    booking.paymentStatus === 'paid' ? 'שולם' : 
+                    booking.paymentStatus === 'partial' ? 'תשלום חלקי' : 'טרם שולם'
+                  }
+                </Typography>
+                {isCanceled && booking.cancellationDetails && (
+                  <Box sx={{ mt: 2, pt: 2, borderTop: `1px dashed ${theme.palette.divider}` }}>
+                    <Typography variant="body2" color="error">
+                      <strong>ההזמנה בוטלה:</strong> {formatDate(booking.cancellationDetails.canceledAt || new Date())}
+                    </Typography>
+                    {booking.cancellationDetails.refundAmount > 0 && (
+                      <Typography variant="body2">
+                        <strong>סכום לזיכוי:</strong> ₪{booking.cancellationDetails.refundAmount}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+              </Paper>
+            </Grid>
+          </Grid>
+          
+          {/* מדיניות ביטול */}
+          <Paper variant="outlined" sx={{ p: 2, mt: 3 }}>
+            <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <InfoIcon sx={{ mr: 1, color: theme.palette.info.main }} />
+              מדיניות ביטול
+            </Typography>
+            <Typography variant="body2" paragraph>
+              • ביטול עד 3 ימים לפני מועד ההגעה - ללא עלות
+            </Typography>
+            <Typography variant="body2" paragraph>
+              • ביטול מ-3 ימים לפני מועד ההגעה ועד למועד ההגעה - חיוב מלא (100%)
+            </Typography>
+            
+            {cancellationDetails && !isCanceled && !isPastBooking && (
+              <Box sx={{ 
+                mt: 2, 
+                p: 2, 
+                backgroundColor: cancellationDetails.canCancelForFree ? 'rgba(76, 175, 80, 0.08)' : 'rgba(239, 83, 80, 0.08)',
+                borderRadius: 1
+              }}>
+                <Typography variant="subtitle2" fontWeight="bold">
+                  פרטי ביטול להזמנה זו:
+                </Typography>
+                <Typography variant="body2">
+                  • נותרו {cancellationDetails.daysUntilArrival} ימים עד למועד ההגעה
+                </Typography>
+                {cancellationDetails.canCancelForFree ? (
+                  <Typography variant="body2" color="success.main" fontWeight="bold">
+                    • ניתן לבטל ללא עלות עד לתאריך {formatDate(cancellationDetails.freeCancellationDate)}
+                  </Typography>
+                ) : (
+                  <Typography variant="body2" color="error.main" fontWeight="bold">
+                    • ביטול כעת יגרור חיוב של ₪{cancellationDetails.cancellationFee} (100% מהסכום)
+                  </Typography>
+                )}
+              </Box>
+            )}
+          </Paper>
+          
+          {/* כפתורי פעולה */}
+          <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-between' }}>
+            <Button 
+              variant="outlined" 
+              onClick={() => navigate('/')}
+            >
+              חזרה לדף הבית
+            </Button>
+            
+            {!isCanceled && !isPastBooking && (
+              <Button 
+                variant="contained" 
+                color="error"
+                startIcon={<CancelIcon />}
+                onClick={() => setOpenCancelDialog(true)}
+              >
+                ביטול הזמנה
+              </Button>
+            )}
+          </Box>
+        </Paper>
+      </Container>
       
       {/* דיאלוג אישור ביטול */}
-      <Dialog
-        open={cancelDialogOpen}
-        onClose={() => setCancelDialogOpen(false)}
-      >
+      <Dialog open={openCancelDialog} onClose={() => !cancellationLoading && setOpenCancelDialog(false)}>
         <DialogTitle>
-          {cancellationFee > 0 ? "ביטול הזמנה עם דמי ביטול" : "אישור ביטול הזמנה"}
+          אישור ביטול הזמנה
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {cancellationFee > 0 ? (
-              <>
-                <strong>שים לב:</strong> ביטול ההזמנה בשלב זה יחייב תשלום דמי ביטול בסך {cancellationFee} ₪.
-                <br />
-                האם אתה בטוח שברצונך לבטל את ההזמנה?
-              </>
-            ) : (
-              <>
-                אתה עומד לבטל את ההזמנה. אין דמי ביטול בשלב זה.
-                <br />
-                האם אתה בטוח שברצונך להמשיך?
-              </>
-            )}
+            האם אתה בטוח שברצונך לבטל את ההזמנה?
           </DialogContentText>
+          
+          {cancellationDetails && (
+            <>
+              <Box sx={{ 
+                mt: 2, 
+                p: 2, 
+                backgroundColor: cancellationDetails.canCancelForFree ? 'rgba(76, 175, 80, 0.08)' : 'rgba(239, 83, 80, 0.08)',
+                borderRadius: 1
+              }}>
+                {cancellationDetails.canCancelForFree ? (
+                  <Typography variant="body2" fontWeight="bold">
+                    ביטול ההזמנה לא יגרור חיוב כספי
+                  </Typography>
+                ) : (
+                  <>
+                    <Typography variant="body2" fontWeight="bold" color="error">
+                      שים לב: הביטול יגרור חיוב של ₪{cancellationDetails.cancellationFee}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      זאת בהתאם למדיניות הביטול שלנו, מאחר ונותרו פחות מ-3 ימים עד למועד ההגעה.
+                    </Typography>
+                  </>
+                )}
+              </Box>
+              
+              {cancellationError && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {cancellationError}
+                </Alert>
+              )}
+            </>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCancelDialogOpen(false)}>
+          <Button onClick={() => setOpenCancelDialog(false)} disabled={cancellationLoading}>
             חזרה
           </Button>
           <Button 
-            onClick={handleCancelBooking} 
+            variant="contained" 
             color="error" 
-            variant="contained"
-            startIcon={<Cancel />}
+            onClick={cancelBooking} 
+            disabled={cancellationLoading}
+            startIcon={cancellationLoading ? <CircularProgress size={20} /> : null}
           >
-            בטל הזמנה
+            {cancellationLoading ? 'מבטל...' : 'אישור ביטול'}
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Layout>
   );
 };
 
-export default ManageBookingPage; 
+export default ManageBookingPage;
