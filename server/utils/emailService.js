@@ -19,92 +19,99 @@ const sendBookingConfirmation = async (booking, room) => {
     const checkIn = new Date(booking.checkIn).toLocaleDateString('he-IL');
     const checkOut = new Date(booking.checkOut).toLocaleDateString('he-IL');
     
+    // חישוב תאריך אחרון לביטול ללא עלות (3 ימים לפני צ'ק-אין)
+    const lastCancellationDate = new Date(booking.checkIn);
+    lastCancellationDate.setDate(lastCancellationDate.getDate() - 3);
+    const lastCancellationDateFormatted = lastCancellationDate.toLocaleDateString('he-IL');
+    
+    // בדיקה אם האורח הוא תייר
+    const isTourist = booking.guest.isTourist || false;
+    const priceNote = isTourist ? 
+      "יש להציג דרכון בקבלה לפטור ממע\"מ" : 
+      "המחיר כולל מע\"מ";
+    
     // תוכן המייל
     const mailOptions = {
-      from: '"מלונית רוטשילד 79" <diamshotels@gmail.com>',
+      from: '"רוטשילד 79" <diamshotels@gmail.com>',
       to: booking.guest.email,
-      subject: `אישור הזמנה #${booking.bookingNumber} - מלונית רוטשילד 79`,
+      subject: `אישור הזמנה #${booking.bookingNumber} - רוטשילד 79`,
       html: `
-        <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto;">
-          <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1976d2; padding-bottom: 15px;">
-            <h2 style="color: #1976d2; margin-bottom: 5px;">אישור הזמנה - מלונית רוטשילד 79</h2>
-            <p style="font-size: 16px; color: #666;">רח' רוטשילד 79, פתח תקווה</p>
+        <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; font-size: 16px;">
+          <div style="text-align: center; margin-bottom: 25px; border-bottom: 2px solid #1976d2; padding-bottom: 20px;">
+            <h2 style="color: #1976d2; margin-bottom: 8px; font-size: 28px;">אישור הזמנה - רוטשילד 79</h2>
+            <p style="font-size: 18px; color: #666;">רח' רוטשילד 79, פתח תקווה</p>
           </div>
 
-          <p style="font-size: 16px;">שלום <strong>${booking.guest.name}</strong>,</p>
-          <p style="font-size: 16px;">אנו שמחים לאשר את הזמנתך במלונית רוטשילד 79. להלן פרטי ההזמנה:</p>
+          <p style="font-size: 18px; margin-bottom: 15px;">שלום <strong>${booking.guest.name}</strong>,</p>
+          <p style="font-size: 18px; margin-bottom: 20px;">אנו שמחים לאשר את הזמנתך ברוטשילד 79. להלן פרטי ההזמנה:</p>
           
-          <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #1976d2;">
-            <table style="width: 100%; border-collapse: collapse;">
+          <div style="background-color: #f5f5f5; padding: 25px; border-radius: 8px; margin: 25px 0; border-right: 4px solid #1976d2;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 17px;">
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; width: 40%;">מספר הזמנה:</td>
-                <td style="padding: 8px 0;">${booking.bookingNumber}</td>
+                <td style="padding: 10px 0; font-weight: bold; width: 40%;">מספר הזמנה:</td>
+                <td style="padding: 10px 0;">${booking.bookingNumber}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold;">פרטי חדר:</td>
-                <td style="padding: 8px 0;">${room.roomNumber} - ${room.type}</td>
+                <td style="padding: 10px 0; font-weight: bold;">מספר חדרים:</td>
+                <td style="padding: 10px 0;">1</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold;">תאריך הגעה:</td>
-                <td style="padding: 8px 0;">${checkIn}</td>
+                <td style="padding: 10px 0; font-weight: bold;">מספר אורחים:</td>
+                <td style="padding: 10px 0;">${booking.guests || 1}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold;">תאריך יציאה:</td>
-                <td style="padding: 8px 0;">${checkOut}</td>
+                <td style="padding: 10px 0; font-weight: bold;">תאריך הגעה:</td>
+                <td style="padding: 10px 0;">${checkIn}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold;">מספר לילות:</td>
-                <td style="padding: 8px 0;">${booking.nights}</td>
+                <td style="padding: 10px 0; font-weight: bold;">תאריך יציאה:</td>
+                <td style="padding: 10px 0;">${checkOut}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold;">מחיר כולל:</td>
-                <td style="padding: 8px 0;">₪${booking.totalPrice.toFixed(2)}</td>
+                <td style="padding: 10px 0; font-weight: bold;">מספר לילות:</td>
+                <td style="padding: 10px 0;">${booking.nights}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold;">סטטוס תשלום:</td>
-                <td style="padding: 8px 0;">${
-                  booking.paymentStatus === 'paid' ? 'שולם' : 
-                  booking.paymentStatus === 'partial' ? 'תשלום חלקי' : 'טרם שולם'
-                }</td>
+                <td style="padding: 10px 0; font-weight: bold;">מחיר כולל:</td>
+                <td style="padding: 10px 0;">₪${booking.totalPrice.toFixed(2)}<br><span style="font-size: 15px; color: #555;">${priceNote}</span></td>
               </tr>
             </table>
           </div>
           
-          <div style="background-color: #fff9c4; padding: 15px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #ffc107;">
-            <h3 style="margin-top: 0; color: #f57c00; font-size: 18px;">מדיניות ביטול</h3>
-            <p style="margin: 10px 0;">• ביטול עד 3 ימים לפני ההגעה - ללא עלות</p>
-            <p style="margin: 10px 0;">• ביטול פחות מ-3 ימים לפני ההגעה - חיוב במחיר מלא</p>
+          <div style="background-color: #f0f7ff; padding: 25px; border-radius: 8px; margin: 25px 0; border-right: 4px solid #1976d2;">
+            <h3 style="margin-top: 0; color: #1976d2; font-size: 20px;">מידע שימושי</h3>
+            <p style="margin: 12px 0; font-size: 17px;"><strong>צ'ק אין:</strong> החל מהשעה 15:00 (צ'ק אין עצמאי)</p>
+            <p style="margin: 12px 0; font-size: 17px;"><strong>צ'ק אאוט:</strong> עד השעה 10:00</p>
+            <p style="margin: 12px 0; font-size: 17px;"><strong>כתובת:</strong> רוטשילד 79, פתח תקווה</p>
+            <p style="margin: 12px 0; font-size: 17px;">ביום ההגעה יישלחו אליך בוואטסאפ כל הפרטים לכניסה למקום</p>
+            
+            <div style="margin-top: 20px; border-top: 1px solid #ccc; padding-top: 20px;">
+              <p style="margin: 12px 0; font-size: 17px;"><strong>לשינוי או ביטול ההזמנה:</strong> ניתן לפנות אלינו בוואטסאפ</p>
+              <p style="margin: 15px 0; text-align: center;">
+                <a href="https://wa.me/972506070260?text=שלום,%20ברצוני%20לבטל/לשנות%20את%20הזמנה%20מספר:%20${booking.bookingNumber}" 
+                   style="display: inline-block; background-color: #25d366; color: white; text-decoration: none; padding: 12px 25px; border-radius: 25px; font-weight: bold; font-size: 17px;">
+                  פנייה לשינוי/ביטול דרך וואטסאפ
+                </a>
+              </p>
+            </div>
           </div>
           
-          <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #4caf50;">
-            <h3 style="margin-top: 0; color: #2e7d32; font-size: 18px;">רוצים לבטל או לשנות את ההזמנה?</h3>
-            <p style="margin: 10px 0;">לביטול או שינוי ההזמנה, ניתן לשלוח הודעת וואטסאפ למספר 050-607-0260 עם מספר ההזמנה.</p>
-            <p style="margin: 15px 0; text-align: center;">
-              <a href="https://wa.me/972506070260?text=שלום,%20ברצוני%20לבטל/לשנות%20את%20הזמנה%20מספר:%20${booking.bookingNumber}" 
-                 style="display: inline-block; background-color: #25d366; color: white; text-decoration: none; padding: 10px 20px; border-radius: 25px; font-weight: bold;">
-                פנייה לביטול דרך וואטסאפ
-              </a>
-            </p>
-            <p style="margin: 15px 0; text-align: center;">
-              <a href="${process.env.WEBSITE_URL || 'http://localhost:3000'}/cancel?id=${booking.bookingNumber}" 
-                 style="display: inline-block; background-color: #f44336; color: white; text-decoration: none; padding: 10px 20px; border-radius: 25px; font-weight: bold; margin-right: 10px;">
-                למעבר לדף הביטול
-              </a>
-            </p>
-          </div>
-          
-          <div style="margin: 25px 0; padding: 15px; border-top: 1px solid #ddd;">
-            <h3 style="color: #1976d2; font-size: 18px;">מידע שימושי</h3>
-            <p><strong>כתובת המלונית:</strong> רוטשילד 79, פתח תקווה</p>
-            <p><strong>צ'ק אין:</strong> החל מהשעה 15:00</p>
-            <p><strong>צ'ק אאוט:</strong> עד השעה 11:00</p>
-            <p><strong>טלפון:</strong> 050-607-0260</p>
-            <p><strong>אימייל:</strong> diamshotels@gmail.com</p>
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin: 25px 0; border-right: 4px solid #607d8b;">
+            <h3 style="margin-top: 0; color: #607d8b; font-size: 20px;">מדיניות המקום</h3>
+            <ul style="padding-right: 20px; font-size: 17px; line-height: 1.7;">
+              <li>אסור לקיים מסיבות או אירועים רועשים</li>
+              <li>אין להכניס אורחים נוספים מעבר לתפוסה המאושרת</li>
+              <li>ניתן לבטל ללא עלות עד לתאריך <strong>${lastCancellationDateFormatted}</strong></li>
+              <li>לאחר תאריך זה, שינויים או ביטולים יחויבו במלוא הסכום</li>
+              <li>ניתן לשלם במזומן, אשראי או באמצעות ביט</li>
+              <li>כרטיס האשראי נשמר כפיקדון למקרה של נזקים</li>
+            </ul>
           </div>
           
           <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #777;">
-            <p>מצפים לראותך!</p>
-            <p style="margin-top: 5px;"><strong>צוות מלונית רוטשילד 79</strong></p>
+            <p style="font-size: 17px;">מצפים לראותך!</p>
+            <p style="margin-top: 5px; font-size: 17px;"><strong>צוות רוטשילד 79</strong></p>
+            <p style="margin-top: 15px; font-size: 16px;">טלפון: 050-607-0260 | אימייל: diamshotels@gmail.com</p>
           </div>
         </div>
       `
@@ -134,35 +141,69 @@ const sendCancellationAlert = async (booking, cancellationDetails) => {
     
     // תוכן המייל
     const mailOptions = {
-      from: '"מערכת מלונית רוטשילד 79" <diamshotels@gmail.com>',
+      from: '"מערכת רוטשילד 79" <diamshotels@gmail.com>',
       to: process.env.ADMIN_EMAIL || 'diamshotels@gmail.com',
       subject: `התקבלה בקשת ביטול - הזמנה מס' ${booking.bookingNumber}`,
       html: `
-        <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2>התקבלה בקשת ביטול הזמנה</h2>
-          <p>שלום,</p>
-          <p>התקבלה בקשת ביטול להזמנה הבאה:</p>
-          
-          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
-            <p><strong>מספר הזמנה:</strong> ${booking.bookingNumber}</p>
-            <p><strong>שם אורח:</strong> ${booking.guest.name}</p>
-            <p><strong>טלפון:</strong> ${booking.guest.phone}</p>
-            <p><strong>אימייל:</strong> ${booking.guest.email}</p>
-            <p><strong>תאריך הגעה:</strong> ${checkIn}</p>
-            <p><strong>תאריך יציאה:</strong> ${checkOut}</p>
-            <p><strong>מספר לילות:</strong> ${booking.nights}</p>
-            <p><strong>מחיר כולל:</strong> ₪${booking.totalPrice}</p>
+        <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; font-size: 16px;">
+          <div style="text-align: center; margin-bottom: 25px; border-bottom: 2px solid #1976d2; padding-bottom: 20px;">
+            <h2 style="color: #1976d2; margin-bottom: 8px; font-size: 28px;">התקבלה בקשת ביטול הזמנה</h2>
+            <p style="font-size: 18px; color: #666;">רוטשילד 79, פתח תקווה</p>
           </div>
           
-          <div style="background-color: ${isFree ? '#e8f5e9' : '#ffebee'}; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid ${isFree ? '#4caf50' : '#f44336'};">
-            <h3 style="margin-top: 0; color: ${isFree ? '#2e7d32' : '#c62828'};">פרטי ביטול</h3>
-            <p><strong>תאריך בקשת ביטול:</strong> ${today}</p>
-            <p><strong>ימים עד לצ'ק-אין:</strong> ${cancellationDetails.daysUntilCheckIn}</p>
-            <p><strong>סטטוס ביטול:</strong> ${isFree ? 'ביטול ללא עלות' : 'ביטול בחיוב מלא'}</p>
-            ${!isFree ? `<p><strong>עלות ביטול:</strong> ₪${cancellationDetails.fee}</p>` : ''}
+          <p style="font-size: 18px; margin-bottom: 20px;">שלום,</p>
+          <p style="font-size: 18px; margin-bottom: 20px;">התקבלה בקשת ביטול להזמנה הבאה:</p>
+          
+          <div style="background-color: #f5f5f5; padding: 25px; border-radius: 8px; margin: 25px 0; border-right: 4px solid #1976d2;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 17px;">
+              <tr>
+                <td style="padding: 10px 0; font-weight: bold; width: 40%;">מספר הזמנה:</td>
+                <td style="padding: 10px 0;">${booking.bookingNumber}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0; font-weight: bold;">שם אורח:</td>
+                <td style="padding: 10px 0;">${booking.guest.name}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0; font-weight: bold;">טלפון:</td>
+                <td style="padding: 10px 0;">${booking.guest.phone}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0; font-weight: bold;">אימייל:</td>
+                <td style="padding: 10px 0;">${booking.guest.email}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0; font-weight: bold;">תאריך הגעה:</td>
+                <td style="padding: 10px 0;">${checkIn}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0; font-weight: bold;">תאריך יציאה:</td>
+                <td style="padding: 10px 0;">${checkOut}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0; font-weight: bold;">מספר לילות:</td>
+                <td style="padding: 10px 0;">${booking.nights}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0; font-weight: bold;">מחיר כולל:</td>
+                <td style="padding: 10px 0;">₪${booking.totalPrice.toFixed(2)}</td>
+              </tr>
+            </table>
           </div>
           
-          <p>יש לבצע את הביטול במערכת באופן ידני.</p>
+          <div style="background-color: ${isFree ? '#e8f5e9' : '#ffebee'}; padding: 25px; border-radius: 8px; margin: 25px 0; border-right: 4px solid ${isFree ? '#4caf50' : '#f44336'};">
+            <h3 style="margin-top: 0; color: ${isFree ? '#2e7d32' : '#c62828'}; font-size: 20px;">פרטי ביטול</h3>
+            <p style="margin: 12px 0; font-size: 17px;"><strong>תאריך בקשת ביטול:</strong> ${today}</p>
+            <p style="margin: 12px 0; font-size: 17px;"><strong>ימים עד לצ'ק-אין:</strong> ${cancellationDetails.daysUntilCheckIn}</p>
+            <p style="margin: 12px 0; font-size: 17px;"><strong>סטטוס ביטול:</strong> ${isFree ? 'ביטול ללא עלות' : 'ביטול בחיוב מלא'}</p>
+            ${!isFree ? `<p style="margin: 12px 0; font-size: 17px;"><strong>עלות ביטול:</strong> ₪${cancellationDetails.fee.toFixed(2)}</p>` : ''}
+          </div>
+          
+          <p style="font-size: 18px; margin-top: 25px;">יש לבצע את הביטול במערכת באופן ידני.</p>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #777;">
+            <p style="margin-top: 5px; font-size: 17px;"><strong>צוות רוטשילד 79</strong></p>
+          </div>
         </div>
       `
     };
