@@ -58,6 +58,12 @@ const MaterialGalleryCarousel = ({ gallery, isMobile, theme }) => {
     return null;
   }
 
+  const imagesPerSlide = isMobile ? 1 : 3;
+  
+  const totalGroups = Math.ceil(gallery.images.length / imagesPerSlide);
+  
+  const imageGroups = chunk(gallery.images, imagesPerSlide);
+
   return (
     <Carousel
       animation="slide"
@@ -84,20 +90,30 @@ const MaterialGalleryCarousel = ({ gallery, isMobile, theme }) => {
         }
       }}
     >
-      {chunk(gallery.images, isMobile ? 1 : 3).map((imageGroup, groupIndex) => (
-        <div key={groupIndex} style={{ display: 'flex', gap: '16px', padding: '0 16px' }}>
+      {imageGroups.map((imageGroup, groupIndex) => (
+        <div 
+          key={groupIndex} 
+          style={{ 
+            display: 'flex', 
+            gap: '16px', 
+            padding: '0 16px',
+            justifyContent: imageGroup.length < imagesPerSlide ? 'flex-start' : 'space-between' 
+          }}
+        >
           {imageGroup.map((image, index) => (
             <div 
-              key={image._id || index}
+              key={`${groupIndex}-${image._id || index}`}
               style={{ 
                 flex: '1 1 0',
                 minWidth: 0,
+                maxWidth: `${100/imagesPerSlide}%`,
                 height: isMobile ? '240px' : '280px',
                 borderRadius: '16px',
                 overflow: 'hidden',
                 position: 'relative',
                 boxShadow: '0 6px 16px rgba(0,0,0,0.1)',
                 transition: 'all 0.3s ease',
+                margin: '0 4px'
               }}
             >
               <img
@@ -137,12 +153,23 @@ const MaterialGalleryCarousel = ({ gallery, isMobile, theme }) => {
 };
 
 const chunk = (array, size) => {
-  if (!array) return [];
+  if (!array || !array.length) return [];
+  if (array.length <= size) return [array];
   
   const chunks = [];
   for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
+    const group = [];
+    
+    for (let j = 0; j < size; j++) {
+      const index = (i + j) % array.length;
+      group.push(array[index]);
+    }
+    
+    if (i < array.length) {
+      chunks.push(group);
+    }
   }
+  
   return chunks;
 };
 
