@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const Room = require('../models/Room');
+const Gallery = require('../models/Gallery');
 const { protect, admin } = require('../middleware/auth');
 const fs = require('fs');
 const path = require('path');
@@ -98,6 +99,71 @@ router.post('/room/:roomId', [protect, admin, upload.single('image')], async (re
       success: false, 
       message: 'שגיאת שרת' 
     });
+  }
+});
+
+// @route   POST /api/uploads/gallery
+// @desc    העלאת תמונה לגלריה הכללית
+// @access  Private/Admin
+router.post('/gallery', [protect, admin, upload.single('image')], async (req, res) => {
+  try {
+    // בדיקת קובץ
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'נא להעלות קובץ תמונה' 
+      });
+    }
+    
+    // קבלת או יצירת הגלריה
+    let gallery = await Gallery.findOne();
+    if (!gallery) {
+      gallery = new Gallery();
+      await gallery.save();
+    }
+    
+    // העלאה ל-Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'rothschild79/gallery',
+      use_filename: true
+    });
+    
+    // מציאת הסדר הגבוה ביותר הקיים בתמונות
+    const maxOrder = gallery.images.length > 0 
+      ? Math.max(...gallery.images.map(img => img.order)) 
+      : -1;
+    
+    // הוספת התמונה לגלריה
+    const newImage = {
+      url: result.secure_url,
+      publicId: result.public_id,
+      title: req.body.title || '',
+      order: maxOrder + 1,
+      isActive: true
+    };
+    
+    gallery.images.push(newImage);
+    
+    // שמירת השינויים
+    await gallery.save();
+    
+    res.json({
+      success: true,
+      data: gallery.images[gallery.images.length - 1]
+    });
+  } catch (error) {
+    console.error('שגיאה בהעלאת תמונה לגלריה:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת' 
+    });
+  } finally {
+    // מחיקת הקובץ הזמני
+    if (req.file) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error('שגיאה במחיקת קובץ זמני:', err);
+      });
+    }
   }
 });
 

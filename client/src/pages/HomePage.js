@@ -32,7 +32,8 @@ import {
   Link as MuiLink,
   Tooltip,
   ImageListItemBar,
-  alpha
+  alpha,
+  Stack
 } from '@mui/material';
 import { 
   Hotel as HotelIcon,
@@ -50,12 +51,17 @@ import {
   Call as CallIcon
 } from '@mui/icons-material';
 import ChatBox from '../components/ChatBox';
+import Slider from 'react-slick';
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
 
 const HomePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
   
   // הגדרת תאריכי ברירת מחדל
   const today = new Date();
@@ -606,7 +612,7 @@ const HomePage = () => {
       </Box>
 
       {/* גלריית תמונות */}
-      <Box sx={{ mt: { xs: 6, sm: 8 } }}>
+      <Box sx={{ mt: { xs: 6, sm: 8 }, mb: 8 }}>
         <Typography 
           variant="h4" 
           component="h2" 
@@ -639,80 +645,134 @@ const HomePage = () => {
             <CircularProgress size={40} thickness={4} sx={{ color: theme.palette.primary.main }} />
           </Box>
         ) : gallery && gallery.images && gallery.images.length > 0 ? (
-          <Box>
-            <ImageList
-              sx={{ 
-                width: '100%', 
-                // משתנה בהתאם לגודל המסך
-                gridTemplateColumns: {
-                  xs: 'repeat(1, 1fr)!important', 
-                  sm: 'repeat(2, 1fr)!important', 
-                  md: 'repeat(3, 1fr)!important'
+          <Box sx={{ 
+            px: { xs: 1, sm: 2, md: 4 },
+            '& .slick-slide': { 
+              px: 1.5, 
+              outline: 'none',
+            },
+            '& .slick-next:before, & .slick-prev:before': {
+              color: theme.palette.primary.main,
+              fontSize: { xs: '24px', md: '32px' },
+              opacity: 0.8,
+            },
+            '& .slick-next, & .slick-prev': {
+              width: 'auto',
+              height: 'auto',
+              zIndex: 2,
+              '&:hover:before': {
+                opacity: 1,
+              }
+            },
+            '& .slick-prev': {
+              left: { xs: -25, md: -35 }
+            },
+            '& .slick-next': {
+              right: { xs: -25, md: -35 }
+            },
+            '& .slick-list': {
+              px: 2, // מרווח בצדדים
+              overflow: 'visible',
+            },
+            '& .slick-track': {
+              display: 'flex',
+              gap: 2,
+              my: 2
+            }
+          }}>
+            <Slider
+              dots={true}
+              infinite={true}
+              speed={500}
+              slidesToShow={isMobile ? 1 : (isTablet ? 2 : (isDesktop ? 3 : 4))}
+              slidesToScroll={1}
+              autoplay={true}
+              autoplaySpeed={5000}
+              pauseOnHover={true}
+              arrows={true}
+              responsive={[
+                {
+                  breakpoint: 1024,
+                  settings: {
+                    slidesToShow: 3,
+                    slidesToScroll: 1,
+                  }
                 },
-                gap: '24px!important',
-                pt: 1,
-                overflow: 'visible'
-              }}
-              variant="standard"
-              cols={3}
-              rowHeight={isMobile ? 200 : 240}
+                {
+                  breakpoint: 900,
+                  settings: {
+                    slidesToShow: 2,
+                    slidesToScroll: 1,
+                  }
+                },
+                {
+                  breakpoint: 600,
+                  settings: {
+                    slidesToShow: 1,
+                    slidesToScroll: 1,
+                    dots: true
+                  }
+                }
+              ]}
             >
               {gallery.images.map((image, index) => (
-                <ImageListItem 
-                  key={image._id || index}
-                  sx={{ 
-                    cursor: 'pointer',
-                    overflow: 'hidden',
-                    borderRadius: 4,
-                    boxShadow: '0 10px 20px rgba(0,0,0,0.08)',
-                    transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                    '&:hover': {
-                      transform: 'translateY(-8px)',
-                      boxShadow: '0 15px 30px rgba(0,0,0,0.12)'
-                    },
-                    '&:hover img': {
-                      transform: 'scale(1.08)',
-                      filter: 'brightness(1.05)'
-                    },
-                    '&:active': {
-                      transform: 'translateY(-3px)'
-                    }
-                  }}
-                >
-                  <img
-                    src={image.url}
-                    alt={image.title || `תמונה ${index + 1}`}
-                    loading="lazy"
-                    style={{ 
-                      width: '100%', 
-                      height: '100%', 
-                      objectFit: 'cover',
-                      transition: 'all 0.7s ease'
+                <Box key={image._id || index} sx={{ px: 1 }}>
+                  <Paper 
+                    elevation={3}
+                    sx={{ 
+                      height: isMobile ? 240 : 280,
+                      borderRadius: 4,
+                      overflow: 'hidden',
+                      position: 'relative',
+                      transition: 'all 0.3s ease',
+                      boxShadow: '0 6px 16px rgba(0,0,0,0.1)',
+                      '&:hover': {
+                        transform: 'translateY(-10px)',
+                        boxShadow: '0 12px 24px rgba(0,0,0,0.15)',
+                      },
+                      '&:hover img': {
+                        transform: 'scale(1.08)',
+                      }
                     }}
-                  />
-                  {image.title && (
-                    <ImageListItemBar
-                      title={image.title}
-                      sx={{
-                        '& .MuiImageListItemBar-title': { 
-                          fontWeight: 'bold',
-                          fontSize: '1.1rem',
-                          mb: 0.5
-                        },
-                        background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0) 100%)',
-                        padding: '16px 12px',
-                        transition: 'all 0.3s ease'
+                  >
+                    <Box
+                      component="img"
+                      src={image.url}
+                      alt={image.title || `תמונה ${index + 1}`}
+                      sx={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        objectFit: 'cover',
+                        transition: 'transform 0.6s ease',
                       }}
                     />
-                  )}
-                </ImageListItem>
+                    {image.title && (
+                      <Box 
+                        sx={{
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          padding: 2,
+                          background: 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.0))',
+                          color: 'white',
+                          textAlign: 'center'
+                        }}
+                      >
+                        <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
+                          {image.title}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Paper>
+                </Box>
               ))}
-            </ImageList>
+            </Slider>
           </Box>
         ) : (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Box sx={{ py: 4, textAlign: 'center' }}>
             <Typography variant="body1" color="text.secondary">
-              אין תמונות בגלריה
+              אין תמונות בגלריה כרגע
             </Typography>
           </Box>
         )}
