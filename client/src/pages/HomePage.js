@@ -52,16 +52,6 @@ import {
 } from '@mui/icons-material';
 import ChatBox from '../components/ChatBox';
 import Slider from 'react-slick';
-import "slick-carousel/slick/slick.css";
-import "slick-carousel/slick/slick-theme.css";
-
-const SliderItem = ({ children }) => {
-  return (
-    <div style={{ padding: '0 8px' }}>
-      {children}
-    </div>
-  );
-};
 
 const GallerySlider = ({ gallery, isMobile, theme }) => {
   const settings = {
@@ -100,50 +90,48 @@ const GallerySlider = ({ gallery, isMobile, theme }) => {
     ]
   };
 
-  return (
-    <Slider {...settings}>
-      {gallery.images.map((image, index) => (
-        <div key={image._id || index}>
-          <div style={{ 
-            height: isMobile ? '240px' : '280px',
-            borderRadius: '16px',
-            overflow: 'hidden',
-            position: 'relative',
-            boxShadow: '0 6px 16px rgba(0,0,0,0.1)',
-            margin: '10px',
-            transition: 'all 0.3s ease'
+  const slides = gallery.images.map((image, index) => (
+    <div key={image._id || index}>
+      <div style={{ 
+        height: isMobile ? '240px' : '280px',
+        borderRadius: '16px',
+        overflow: 'hidden',
+        position: 'relative',
+        boxShadow: '0 6px 16px rgba(0,0,0,0.1)',
+        margin: '10px',
+        transition: 'all 0.3s ease'
+      }}>
+        <img
+          src={image.url}
+          alt={image.title || `תמונה ${index + 1}`}
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            objectFit: 'cover',
+            transition: 'transform 0.6s ease'
+          }}
+        />
+        {image.title && (
+          <div style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: '16px',
+            background: 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.0))',
+            color: 'white',
+            textAlign: 'center'
           }}>
-            <img
-              src={image.url}
-              alt={image.title || `תמונה ${index + 1}`}
-              style={{ 
-                width: '100%', 
-                height: '100%', 
-                objectFit: 'cover',
-                transition: 'transform 0.6s ease'
-              }}
-            />
-            {image.title && (
-              <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                padding: '16px',
-                background: 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.0))',
-                color: 'white',
-                textAlign: 'center'
-              }}>
-                <div style={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
-                  {image.title}
-                </div>
-              </div>
-            )}
+            <div style={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
+              {image.title}
+            </div>
           </div>
-        </div>
-      ))}
-    </Slider>
-  );
+        )}
+      </div>
+    </div>
+  ));
+
+  return <Slider {...settings}>{slides}</Slider>;
 };
 
 const HomePage = () => {
