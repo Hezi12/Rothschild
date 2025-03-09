@@ -51,87 +51,99 @@ import {
   Call as CallIcon
 } from '@mui/icons-material';
 import ChatBox from '../components/ChatBox';
-import Slider from 'react-slick';
+import Carousel from 'react-material-ui-carousel';
 
-const GallerySlider = ({ gallery, isMobile, theme }) => {
-  const settings = {
-    dots: true,
-    infinite: true,
-    speed: 500,
-    slidesToShow: isMobile ? 1 : 3,
-    slidesToScroll: 1,
-    autoplay: true,
-    autoplaySpeed: 5000,
-    pauseOnHover: true,
-    arrows: true,
-    responsive: [
-      {
-        breakpoint: 1024,
-        settings: {
-          slidesToShow: 3,
-          slidesToScroll: 1,
-        }
-      },
-      {
-        breakpoint: 900,
-        settings: {
-          slidesToShow: 2,
-          slidesToScroll: 1,
-        }
-      },
-      {
-        breakpoint: 600,
-        settings: {
-          slidesToShow: 1,
-          slidesToScroll: 1,
-          dots: true
-        }
-      }
-    ]
-  };
+const MaterialGalleryCarousel = ({ gallery, isMobile, theme }) => {
+  if (!gallery || !gallery.images || gallery.images.length === 0) {
+    return null;
+  }
 
-  const slides = gallery.images.map((image, index) => (
-    <div key={image._id || index}>
-      <div style={{ 
-        height: isMobile ? '240px' : '280px',
-        borderRadius: '16px',
-        overflow: 'hidden',
-        position: 'relative',
-        boxShadow: '0 6px 16px rgba(0,0,0,0.1)',
-        margin: '10px',
-        transition: 'all 0.3s ease'
-      }}>
-        <img
-          src={image.url}
-          alt={image.title || `תמונה ${index + 1}`}
-          style={{ 
-            width: '100%', 
-            height: '100%', 
-            objectFit: 'cover',
-            transition: 'transform 0.6s ease'
-          }}
-        />
-        {image.title && (
-          <div style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            padding: '16px',
-            background: 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.0))',
-            color: 'white',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
-              {image.title}
+  return (
+    <Carousel
+      animation="slide"
+      navButtonsAlwaysVisible
+      autoPlay={true}
+      stopAutoPlayOnHover={true}
+      interval={5000}
+      timeout={300}
+      indicators={true}
+      swipe={true}
+      cycleNavigation={true}
+      fullHeightHover={false}
+      navButtonsProps={{
+        style: {
+          backgroundColor: theme.palette.primary.main,
+          borderRadius: '50%',
+          color: 'white',
+          padding: '5px',
+        }
+      }}
+      indicatorContainerProps={{
+        style: {
+          marginTop: '20px',
+        }
+      }}
+    >
+      {chunk(gallery.images, isMobile ? 1 : 3).map((imageGroup, groupIndex) => (
+        <div key={groupIndex} style={{ display: 'flex', gap: '16px', padding: '0 16px' }}>
+          {imageGroup.map((image, index) => (
+            <div 
+              key={image._id || index}
+              style={{ 
+                flex: '1 1 0',
+                minWidth: 0,
+                height: isMobile ? '240px' : '280px',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                position: 'relative',
+                boxShadow: '0 6px 16px rgba(0,0,0,0.1)',
+                transition: 'all 0.3s ease',
+              }}
+            >
+              <img
+                src={image.url}
+                alt={image.title || `תמונה ${index + 1}`}
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover',
+                  transition: 'transform 0.6s ease'
+                }}
+              />
+              {image.title && (
+                <div 
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    padding: '16px',
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.0))',
+                    color: 'white',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
+                    {image.title}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
-      </div>
-    </div>
-  ));
+          ))}
+        </div>
+      ))}
+    </Carousel>
+  );
+};
 
-  return <Slider {...settings}>{slides}</Slider>;
+const chunk = (array, size) => {
+  if (!array) return [];
+  
+  const chunks = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
 };
 
 const HomePage = () => {
@@ -142,7 +154,6 @@ const HomePage = () => {
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
   
-  // הגדרת תאריכי ברירת מחדל
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -161,10 +172,8 @@ const HomePage = () => {
   const [searchError, setSearchError] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   
-  // גלילה אל אזור החיפוש כאשר פותחים את דף ההזמנה
   const searchSectionRef = useRef(null);
 
-  // מחלקות וסטייל
   useEffect(() => {
     const fetchRooms = async () => {
       try {
@@ -181,7 +190,6 @@ const HomePage = () => {
     fetchRooms();
   }, []);
 
-  // מחלקות וסטייל - גלריה כללית
   const [gallery, setGallery] = useState(null);
   const [galleryLoading, setGalleryLoading] = useState(true);
 
@@ -202,22 +210,17 @@ const HomePage = () => {
   }, []);
 
   useEffect(() => {
-    // אם המשתמש הגיע מדף החדר עם בקשה לפתוח את ההזמנה
     if (location.state?.openBooking) {
-      // הסרת מידע המצב מההיסטוריה להימנע מבעיות ברענון הדף
       window.history.replaceState({}, document.title);
       
-      // התמקדות באזור החיפוש
       setSearchFocused(true);
       
-      // גלילה לאזור החיפוש
       setTimeout(() => {
         searchSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 500);
     }
   }, [location.state]);
 
-  // טיפול בשינוי תאריכים
   const handleDateChange = (field, value) => {
     setBookingData(prev => ({
       ...prev,
@@ -225,7 +228,6 @@ const HomePage = () => {
     }));
   };
 
-  // פתיחה וסגירה של תפריט אורחים וחדרים
   const handleGuestsMenuOpen = (event) => {
     setGuestsMenuAnchor(event.currentTarget);
   };
@@ -234,9 +236,7 @@ const HomePage = () => {
     setGuestsMenuAnchor(null);
   };
 
-  // עדכון מספר אורחים וחדרים
   const handleGuestsRoomsChange = (field, value) => {
-    // וידוא שהערך הוא בטווח חוקי
     const newValue = Math.max(1, Math.min(field === 'guests' ? 10 : 5, value));
     
     setBookingData(prev => ({
@@ -245,7 +245,6 @@ const HomePage = () => {
     }));
   };
 
-  // חישוב מספר הלילות
   const calculateNights = () => {
     if (bookingData.checkIn && bookingData.checkOut) {
       return differenceInDays(bookingData.checkOut, bookingData.checkIn);
@@ -253,7 +252,6 @@ const HomePage = () => {
     return 0;
   };
 
-  // בדיקת זמינות וניווט להזמנה
   const handleCheckAvailability = async () => {
     if (!bookingData.checkIn || !bookingData.checkOut) {
       setSearchError('אנא בחר תאריכי צ׳ק אין וצ׳ק אאוט');
@@ -269,7 +267,6 @@ const HomePage = () => {
     setSearchLoading(true);
 
     try {
-      // במקום לנווט ישירות לדף ההזמנה, אנחנו עוברים לדף תוצאות החיפוש
       navigate('/search-results', { 
         state: { 
           checkIn: bookingData.checkIn,
@@ -286,7 +283,6 @@ const HomePage = () => {
     }
   };
 
-  // ניווט בין תמונות הגלריה
   const handleNextImage = () => {
     if (rooms?.length > 0 && rooms[0]?.images?.length > 0) {
       const room = rooms[0];
@@ -314,7 +310,6 @@ const HomePage = () => {
       minHeight: '100vh',
       position: 'relative'
     }}>
-      {/* חיפוש */}
       <Paper
         ref={searchSectionRef}
         elevation={3}
@@ -591,7 +586,6 @@ const HomePage = () => {
         </Box>
       </Paper>
 
-      {/* מידע על המלונית */}
       <Box sx={{ mb: 6, px: { xs: 0, md: 0 } }}>
         <Typography 
           variant={isMobile ? "h5" : "h4"} 
@@ -690,7 +684,6 @@ const HomePage = () => {
         </Grid>
       </Box>
 
-      {/* גלריית תמונות */}
       <Box sx={{ mt: { xs: 6, sm: 8 }, mb: 8 }}>
         <Typography 
           variant="h4" 
@@ -724,17 +717,8 @@ const HomePage = () => {
             <CircularProgress size={40} thickness={4} sx={{ color: theme.palette.primary.main }} />
           </Box>
         ) : gallery && gallery.images && gallery.images.length > 0 ? (
-          <Box sx={{ 
-            px: { xs: 1, sm: 2, md: 4 },
-            '.slick-dots': {
-              bottom: '-35px',
-            },
-            '.slick-prev:before, .slick-next:before': {
-              color: theme.palette.primary.main,
-              fontSize: '24px',
-            }
-          }}>
-            <GallerySlider gallery={gallery} isMobile={isMobile} theme={theme} />
+          <Box sx={{ mt: 4 }}>
+            <MaterialGalleryCarousel gallery={gallery} isMobile={isMobile} theme={theme} />
           </Box>
         ) : (
           <Box sx={{ py: 4, textAlign: 'center' }}>
@@ -745,7 +729,6 @@ const HomePage = () => {
         )}
       </Box>
 
-      {/* צ'אט */}
       <ChatBox />
     </Box>
   );
