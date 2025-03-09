@@ -30,7 +30,8 @@ import {
   Menu,
   MenuItem,
   Link as MuiLink,
-  Tooltip
+  Tooltip,
+  ImageListItemBar
 } from '@mui/material';
 import { 
   Hotel as HotelIcon,
@@ -387,56 +388,25 @@ const HomePage = () => {
       </Paper>
 
       {/* מידע על המלונית */}
-      <Box sx={{ mb: 6, px: { xs: 2, md: 4 } }}>
-        <Typography 
-          variant={isMobile ? "h5" : "h4"} 
-          component="h2" 
-          align="center" 
-          sx={{ 
-            mb: { xs: 4, sm: 5 }, 
-            fontWeight: 'bold',
-            position: 'relative',
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              width: '60px',
-              height: '3px',
-              bottom: '-12px',
-              left: 'calc(50% - 30px)',
-              backgroundColor: 'primary.main'
-            }
-          }}
-        >
-          <HotelIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-          אודות המלונית
-        </Typography>
-
+      <Box sx={{ mb: 4, px: { xs: 2, md: 4 } }}>
         <Grid container spacing={4}>
           <Grid item xs={12} md={6}>
             <Paper elevation={2} sx={{ p: 3, borderRadius: 2, height: '100%' }}>
-              <Typography variant="body1" paragraph>
+              <Typography variant="body2" paragraph>
                 המלונית שלנו ממוקמת במתחם המחודש של מרכז העיר פתח תקווה, במרחק הליכה קצר ממגוון מסעדות, חנויות ואטרקציות.
-              </Typography>
-              <Typography variant="body1" paragraph>
-                אנו מציעים חדרים מודרניים ומאובזרים היטב, המתאימים לזוגות, משפחות ואנשי עסקים, עם חניה, WiFi חופשי וארוחת בוקר אופציונלית.
-              </Typography>
-              <Typography variant="body1">
-                הצוות המסור שלנו זמין 24/7 כדי להבטיח את הנוחות והשירות הטוב ביותר לאורחים.
+                אנו מציעים חדרים מודרניים ומאובזרים היטב, המתאימים לזוגות, משפחות ואנשי עסקים.
               </Typography>
 
-              <Box sx={{ mt: 4 }}>
+              <Box sx={{ mt: 2 }}>
                 <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
                   <LocationIcon sx={{ mr: 1, color: 'primary.main' }} />
                   מיקום
                 </Typography>
-                <Typography variant="body2">
-                  רחוב רוטשילד 79, פתח תקווה
-                </Typography>
                 <Typography variant="body2" paragraph>
-                  במרכז העיר, 5 דקות הליכה מהקניון הגדול, 10 דקות נסיעה מקניון סירקין
+                  רחוב רוטשילד 79, פתח תקווה | במרכז העיר, 5 דקות הליכה מהקניון הגדול
                 </Typography>
 
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', mt: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
                   <PhoneIcon sx={{ mr: 1, color: 'primary.main' }} />
                   צור קשר
                 </Typography>
@@ -480,10 +450,6 @@ const HomePage = () => {
                       </Button>
                     </Tooltip>
                   </Box>
-                  
-                  <Typography variant="body2">
-                    אימייל: info@rothschild79.co.il
-                  </Typography>
                 </Box>
               </Box>
             </Paper>
@@ -506,7 +472,7 @@ const HomePage = () => {
                   border: 0,
                   width: '100%',
                   height: '100%',
-                  minHeight: { xs: '300px', md: '100%' }
+                  minHeight: { xs: '200px', md: '100%' }
                 }}
                 allowFullScreen=""
                 loading="lazy"
@@ -517,14 +483,14 @@ const HomePage = () => {
         </Grid>
       </Box>
 
-      {/* החדרים שלנו */}
+      {/* החדרים שלנו - גלריה */}
       <Box sx={{ mb: 6, px: { xs: 2, md: 4 } }}>
         <Typography 
           variant={isMobile ? "h5" : "h4"} 
           component="h2" 
           align="center" 
           sx={{ 
-            mb: { xs: 4, sm: 5 }, 
+            mb: { xs: 3, sm: 4 }, 
             fontWeight: 'bold',
             position: 'relative',
             '&::after': {
@@ -547,89 +513,70 @@ const HomePage = () => {
             <CircularProgress />
           </Box>
         ) : (
-          <Grid container spacing={4}>
-            {rooms.map((room) => (
-              <Grid item xs={12} sm={6} md={4} key={room._id}>
-                <Card 
-                  sx={{ 
-                    height: '100%', 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    borderRadius: 2,
-                    overflow: 'hidden',
-                    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-                    '&:hover': {
-                      transform: 'translateY(-7px)',
-                      boxShadow: '0px 10px 30px rgba(0,0,0,0.15)'
-                    }
-                  }}
-                >
-                  <CardMedia
-                    component="img"
-                    height={isMobile ? "180" : "220"}
-                    image={room.images[0] || '/images/placeholder.jpg'}
-                    alt={room.name}
-                  />
-                  <CardContent sx={{ flexGrow: 1, p: 3 }}>
-                    <Typography variant="h6" component="h3" gutterBottom fontWeight="bold">
-                      {room.name}
-                    </Typography>
-                    <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
-                      {room.amenities.slice(0, 3).map((amenity, index) => (
-                        <Chip 
-                          key={index} 
-                          label={amenity} 
-                          size="small" 
-                          sx={{ mb: 0.5 }}
-                        />
-                      ))}
-                      {room.amenities.length > 3 && (
-                        <Chip 
-                          icon={<InfoIcon />} 
-                          label={`${room.amenities.length - 3}+`} 
-                          size="small" 
-                          variant="outlined" 
-                          sx={{ mb: 0.5 }}
-                        />
-                      )}
-                    </Box>
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary" 
-                      sx={{ 
-                        mb: 2,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
+          <Box>
+            <ImageList
+              sx={{ 
+                width: '100%', 
+                // משתנה בהתאם לגודל המסך
+                gridTemplateColumns: {
+                  xs: 'repeat(1, 1fr)!important', 
+                  sm: 'repeat(2, 1fr)!important', 
+                  md: 'repeat(3, 1fr)!important'
+                },
+                gap: '16px!important'
+              }}
+              variant="quilted"
+              cols={3}
+              rowHeight={isMobile ? 180 : 200}
+            >
+              {rooms.flatMap(room => 
+                room.images.slice(0, 2).map((image, index) => (
+                  <ImageListItem 
+                    key={`${room._id}-${index}`}
+                    component={Link}
+                    to={`/room/${room._id}`}
+                    sx={{ 
+                      cursor: 'pointer',
+                      overflow: 'hidden',
+                      borderRadius: 2,
+                      boxShadow: '0px 4px 15px rgba(0,0,0,0.08)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'scale(1.02)',
+                        boxShadow: '0px 6px 20px rgba(0,0,0,0.15)'
+                      },
+                      '&:hover img': {
+                        transform: 'scale(1.05)'
+                      }
+                    }}
+                  >
+                    <img
+                      src={image}
+                      alt={`${room.name} - תמונה ${index + 1}`}
+                      loading="lazy"
+                      style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        objectFit: 'cover',
+                        transition: 'transform 0.5s ease'
                       }}
-                    >
-                      {room.description}
-                    </Typography>
-                    <Typography variant="body2" fontWeight="medium">
-                      <strong>עד {room.maxGuests} אורחים</strong>
-                    </Typography>
-                  </CardContent>
-                  <CardActions sx={{ p: 2.5, pt: 0 }}>
-                    <Button 
-                      variant="outlined" 
-                      fullWidth 
-                      component={Link} 
-                      to={`/room/${room._id}`}
-                      size={isMobile ? "medium" : "medium"}
-                      sx={{ 
-                        borderRadius: '50px',
-                        py: 0.8
+                    />
+                    <ImageListItemBar
+                      title={room.name}
+                      subtitle={`עד ${room.maxGuests} אורחים`}
+                      sx={{
+                        '& .MuiImageListItemBar-title': { 
+                          fontWeight: 'bold',
+                          fontSize: '1rem'
+                        },
+                        background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0) 100%)'
                       }}
-                    >
-                      פרטים נוספים
-                    </Button>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+                    />
+                  </ImageListItem>
+                ))
+              )}
+            </ImageList>
+          </Box>
         )}
       </Box>
 
