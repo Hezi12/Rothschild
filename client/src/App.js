@@ -20,6 +20,7 @@ import NotFoundPage from './pages/NotFoundPage';
 // רכיבים
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import ICalExport from './components/ICalExport';
 
 // יצירת קאש RTL
 const cacheRtl = createCache({
@@ -61,6 +62,8 @@ function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <Routes>
+          <Route path="/ical/room-:roomNumber.ics" element={<ICalExport />} />
+          
           <Route path="/" element={<Layout />}>
             {/* נתיבים ציבוריים */}
             <Route index element={<HomePage />} />
