@@ -23,7 +23,8 @@ import {
   EventNote as BookingIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  Collections as GalleryIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -181,6 +182,16 @@ const DashboardPage = () => {
 
       {/* שורת כלים נוספים */}
       <Box sx={{ mb: 4, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+        <Chip 
+          icon={<GalleryIcon />} 
+          label="גלריה כללית" 
+          component={Link}
+          to="/dashboard/gallery"
+          clickable
+          color="primary"
+          variant="outlined"
+          sx={{ fontWeight: 'bold' }}
+        />
         <Chip 
           icon={<EditIcon />} 
           label="עורך iCal" 

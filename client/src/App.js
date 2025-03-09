@@ -22,6 +22,7 @@ import SearchResultsPage from './pages/SearchResultsPage';
 import InstallationGuidePage from './pages/InstallationGuidePage';
 import CancellationRequestPage from './pages/CancellationRequestPage';
 import CancellationRedirectPage from './pages/CancellationRedirectPage';
+import GalleryManagementPage from './pages/GalleryManagementPage';
 
 // רכיבים
 import Layout from './components/Layout';
@@ -93,6 +94,11 @@ function App() {
             <Route path="dashboard/rooms" element={
               <ProtectedRoute>
                 <RoomsListPage />
+              </ProtectedRoute>
+            } />
+            <Route path="dashboard/gallery" element={
+              <ProtectedRoute>
+                <GalleryManagementPage />
               </ProtectedRoute>
             } />
             <Route path="dashboard/calendar-links" element={

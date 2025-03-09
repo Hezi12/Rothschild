@@ -79,6 +79,43 @@ const HomePage = () => {
   // גלילה אל אזור החיפוש כאשר פותחים את דף ההזמנה
   const searchSectionRef = useRef(null);
 
+  // מחלקות וסטייל
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`);
+        setRooms(response.data.data);
+      } catch (error) {
+        console.error('שגיאה בטעינת חדרים:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRooms();
+  }, []);
+
+  // מחלקות וסטייל - גלריה כללית
+  const [gallery, setGallery] = useState(null);
+  const [galleryLoading, setGalleryLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchGallery = async () => {
+      try {
+        setGalleryLoading(true);
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/gallery`);
+        setGallery(response.data.data);
+      } catch (error) {
+        console.error('שגיאה בטעינת הגלריה:', error);
+      } finally {
+        setGalleryLoading(false);
+      }
+    };
+
+    fetchGallery();
+  }, []);
+
   useEffect(() => {
     // אם המשתמש הגיע מדף החדר עם בקשה לפתוח את ההזמנה
     if (location.state?.openBooking) {
@@ -94,28 +131,6 @@ const HomePage = () => {
       }, 500);
     }
   }, [location.state]);
-
-  useEffect(() => {
-    const fetchRooms = async () => {
-      try {
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`, {
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          }
-        });
-        
-        setRooms(response.data.data);
-      } catch (error) {
-        console.error('שגיאה בטעינת החדרים:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRooms();
-  }, []);
 
   // טיפול בשינוי תאריכים
   const handleDateChange = (field, value) => {
@@ -590,10 +605,10 @@ const HomePage = () => {
         </Grid>
       </Box>
 
-      {/* החדרים שלנו - גלריה */}
-      <Box sx={{ mb: 6, px: { xs: 0, md: 0 } }}>
+      {/* גלריית תמונות */}
+      <Box sx={{ mt: { xs: 6, sm: 8 } }}>
         <Typography 
-          variant={isMobile ? "h5" : "h4"} 
+          variant="h4" 
           component="h2" 
           align="center" 
           sx={{ 
@@ -616,14 +631,14 @@ const HomePage = () => {
           }}
         >
           <HotelIcon sx={{ mr: 1.5, verticalAlign: 'middle', color: theme.palette.primary.main }} />
-          החדרים שלנו
+          הגלריה שלנו
         </Typography>
 
-        {loading ? (
+        {galleryLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress size={40} thickness={4} sx={{ color: theme.palette.primary.main }} />
           </Box>
-        ) : (
+        ) : gallery && gallery.images && gallery.images.length > 0 ? (
           <Box>
             <ImageList
               sx={{ 
@@ -642,80 +657,63 @@ const HomePage = () => {
               cols={3}
               rowHeight={isMobile ? 200 : 240}
             >
-              {rooms.flatMap(room => 
-                room.images.slice(0, 2).map((image, index) => (
-                  <ImageListItem 
-                    key={`${room._id}-${index}`}
-                    component={Link}
-                    to={`/room/${room._id}`}
-                    sx={{ 
-                      cursor: 'pointer',
-                      overflow: 'hidden',
-                      borderRadius: 4,
-                      boxShadow: '0 10px 20px rgba(0,0,0,0.08)',
-                      transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                      '&:hover': {
-                        transform: 'translateY(-8px)',
-                        boxShadow: '0 15px 30px rgba(0,0,0,0.12)'
-                      },
-                      '&:hover img': {
-                        transform: 'scale(1.08)',
-                        filter: 'brightness(1.05)'
-                      },
-                      '&:active': {
-                        transform: 'translateY(-3px)'
-                      }
+              {gallery.images.map((image, index) => (
+                <ImageListItem 
+                  key={image._id || index}
+                  sx={{ 
+                    cursor: 'pointer',
+                    overflow: 'hidden',
+                    borderRadius: 4,
+                    boxShadow: '0 10px 20px rgba(0,0,0,0.08)',
+                    transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                    '&:hover': {
+                      transform: 'translateY(-8px)',
+                      boxShadow: '0 15px 30px rgba(0,0,0,0.12)'
+                    },
+                    '&:hover img': {
+                      transform: 'scale(1.08)',
+                      filter: 'brightness(1.05)'
+                    },
+                    '&:active': {
+                      transform: 'translateY(-3px)'
+                    }
+                  }}
+                >
+                  <img
+                    src={image.url}
+                    alt={image.title || `תמונה ${index + 1}`}
+                    loading="lazy"
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'cover',
+                      transition: 'all 0.7s ease'
                     }}
-                  >
-                    <img
-                      src={image}
-                      alt={`${room.name} - תמונה ${index + 1}`}
-                      loading="lazy"
-                      style={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        objectFit: 'cover',
-                        transition: 'all 0.7s ease'
-                      }}
-                    />
+                  />
+                  {image.title && (
                     <ImageListItemBar
-                      title={room.name}
-                      subtitle={`עד ${room.maxGuests} אורחים`}
-                      actionIcon={
-                        <Chip 
-                          label="לפרטים נוספים"
-                          size="small"
-                          sx={{ 
-                            mr: 1, 
-                            bgcolor: 'rgba(255,255,255,0.85)', 
-                            fontWeight: 'medium',
-                            fontSize: '0.75rem',
-                            transition: 'all 0.3s ease',
-                            '&:hover': {
-                              bgcolor: 'white',
-                            }
-                          }} 
-                        />
-                      }
+                      title={image.title}
                       sx={{
                         '& .MuiImageListItemBar-title': { 
                           fontWeight: 'bold',
                           fontSize: '1.1rem',
                           mb: 0.5
                         },
-                        '& .MuiImageListItemBar-subtitle': {
-                          fontSize: '0.9rem',
-                          opacity: 0.9
-                        },
                         background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0) 100%)',
                         padding: '16px 12px',
                         transition: 'all 0.3s ease'
                       }}
                     />
-                  </ImageListItem>
-                ))
-              )}
+                  )}
+                </ImageListItem>
+              ))}
             </ImageList>
+          </Box>
+        ) : (
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography variant="body1" color="text.secondary">
+              אין תמונות בגלריה
+            </Typography>
           </Box>
         )}
       </Box>
