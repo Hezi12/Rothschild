@@ -27,8 +27,8 @@ const sendBookingConfirmation = async (booking, room) => {
     // בדיקה אם האורח הוא תייר
     const isTourist = booking.guest.isTourist || false;
     const priceNote = isTourist ? 
-      "יש להציג דרכון בקבלה לפטור ממע\"מ" : 
-      "המחיר כולל מע\"מ";
+      "נא להציג דרכון בהגעה לפטור ממע\"מ" : 
+      "מחיר כולל מע\"מ";
     
     // תוכן המייל
     const mailOptions = {
@@ -80,10 +80,10 @@ const sendBookingConfirmation = async (booking, room) => {
           
           <div style="background-color: #f0f7ff; padding: 25px; border-radius: 8px; margin: 25px 0; border-right: 4px solid #1976d2;">
             <h3 style="margin-top: 0; color: #1976d2; font-size: 20px;">מידע שימושי</h3>
-            <p style="margin: 12px 0; font-size: 17px;"><strong>צ'ק אין:</strong> החל מהשעה 15:00 (צ'ק אין עצמאי)</p>
+            <p style="margin: 12px 0; font-size: 17px;"><strong>שים לב:</strong> למקום יש צ'ק אין עצמי. ביום ההגעה יישלחו אליך בוואטסאפ כל הפרטים לכניסה למקום</p>
+            <p style="margin: 12px 0; font-size: 17px;"><strong>צ'ק אין:</strong> החל מהשעה 15:00</p>
             <p style="margin: 12px 0; font-size: 17px;"><strong>צ'ק אאוט:</strong> עד השעה 10:00</p>
-            <p style="margin: 12px 0; font-size: 17px;"><strong>כתובת:</strong> רוטשילד 79, פתח תקווה</p>
-            <p style="margin: 12px 0; font-size: 17px;">ביום ההגעה יישלחו אליך בוואטסאפ כל הפרטים לכניסה למקום</p>
+            <p style="margin: 12px 0; font-size: 17px;"><strong>לכל שאלה:</strong> ניתן לפנות בטלפון 050-607-0260, להשיב למייל זה או לשלוח הודעת וואטסאפ</p>
             
             <div style="margin-top: 20px; border-top: 1px solid #ccc; padding-top: 20px;">
               <p style="margin: 12px 0; font-size: 17px;"><strong>לשינוי או ביטול ההזמנה:</strong> ניתן לפנות אלינו בוואטסאפ</p>
@@ -110,8 +110,7 @@ const sendBookingConfirmation = async (booking, room) => {
           
           <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #777;">
             <p style="font-size: 17px;">מצפים לראותך!</p>
-            <p style="margin-top: 5px; font-size: 17px;"><strong>צוות רוטשילד 79</strong></p>
-            <p style="margin-top: 15px; font-size: 16px;">טלפון: 050-607-0260 | אימייל: diamshotels@gmail.com</p>
+            <p style="margin-top: 5px; font-size: 17px;"><strong>רוטשילד 79</strong></p>
           </div>
         </div>
       `
@@ -202,7 +201,7 @@ const sendCancellationAlert = async (booking, cancellationDetails) => {
           <p style="font-size: 18px; margin-top: 25px;">יש לבצע את הביטול במערכת באופן ידני.</p>
           
           <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #777;">
-            <p style="margin-top: 5px; font-size: 17px;"><strong>צוות רוטשילד 79</strong></p>
+            <p style="margin-top: 5px; font-size: 17px;"><strong>רוטשילד 79</strong></p>
           </div>
         </div>
       `
