@@ -1140,38 +1140,93 @@ const BookingPage = () => {
       textAlign: 'center', 
       py: 4, 
       px: 2,
-      maxWidth: 600, 
+      maxWidth: 800, 
       mx: 'auto',
+      my: 4,
       bgcolor: 'background.paper',
-      borderRadius: 2,
-      boxShadow: 3
+      borderRadius: 4,
+      boxShadow: 5,
+      border: '1px solid #e0e0e0',
+      overflow: 'hidden'
     }}>
-      <CheckCircleIcon 
-        sx={{ 
-          fontSize: 80, 
-          color: 'success.main',
-          mb: 2
-        }} 
-      />
+      {/* כותרת עם רקע */}
+      <Box sx={{ 
+        bgcolor: 'primary.main', 
+        py: 3, 
+        mb: 4, 
+        mx: -2, 
+        color: 'white',
+        backgroundImage: 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)'
+      }}>
+        <CheckCircleIcon 
+          sx={{ 
+            fontSize: 80, 
+            color: 'white',
+            mb: 2,
+            bgcolor: 'success.main',
+            p: 1,
+            borderRadius: '50%',
+            boxShadow: 2
+          }} 
+        />
+        
+        <Typography variant="h4" gutterBottom fontWeight="bold">
+          תודה על הזמנתך!
+        </Typography>
+        
+        <Typography variant="subtitle1" color="white" sx={{ opacity: 0.9 }}>
+          ההזמנה שלך התקבלה בהצלחה ונשלחה לאישור
+        </Typography>
+      </Box>
       
-      <Typography variant="h4" gutterBottom fontWeight="bold">
-        תודה על הזמנתך!
-      </Typography>
-      
-      <Divider sx={{ my: 2 }} />
-      
-      <Typography variant="h6" fontWeight="bold" color="primary.main" paragraph>
-        מספר הזמנה: {bookingData.bookingNumber}
-      </Typography>
+      {/* פרטי הזמנה */}
+      <Box sx={{ 
+        maxWidth: 500, 
+        mx: 'auto', 
+        mb: 4, 
+        p: 3, 
+        border: '1px solid #e0e0e0', 
+        borderRadius: 2,
+        bgcolor: '#f9f9f9'
+      }}>
+        <Typography variant="h6" fontWeight="bold" color="primary.main" paragraph>
+          מספר הזמנה: {bookingData.bookingNumber}
+        </Typography>
+        
+        <Divider sx={{ my: 2 }} />
+        
+        <Grid container spacing={2} sx={{ textAlign: 'right' }}>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="body2" color="text.secondary">שם האורח</Typography>
+            <Typography variant="body1" fontWeight="medium">{bookingData.guest.firstName} {bookingData.guest.lastName}</Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="body2" color="text.secondary">דוא"ל</Typography>
+            <Typography variant="body1" fontWeight="medium">{bookingData.guest.email}</Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="body2" color="text.secondary">תאריך הגעה</Typography>
+            <Typography variant="body1" fontWeight="medium">{new Date(bookingData.checkIn).toLocaleDateString('he-IL')}</Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="body2" color="text.secondary">תאריך יציאה</Typography>
+            <Typography variant="body1" fontWeight="medium">{new Date(bookingData.checkOut).toLocaleDateString('he-IL')}</Typography>
+          </Grid>
+          <Grid item xs={12}>
+            <Typography variant="body2" color="text.secondary">מספר לילות</Typography>
+            <Typography variant="body1" fontWeight="medium">{calculateNights()}</Typography>
+          </Grid>
+        </Grid>
+      </Box>
       
       <Typography variant="body1" paragraph sx={{ mb: 3 }}>
-        ההזמנה שלך התקבלה בהצלחה. אישור הזמנה נשלח לכתובת האימייל
+        אישור הזמנה נשלח לכתובת האימייל
         <Box component="span" fontWeight="bold"> {bookingData.guest.email}</Box>
       </Typography>
       
       <Alert 
         severity="info" 
-        sx={{ mb: 3, mx: 'auto', maxWidth: '90%' }}
+        sx={{ mb: 4, mx: 'auto', maxWidth: '90%' }}
       >
         <AlertTitle>שים לב</AlertTitle>
         אם לא קיבלת אימייל בתוך מספר דקות, אנא בדוק בתיקיית הספאם או צור קשר איתנו בטלפון 050-607-0260
@@ -1182,7 +1237,8 @@ const BookingPage = () => {
           variant="contained"
           onClick={handleReset}
           startIcon={<HomeIcon />}
-          sx={{ px: 3 }}
+          sx={{ px: 3, py: 1.2, borderRadius: 2 }}
+          size="large"
         >
           חזרה לדף הבית
         </Button>
@@ -1192,9 +1248,10 @@ const BookingPage = () => {
           component="a"
           href={`mailto:diamshotels@gmail.com?subject=שאלה לגבי הזמנה מספר ${bookingData.bookingNumber}`}
           startIcon={<EmailIcon />}
-          sx={{ px: 3 }}
+          sx={{ px: 3, py: 1.2, borderRadius: 2 }}
+          size="large"
         >
-          שליחת מייל
+          צור קשר
         </Button>
       </Box>
     </Box>

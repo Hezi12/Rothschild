@@ -5,7 +5,7 @@ const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER || 'diamshotels@gmail.com',
-    pass: process.env.EMAIL_PASSWORD || '' // כאן צריך להגדיר סיסמת אפליקציה מחשבון Gmail
+    pass: process.env.EMAIL_PASSWORD || 'zdzp btdr fgdq nmzz' // סיסמת האפליקציה של Gmail
   }
 });
 
@@ -16,6 +16,14 @@ const transporter = nodemailer.createTransport({
  */
 const sendBookingConfirmation = async (booking, room) => {
   try {
+    // בדיקה שיש כתובת אימייל בהזמנה
+    if (!booking.guest || !booking.guest.email) {
+      console.error('שגיאה: אין כתובת אימייל באובייקט ההזמנה', booking);
+      return false;
+    }
+    
+    console.log('מנסה לשלוח אימייל אל:', booking.guest.email);
+    
     const checkIn = new Date(booking.checkIn).toLocaleDateString('he-IL');
     const checkOut = new Date(booking.checkOut).toLocaleDateString('he-IL');
     
@@ -111,11 +119,16 @@ const sendBookingConfirmation = async (booking, room) => {
     };
     
     // שליחת המייל
+    console.log('שולח אימייל...');
     const info = await transporter.sendMail(mailOptions);
     console.log('אימייל אישור הזמנה נשלח: %s', info.messageId);
     return true;
   } catch (error) {
     console.error('שגיאה בשליחת אימייל:', error);
+    // הדפסת פרטי השגיאה לצורכי ניפוי באגים
+    if (error.response) {
+      console.error('פרטי שגיאת SMTP:', error.response);
+    }
     return false;
   }
 };
