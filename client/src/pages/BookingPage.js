@@ -40,6 +40,10 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import { alpha } from '@mui/material/styles';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import LockIcon from '@mui/icons-material/Lock';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import HomeIcon from '@mui/icons-material/Home';
+import EmailIcon from '@mui/icons-material/Email';
+import AlertTitle from '@mui/material/AlertTitle';
 
 const steps = ['בחירת תאריכים', 'פרטי אורח', 'פרטי תשלום', 'סיכום'];
 
@@ -379,6 +383,13 @@ const BookingPage = () => {
       try {
         const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingPayload);
         console.log('תשובה מהשרת:', response.data);
+        
+        // שמירת מספר ההזמנה למסך הסיום
+        setBookingData(prev => ({
+          ...prev,
+          bookingId: response.data._id,
+          bookingNumber: response.data.bookingNumber || response.data._id.substring(0, 8).toUpperCase()
+        }));
         
         toast.success('ההזמנה נשלחה בהצלחה!');
         setActiveStep(steps.length);
@@ -1125,23 +1136,67 @@ const BookingPage = () => {
 
   // תצוגת שלב סיום
   const renderComplete = () => (
-    <Box sx={{ textAlign: 'center', py: 3 }}>
-      <Typography variant="h5" gutterBottom>
+    <Box sx={{ 
+      textAlign: 'center', 
+      py: 4, 
+      px: 2,
+      maxWidth: 600, 
+      mx: 'auto',
+      bgcolor: 'background.paper',
+      borderRadius: 2,
+      boxShadow: 3
+    }}>
+      <CheckCircleIcon 
+        sx={{ 
+          fontSize: 80, 
+          color: 'success.main',
+          mb: 2
+        }} 
+      />
+      
+      <Typography variant="h4" gutterBottom fontWeight="bold">
         תודה על הזמנתך!
       </Typography>
-      <Typography variant="subtitle1" paragraph>
-        ההזמנה שלך התקבלה בהצלחה. אישור הזמנה נשלח לכתובת האימייל שלך.
+      
+      <Divider sx={{ my: 2 }} />
+      
+      <Typography variant="h6" fontWeight="bold" color="primary.main" paragraph>
+        מספר הזמנה: {bookingData.bookingNumber}
       </Typography>
-      <Typography paragraph>
-        מספר הזמנה: {/* כאן יוצג מספר ההזמנה אם יש */}
+      
+      <Typography variant="body1" paragraph sx={{ mb: 3 }}>
+        ההזמנה שלך התקבלה בהצלחה. אישור הזמנה נשלח לכתובת האימייל
+        <Box component="span" fontWeight="bold"> {bookingData.guest.email}</Box>
       </Typography>
-      <Button
-        variant="contained"
-        onClick={handleReset}
-        sx={{ mt: 3 }}
+      
+      <Alert 
+        severity="info" 
+        sx={{ mb: 3, mx: 'auto', maxWidth: '90%' }}
       >
-        חזרה לדף הבית
-      </Button>
+        <AlertTitle>שים לב</AlertTitle>
+        אם לא קיבלת אימייל בתוך מספר דקות, אנא בדוק בתיקיית הספאם או צור קשר איתנו בטלפון 050-607-0260
+      </Alert>
+      
+      <Box sx={{ mt: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
+        <Button
+          variant="contained"
+          onClick={handleReset}
+          startIcon={<HomeIcon />}
+          sx={{ px: 3 }}
+        >
+          חזרה לדף הבית
+        </Button>
+        
+        <Button
+          variant="outlined"
+          component="a"
+          href={`mailto:diamshotels@gmail.com?subject=שאלה לגבי הזמנה מספר ${bookingData.bookingNumber}`}
+          startIcon={<EmailIcon />}
+          sx={{ px: 3 }}
+        >
+          שליחת מייל
+        </Button>
+      </Box>
     </Box>
   );
 
