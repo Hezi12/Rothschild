@@ -8,7 +8,38 @@ const Booking = require('../models/Booking');
 // @route   GET /api/bookings
 // @desc    Get all bookings
 // @access  Private/Admin
-router.get('/', [protect, admin], bookingController.getAllBookings);
+router.get('/', [protect, admin], bookingController.getBookings);
+
+// נתיב לאימות קיום הזמנה
+router.get('/validate', async (req, res) => {
+  try {
+    const { bookingId, email } = req.query;
+    
+    if (!bookingId || !email) {
+      return res.status(400).json({ error: 'חסרים פרטים נדרשים' });
+    }
+    
+    // בדיקת האם ההזמנה קיימת עם האימייל הנכון
+    const booking = await Booking.findById(bookingId);
+    
+    if (!booking) {
+      return res.json({ valid: false });
+    }
+    
+    // בדיקת התאמת האימייל
+    const isValid = booking.guest.email.toLowerCase() === email.toLowerCase();
+    
+    return res.json({ valid: isValid });
+  } catch (error) {
+    console.error('שגיאה באימות הזמנה:', error);
+    res.status(500).json({ error: 'שגיאת שרת' });
+  }
+});
+
+// @route   GET /api/bookings/room/:roomId
+// @desc    קבלת כל ההזמנות לחדר מסוים
+// @access  Private/Admin
+router.get('/room/:roomId', [protect, admin], bookingController.getRoomBookings);
 
 // @route   GET /api/bookings/:id
 // @desc    קבלת הזמנה לפי מזהה
@@ -50,36 +81,5 @@ router.put(
 // @desc    מחיקת הזמנה
 // @access  Private/Admin
 router.delete('/:id', [protect, admin], bookingController.deleteBooking);
-
-// @route   GET /api/bookings/room/:roomId
-// @desc    קבלת כל ההזמנות לחדר מסוים
-// @access  Private/Admin
-router.get('/room/:roomId', [protect, admin], bookingController.getRoomBookings);
-
-// נתיב לאימות קיום הזמנה
-router.get('/validate', async (req, res) => {
-  try {
-    const { bookingId, email } = req.query;
-    
-    if (!bookingId || !email) {
-      return res.status(400).json({ error: 'חסרים פרטים נדרשים' });
-    }
-    
-    // בדיקת האם ההזמנה קיימת עם האימייל הנכון
-    const booking = await Booking.findById(bookingId);
-    
-    if (!booking) {
-      return res.json({ valid: false });
-    }
-    
-    // בדיקת התאמת האימייל
-    const isValid = booking.guest.email.toLowerCase() === email.toLowerCase();
-    
-    return res.json({ valid: isValid });
-  } catch (error) {
-    console.error('שגיאה באימות הזמנה:', error);
-    res.status(500).json({ error: 'שגיאת שרת' });
-  }
-});
 
 module.exports = router; 
