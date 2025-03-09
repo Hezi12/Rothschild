@@ -69,8 +69,8 @@ const ChatBox = () => {
     setIsLoading(true);
     
     try {
-      // שליחת בקשה ל-API של השרת
-      const response = await axios.post(`http://localhost:5500/api/chat`, {
+      // שליחת בקשה ל-API של השרת, עם שימוש בקובץ הגדרות הסביבה
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/chat`, {
         messages: [...messages, userMessage].map(msg => ({ role: msg.role, content: msg.content }))
       });
       
