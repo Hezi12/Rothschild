@@ -125,18 +125,31 @@ const Layout = () => {
               <HotelIcon sx={{ fontSize: isMobile ? '1.3rem' : '1.6rem' }} />
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <Typography
-                variant="h6"
-                sx={{ 
-                  color: theme.palette.primary.dark, 
-                  fontWeight: 'bold',
-                  fontSize: { xs: '1.1rem', md: '1.3rem' },
-                  letterSpacing: '0.5px',
-                  lineHeight: 1.1
-                }}
-              >
-                מלונית רוטשילד 79
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
+                <Typography
+                  variant="caption"
+                  sx={{ 
+                    color: alpha(theme.palette.text.primary, 0.7),
+                    fontSize: { xs: '0.6rem', md: '0.7rem' },
+                    fontWeight: 400,
+                    mr: 0.5
+                  }}
+                >
+                  מלונית
+                </Typography>
+                <Typography
+                  variant="h6"
+                  sx={{ 
+                    color: theme.palette.primary.dark, 
+                    fontWeight: 'bold',
+                    fontSize: { xs: '1.2rem', md: '1.4rem' },
+                    letterSpacing: '0.5px',
+                    lineHeight: 1
+                  }}
+                >
+                  רוטשילד 79
+                </Typography>
+              </Box>
               <Typography 
                 variant="body2"
                 sx={{ 
@@ -322,23 +335,23 @@ const Layout = () => {
                 <AccountCircle />
               </IconButton>
             ) : (
-              <Button 
-                color="primary" 
-                component={Link} 
-                to="/login" 
-                size={isMobile ? "small" : "medium"}
-                sx={{
-                  borderRadius: '50px',
-                  px: 2,
-                  border: `1px solid ${alpha(theme.palette.primary.main, 0.5)}`,
-                  '&:hover': {
-                    bgcolor: alpha(theme.palette.primary.main, 0.05)
-                  },
-                  transition: 'all 0.3s ease'
-                }}
-              >
-                התחברות
-              </Button>
+              <Tooltip title="התחברות">
+                <IconButton 
+                  color="primary" 
+                  component={Link} 
+                  to="/login" 
+                  size={isMobile ? "small" : "medium"}
+                  sx={{
+                    bgcolor: alpha(theme.palette.primary.main, 0.05),
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.15)
+                    },
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  <AccountCircle />
+                </IconButton>
+              </Tooltip>
             )}
           </Box>
         </Toolbar>
@@ -447,7 +460,7 @@ const Layout = () => {
         }}
       >
         <Typography variant="body2" color="text.secondary">
-          © {new Date().getFullYear()} מלונית רוטשילד 79, פתח תקווה. כל הזכויות שמורות.
+          © {new Date().getFullYear()} רוטשילד 79, פתח תקווה. כל הזכויות שמורות.
         </Typography>
       </Box>
     </Box>

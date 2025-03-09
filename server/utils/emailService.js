@@ -81,7 +81,7 @@ const sendBookingConfirmation = async (booking, room) => {
           <div style="background-color: #f0f7ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #1976d2;">
             <h3 style="margin-top: 0; margin-bottom: 12px; color: #1976d2; font-size: 20px;">מידע שימושי</h3>
             <p style="margin: 10px 0; font-size: 17px;"><strong>שימו לב:</strong> אנו מציעים צ'ק אין עצמי נוח. ביום ההגעה תקבלו בוואטסאפ את כל פרטי הכניסה הדרושים</p>
-            <p style="margin: 10px 0; font-size: 17px;"><strong>צ'ק אין:</strong> החל מהשעה 15:00</p>
+            <p style="margin: 10px 0; font-size: 17px;"><strong>צ'ק אין:</strong> החל מהשעה 15:00 (ניתן להגיע מאוחר יותר בזכות צ'ק-אין עצמאי)</p>
             <p style="margin: 10px 0; font-size: 17px;"><strong>צ'ק אאוט:</strong> עד השעה 10:00</p>
             <p style="margin: 10px 0; font-size: 17px;"><strong>לכל שאלה:</strong> ניתן לפנות בטלפון 050-607-0260, להשיב למייל זה או לשלוח הודעת וואטסאפ</p>
             
@@ -104,7 +104,7 @@ const sendBookingConfirmation = async (booking, room) => {
             <ul style="padding-right: 20px; font-size: 17px; line-height: 1.6; margin: 10px 0;">
               <li>אסור לקיים מסיבות או אירועים רועשים</li>
               <li>אין להכניס אורחים נוספים מעבר לתפוסה המאושרת</li>
-              <li>ניתן לבטל ללא עלות עד לתאריך <strong>${lastCancellationDateFormatted}</strong></li>
+              <li>ניתן לבטל ללא עלות עד לתאריך <strong>${lastCancellationDateFormatted}</strong> (3 ימים לפני ההגעה)</li>
               <li>לאחר תאריך זה, שינויים או ביטולים יחויבו במלוא הסכום</li>
               <li>ניתן לשלם במזומן, אשראי או באמצעות ביט</li>
               <li>כרטיס האשראי נשמר כפיקדון למקרה של נזקים</li>

@@ -174,7 +174,7 @@ const ChatBox = () => {
               }
             }}
           >
-            שוחח איתנו
+            לצ'אט AI שלנו
             {hasNewMessages && (
               <Box
                 sx={{

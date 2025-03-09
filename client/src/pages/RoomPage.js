@@ -428,8 +428,8 @@ const RoomPage = () => {
               >
                 <EventAvailableIcon fontSize="small" sx={{ mr: 1, mt: '2px', color: theme.palette.info.main }} />
                 <Box>
-                  <b>ביטול חינם עד 24 שעות לפני ההגעה.</b><br />
-                  לאחר מכן יחויב לילה אחד במקרה של אי הגעה או ביטול.
+                  <b>ביטול חינם עד 3 ימים לפני ההגעה.</b><br />
+                  לאחר מכן חיוב מלא במקרה של אי הגעה או ביטול.
                 </Box>
               </Typography>
             </Box>

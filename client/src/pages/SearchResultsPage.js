@@ -351,7 +351,7 @@ const SearchResultsPage = () => {
                       }}
                     >
                       <InfoIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.9rem' }} />
-                      <b>מדיניות ביטול:</b> ביטול חינם עד 24 שעות לפני ההגעה
+                      <b>מדיניות ביטול:</b> ביטול חינם עד 3 ימים לפני ההגעה
                     </Typography>
                   </Box>
                   
