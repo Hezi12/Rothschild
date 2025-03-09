@@ -34,6 +34,12 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { he } from 'date-fns/locale';
 import { addDays, differenceInDays } from 'date-fns';
+import HotelIcon from '@mui/icons-material/Hotel';
+import PersonIcon from '@mui/icons-material/Person';
+import PaymentIcon from '@mui/icons-material/Payment';
+import { alpha } from '@mui/material/styles';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
+import LockIcon from '@mui/icons-material/Lock';
 
 const steps = ['בחירת תאריכים', 'פרטי אורח', 'פרטי תשלום', 'סיכום'];
 
@@ -67,7 +73,8 @@ const BookingPage = () => {
     guests: initialGuests,
     rooms: initialRooms,
     guest: {
-      name: '',
+      firstName: '',
+      lastName: '',
       phone: '',
       email: ''
     },
@@ -289,7 +296,7 @@ const BookingPage = () => {
       if (!isAvailable) return;
     } else if (activeStep === 1) {
       // בשלב פרטי אורח, בדוק שהוכנסו כל הפרטים הנדרשים
-      if (!bookingData.guest.name || !bookingData.guest.phone || !bookingData.guest.email) {
+      if (!bookingData.guest.firstName || !bookingData.guest.lastName || !bookingData.guest.phone || !bookingData.guest.email) {
         toast.error('אנא מלא את כל פרטי האורח');
         return;
       }
@@ -336,6 +343,7 @@ const BookingPage = () => {
       }
     }
     
+    // עובר לשלב הבא
     setActiveStep(prevActiveStep => prevActiveStep + 1);
   };
 
@@ -649,213 +657,441 @@ const BookingPage = () => {
   // תצוגת שלב 2 - פרטי אורח
   const renderGuestDetails = () => (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        פרטי האורח
-      </Typography>
-      
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <TextField
-            required
-            fullWidth
-            label="שם מלא"
-            name="guest.name"
-            value={bookingData.guest.name}
-            onChange={handleChange}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            required
-            fullWidth
-            label="טלפון"
-            name="guest.phone"
-            value={bookingData.guest.phone}
-            onChange={handleChange}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            required
-            fullWidth
-            label="אימייל"
-            name="guest.email"
-            type="email"
-            value={bookingData.guest.email}
-            onChange={handleChange}
-          />
-        </Grid>
-        <Grid item xs={12}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                name="isTourist"
-                checked={bookingData.isTourist}
-                onChange={handleChange}
-                color="primary"
+      <Paper 
+        elevation={1} 
+        sx={{ 
+          p: 3, 
+          mb: 3, 
+          borderRadius: 2,
+          border: `1px solid ${theme.palette.divider}` 
+        }}
+      >
+        <Typography 
+          variant="h6" 
+          gutterBottom 
+          sx={{ 
+            pb: 1, 
+            mb: 2, 
+            borderBottom: `1px solid ${theme.palette.divider}`,
+            fontWeight: 'bold',
+            color: theme.palette.primary.main
+          }}
+        >
+          פרטי האורח
+        </Typography>
+        
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              required
+              fullWidth
+              label="שם פרטי"
+              name="guest.firstName"
+              value={bookingData.guest.firstName}
+              onChange={handleChange}
+              InputProps={{
+                sx: { borderRadius: 1.5 }
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              required
+              fullWidth
+              label="שם משפחה"
+              name="guest.lastName"
+              value={bookingData.guest.lastName}
+              onChange={handleChange}
+              InputProps={{
+                sx: { borderRadius: 1.5 }
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              required
+              fullWidth
+              label="טלפון"
+              name="guest.phone"
+              value={bookingData.guest.phone}
+              onChange={handleChange}
+              placeholder="050-1234567"
+              InputProps={{
+                sx: { borderRadius: 1.5 }
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              required
+              fullWidth
+              label="אימייל"
+              name="guest.email"
+              type="email"
+              value={bookingData.guest.email}
+              onChange={handleChange}
+              placeholder="your@email.com"
+              InputProps={{
+                sx: { borderRadius: 1.5 }
+              }}
+            />
+          </Grid>
+          
+          <Grid item xs={12}>
+            <Paper 
+              variant="outlined" 
+              sx={{ 
+                p: 2, 
+                mt: 1, 
+                borderRadius: 2,
+                borderColor: bookingData.isTourist ? theme.palette.primary.main : theme.palette.divider,
+                backgroundColor: bookingData.isTourist ? `${theme.palette.primary.main}10` : 'transparent',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    name="isTourist"
+                    checked={bookingData.isTourist}
+                    onChange={handleChange}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Typography fontWeight="medium">
+                    אני תייר (פטור ממע״מ)
+                  </Typography>
+                }
               />
-            }
-            label="אני תייר (פטור ממע״מ)"
-          />
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ 
+                  ml: 4, 
+                  mt: 0.5,
+                  pr: 1, 
+                  borderRight: `2px solid ${theme.palette.primary.light}` 
+                }}
+              >
+                תיירים מחו"ל זכאים לפטור ממע"מ. לצורך קבלת הפטור יש להציג דרכון זר בתוקף
+                ואישור כניסה לישראל (חותמת ביקורת גבולות) בעת הצ'ק-אין.
+              </Typography>
+            </Paper>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="הערות מיוחדות"
+              name="notes"
+              multiline
+              rows={3}
+              value={bookingData.notes}
+              onChange={handleChange}
+              placeholder="בקשות מיוחדות, זמן הגעה משוער או כל מידע אחר שיעזור לנו להתכונן לביקורך"
+              InputProps={{
+                sx: { borderRadius: 1.5 }
+              }}
+            />
+          </Grid>
         </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="הערות מיוחדות"
-            name="notes"
-            multiline
-            rows={3}
-            value={bookingData.notes}
-            onChange={handleChange}
-          />
-        </Grid>
-      </Grid>
+      </Paper>
     </Box>
   );
 
   // תצוגת שלב 3 - פרטי תשלום
   const renderPaymentDetails = () => (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        פרטי תשלום
-      </Typography>
-      
-      <FormControl component="fieldset" sx={{ mb: 3 }}>
-        <FormLabel component="legend">אמצעי תשלום</FormLabel>
-        <RadioGroup
-          name="paymentMethod"
-          value={bookingData.paymentMethod}
-          onChange={handleChange}
+      <Paper 
+        elevation={1} 
+        sx={{ 
+          p: 3, 
+          mb: 3, 
+          borderRadius: 2,
+          border: `1px solid ${theme.palette.divider}` 
+        }}
+      >
+        <Typography 
+          variant="h6" 
+          gutterBottom 
+          sx={{ 
+            pb: 1, 
+            mb: 2, 
+            borderBottom: `1px solid ${theme.palette.divider}`,
+            fontWeight: 'bold',
+            color: theme.palette.primary.main
+          }}
         >
-          <FormControlLabel value="credit" control={<Radio />} label="כרטיס אשראי" />
-          <FormControlLabel value="cash" control={<Radio />} label="מזומן (בהגעה)" />
-          <FormControlLabel value="bank_transfer" control={<Radio />} label="העברה בנקאית" />
-        </RadioGroup>
-      </FormControl>
-      
-      {bookingData.paymentMethod === 'credit' && (
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <TextField
-              required
-              fullWidth
-              label="מספר כרטיס אשראי"
-              name="creditCardDetails.cardNumber"
-              value={bookingData.creditCardDetails.cardNumber}
-              onChange={handleChange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              required
-              fullWidth
-              label="תוקף (MM/YY)"
-              name="creditCardDetails.expiryDate"
-              value={bookingData.creditCardDetails.expiryDate}
-              onChange={handleChange}
-              placeholder="MM/YY"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              required
-              fullWidth
-              label="קוד אבטחה (CVV)"
-              name="creditCardDetails.cvv"
-              value={bookingData.creditCardDetails.cvv}
-              onChange={handleChange}
-              type="password"
-            />
-          </Grid>
-        </Grid>
-      )}
-      
-      {bookingData.paymentMethod === 'bank_transfer' && (
-        <Alert severity="info" sx={{ mt: 2 }}>
-          פרטי חשבון להעברה בנקאית יישלחו לאימייל שלך לאחר השלמת ההזמנה.
+          אבטחת הזמנה
+        </Typography>
+        
+        <Alert 
+          severity="info" 
+          sx={{ 
+            mb: 3,
+            borderRadius: 2
+          }}
+        >
+          <Typography variant="body2" fontWeight="medium">
+            פרטי האשראי נדרשים לצורך הבטחת ההזמנה בלבד (פיקדון).
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            התשלום עצמו יתבצע בעת הצ'ק-אין במזומן, בהעברה בנקאית, או באמצעות ביט/פייבוקס.
+          </Typography>
         </Alert>
-      )}
-      
-      {bookingData.paymentMethod === 'cash' && (
-        <Alert severity="info" sx={{ mt: 2 }}>
-          תשלום במזומן יתבצע בעת ההגעה למלונית.
-        </Alert>
-      )}
+        
+        <Paper 
+          variant="outlined" 
+          sx={{ 
+            p: 2.5, 
+            mb: 2, 
+            borderRadius: 2,
+            borderColor: theme.palette.divider,
+            backgroundColor: alpha(theme.palette.background.paper, 0.7)
+          }}
+        >
+          <Typography 
+            variant="subtitle1" 
+            gutterBottom 
+            sx={{ 
+              fontWeight: 'medium',
+              mb: 2,
+              color: theme.palette.primary.dark,
+              display: 'flex',
+              alignItems: 'center'
+            }}
+          >
+            <CreditCardIcon sx={{ mr: 1, fontSize: '1.1rem' }} />
+            פרטי כרטיס אשראי לפיקדון
+          </Typography>
+          
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <TextField
+                required
+                fullWidth
+                label="מספר כרטיס אשראי"
+                name="creditCardDetails.cardNumber"
+                value={bookingData.creditCardDetails.cardNumber}
+                onChange={handleChange}
+                placeholder="0000 0000 0000 0000"
+                InputProps={{
+                  sx: { borderRadius: 1.5 }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                required
+                fullWidth
+                label="תוקף (MM/YY)"
+                name="creditCardDetails.expiryDate"
+                value={bookingData.creditCardDetails.expiryDate}
+                onChange={handleChange}
+                placeholder="MM/YY"
+                InputProps={{
+                  sx: { borderRadius: 1.5 }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                required
+                fullWidth
+                label="קוד אבטחה (CVV)"
+                name="creditCardDetails.cvv"
+                value={bookingData.creditCardDetails.cvv}
+                onChange={handleChange}
+                type="password"
+                placeholder="***"
+                InputProps={{
+                  sx: { borderRadius: 1.5 }
+                }}
+              />
+            </Grid>
+          </Grid>
+          
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            sx={{ 
+              mt: 2,
+              display: 'flex',
+              alignItems: 'center'
+            }}
+          >
+            <LockIcon sx={{ mr: 1, fontSize: '0.9rem' }} />
+            כל פרטי האשראי מוצפנים ומאובטחים לחלוטין.
+          </Typography>
+        </Paper>
+      </Paper>
     </Box>
   );
 
   // תצוגת שלב 4 - סיכום
   const renderSummary = () => (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        סיכום הזמנה
-      </Typography>
-      
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="subtitle1" gutterBottom>
-            פרטי החדר:
-          </Typography>
-          <Typography>
-            חדר {room.roomNumber} - {room.type === 'standard' ? 'סטנדרט' : room.type}
-          </Typography>
-          <Typography>
-            תאריך צ'ק-אין: {bookingData.checkIn.toLocaleDateString('he-IL')}
-          </Typography>
-          <Typography>
-            תאריך צ'ק-אאוט: {bookingData.checkOut.toLocaleDateString('he-IL')}
-          </Typography>
-          <Typography>
-            מספר לילות: {calculations.nights}
-          </Typography>
-          <Typography>
-            מספר אורחים: {bookingData.guests}
-          </Typography>
-          <Typography>
-            מספר חדרים: {bookingData.rooms}
-          </Typography>
+      <Paper 
+        elevation={1} 
+        sx={{ 
+          p: 3, 
+          mb: 3, 
+          borderRadius: 2,
+          border: `1px solid ${theme.palette.divider}` 
+        }}
+      >
+        <Typography 
+          variant="h6" 
+          gutterBottom 
+          sx={{ 
+            pb: 1, 
+            mb: 2, 
+            borderBottom: `1px solid ${theme.palette.divider}`,
+            fontWeight: 'bold',
+            color: theme.palette.primary.main
+          }}
+        >
+          סיכום הזמנה
+        </Typography>
+        
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Box sx={{ mb: 3 }}>
+              <Typography 
+                variant="subtitle1" 
+                gutterBottom 
+                sx={{ 
+                  fontWeight: 'medium',
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: theme.palette.primary.dark
+                }}
+              >
+                <HotelIcon sx={{ mr: 1, fontSize: '1.2rem' }} />
+                פרטי החדר:
+              </Typography>
+              <Box 
+                sx={{ 
+                  ml: 3, 
+                  pl: 2, 
+                  borderLeft: `2px solid ${alpha(theme.palette.primary.main, 0.3)}` 
+                }}
+              >
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  <b>חדר:</b> {room.roomNumber} - {room.type === 'standard' ? 'סטנדרט' : room.type}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  <b>צ'ק-אין:</b> {bookingData.checkIn.toLocaleDateString('he-IL')}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  <b>צ'ק-אאוט:</b> {bookingData.checkOut.toLocaleDateString('he-IL')}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  <b>לילות:</b> {calculations.nights}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  <b>אורחים:</b> {bookingData.guests}
+                </Typography>
+                <Typography variant="body2">
+                  <b>חדרים:</b> {bookingData.rooms}
+                </Typography>
+              </Box>
+            </Box>
+            
+            <Box sx={{ mb: 3 }}>
+              <Typography 
+                variant="subtitle1" 
+                gutterBottom 
+                sx={{ 
+                  fontWeight: 'medium',
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: theme.palette.primary.dark
+                }}
+              >
+                <PersonIcon sx={{ mr: 1, fontSize: '1.2rem' }} />
+                פרטי האורח:
+              </Typography>
+              <Box 
+                sx={{ 
+                  ml: 3, 
+                  pl: 2, 
+                  borderLeft: `2px solid ${alpha(theme.palette.primary.main, 0.3)}` 
+                }}
+              >
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  <b>שם מלא:</b> {bookingData.guest.firstName} {bookingData.guest.lastName}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  <b>טלפון:</b> {bookingData.guest.phone}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  <b>אימייל:</b> {bookingData.guest.email}
+                </Typography>
+                {bookingData.notes && (
+                  <Typography variant="body2">
+                    <b>הערות:</b> {bookingData.notes}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          </Grid>
           
-          <Divider sx={{ my: 2 }} />
-          
-          <Typography variant="subtitle1" gutterBottom>
-            פרטי האורח:
-          </Typography>
-          <Typography>
-            שם: {bookingData.guest.name}
-          </Typography>
-          <Typography>
-            טלפון: {bookingData.guest.phone}
-          </Typography>
-          <Typography>
-            אימייל: {bookingData.guest.email}
-          </Typography>
-          
-          <Divider sx={{ my: 2 }} />
-          
-          <Typography variant="subtitle1" gutterBottom>
-            פרטי תשלום:
-          </Typography>
-          <Typography>
-            אמצעי תשלום: {
-              bookingData.paymentMethod === 'credit' ? 'כרטיס אשראי' :
-              bookingData.paymentMethod === 'cash' ? 'מזומן' : 'העברה בנקאית'
-            }
-          </Typography>
-          <Typography>
-            מחיר בסיס: {calculations.basePrice.toFixed(2)} ₪
-          </Typography>
-          <Typography>
-            מע"מ ({bookingData.isTourist ? 'פטור' : '17%'}): {calculations.vatAmount.toFixed(2)} ₪
-          </Typography>
-          <Typography variant="h6" sx={{ mt: 1 }}>
-            סה"כ לתשלום: {calculations.totalPrice.toFixed(2)} ₪
-          </Typography>
-        </CardContent>
-      </Card>
-      
-      <Alert severity="info">
-        לאחר אישור ההזמנה, תקבל אישור במייל עם פרטי ההזמנה המלאים.
-      </Alert>
+          <Grid item xs={12} md={6}>
+            <Box sx={{ mb: 3 }}>
+              <Typography 
+                variant="subtitle1" 
+                gutterBottom 
+                sx={{ 
+                  fontWeight: 'medium',
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: theme.palette.primary.dark
+                }}
+              >
+                <PaymentIcon sx={{ mr: 1, fontSize: '1.2rem' }} />
+                פרטי תשלום:
+              </Typography>
+              <Box 
+                sx={{ 
+                  ml: 3, 
+                  pl: 2, 
+                  borderLeft: `2px solid ${alpha(theme.palette.primary.main, 0.3)}` 
+                }}
+              >
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  <b>אמצעי תשלום:</b> כרטיס אשראי (פיקדון בלבד)
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  <b>מחיר בסיס:</b> {calculations.basePrice.toFixed(2)} ₪
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  <b>מע"מ ({bookingData.isTourist ? 'פטור' : '17%'}):</b> {calculations.vatAmount.toFixed(2)} ₪
+                </Typography>
+                <Typography variant="body2" sx={{ 
+                  mt: 1.5,
+                  fontWeight: 'bold',
+                  fontSize: '1.1rem',
+                  color: theme.palette.primary.main
+                }}>
+                  סה"כ לתשלום: {calculations.totalPrice.toFixed(2)} ₪
+                </Typography>
+              </Box>
+            </Box>
+            
+            <Alert 
+              severity="info" 
+              sx={{ 
+                borderRadius: 2,
+                mt: 2
+              }}
+            >
+              לאחר אישור ההזמנה, תקבל אישור במייל עם פרטי ההזמנה המלאים.
+            </Alert>
+          </Grid>
+        </Grid>
+      </Paper>
     </Box>
   );
 
@@ -948,7 +1184,7 @@ const BookingPage = () => {
   
   // בדיקת תקינות פרטי האורח
   const isGuestDetailsValid = () => {
-    const { firstName, lastName, phone, email, idNumber } = bookingData;
+    const { firstName, lastName, phone, email } = bookingData.guest;
     return (
       firstName && 
       firstName.length >= 2 && 
@@ -958,31 +1194,25 @@ const BookingPage = () => {
       phone.length >= 9 &&
       email && 
       email.includes('@') && 
-      email.includes('.') &&
-      idNumber && 
-      idNumber.length >= 8
+      email.includes('.')
     );
   };
   
   // בדיקת תקינות פרטי התשלום
   const isPaymentDetailsValid = () => {
     if (bookingData.paymentMethod === 'credit') {
-      const { cardNumber, cardName, cardExpiry, cardCvv } = bookingData;
+      const { cardNumber, expiryDate, cvv } = bookingData.creditCardDetails;
       return (
         cardNumber && 
         cardNumber.length >= 14 && 
-        cardName && 
-        cardName.length >= 5 && 
-        cardExpiry && 
-        cardCvv && 
-        cardCvv.length >= 3
+        expiryDate && 
+        expiryDate.includes('/') && 
+        cvv && 
+        cvv.length >= 3
       );
-    } else if (bookingData.paymentMethod === 'paypal') {
-      return !!bookingData.paypalEmail;
-    } else if (bookingData.paymentMethod === 'cash') {
-      return true;
     }
-    return false;
+    // עבור אמצעי תשלום אחרים תמיד מחזיר true
+    return true;
   };
 
   if (loading && !room) {

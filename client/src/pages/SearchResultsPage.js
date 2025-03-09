@@ -125,14 +125,13 @@ const SearchResultsPage = () => {
   
   return (
     <Box sx={{ 
-      py: 4,
-      px: { xs: 2, sm: 3, md: 4 },
-      maxWidth: '1400px',
-      mx: 'auto',
-      backgroundColor: alpha(theme.palette.background.default, 0.7)
+      py: 3,
+      px: { xs: 2, sm: 2, md: 3 },
+      maxWidth: '1300px',
+      mx: 'auto'
     }}>
       <Typography 
-        variant={isMobile ? "h5" : "h4"} 
+        variant="h5" 
         component="h1" 
         align="center" 
         gutterBottom
@@ -140,20 +139,10 @@ const SearchResultsPage = () => {
           fontWeight: 'bold',
           position: 'relative',
           display: 'inline-block',
-          mb: 4,
+          mb: 3,
           mx: 'auto',
           width: '100%',
-          color: theme.palette.primary.dark,
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            width: '80px',
-            height: '3px',
-            bottom: '-10px',
-            left: 'calc(50% - 40px)',
-            background: 'linear-gradient(90deg, #42a5f5, #1976d2)',
-            borderRadius: '50px'
-          }
+          color: theme.palette.primary.dark
         }}
       >
         חדרים זמינים
@@ -161,47 +150,33 @@ const SearchResultsPage = () => {
       
       {/* פרטי החיפוש */}
       <Paper 
-        elevation={2}
+        elevation={1}
         sx={{ 
-          p: { xs: 2.5, sm: 3.5 }, 
-          mb: 5, 
-          maxWidth: '900px', 
+          p: { xs: 2, sm: 2.5 }, 
+          mb: 3, 
+          maxWidth: '850px', 
           mx: 'auto',
-          borderRadius: 4,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.05)',
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-          background: 'linear-gradient(to bottom right, #ffffff, #f5f9ff)',
-          overflow: 'hidden',
-          position: 'relative',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '4px',
-            background: 'linear-gradient(90deg, #42a5f5, #1976d2)',
-            opacity: 0.8
-          }
+          borderRadius: 2,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
         }}
       >
-        <Grid container spacing={3} alignItems="center">
+        <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-              <CalendarIcon color="primary" sx={{ mr: 1.5 }} />
-              <Typography variant="h6" fontWeight="medium" fontSize="1.1rem">
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <CalendarIcon color="primary" sx={{ mr: 1, fontSize: '1.1rem' }} />
+              <Typography variant="subtitle1" fontWeight="medium" fontSize="0.95rem">
                 תאריכי שהייה:
               </Typography>
             </Box>
             <Box sx={{ 
-              pl: 4,
-              borderLeft: `3px solid ${alpha(theme.palette.primary.main, 0.15)}`,
+              pl: 3.5,
               ml: 0.5
             }}>
-              <Typography variant="body1" sx={{ mb: 1 }}>
+              <Typography variant="body2" sx={{ mb: 0.5, fontSize: '0.85rem' }}>
                 <b>צ'ק אין:</b> {formatDate(checkIn)}
               </Typography>
-              <Typography variant="body1">
+              <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
                 <b>צ'ק אאוט:</b> {formatDate(checkOut)}
               </Typography>
             </Box>
@@ -213,31 +188,27 @@ const SearchResultsPage = () => {
               flexDirection: 'column',
               alignItems: { xs: 'flex-start', sm: 'flex-end' }
             }}>
-              <Typography variant="h6" fontWeight="medium" fontSize="1.1rem" sx={{ mb: 1.5 }}>
+              <Typography variant="subtitle1" fontWeight="medium" fontSize="0.95rem" sx={{ mb: 1 }}>
                 <b>{calculateNights()}</b> לילות
               </Typography>
-              <Typography variant="body1" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                <PersonIcon fontSize="small" color="primary" />
+              <Typography variant="body2" sx={{ mb: 1.2, display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.85rem' }}>
+                <PersonIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
                 {guests} {guests === 1 ? 'אורח' : 'אורחים'} 
                 {roomsCount > 1 && <> • {roomsCount} חדרים</>}
               </Typography>
               <Button 
                 variant="outlined" 
-                size="medium" 
-                startIcon={<BackIcon />}
+                size="small" 
+                startIcon={<BackIcon fontSize="small" />}
                 onClick={() => navigate('/')}
                 sx={{ 
                   borderRadius: '50px',
-                  px: 2.5,
-                  py: 0.8,
-                  borderWidth: '1.5px',
-                  fontWeight: 'medium',
+                  px: 1.5,
+                  py: 0.5,
+                  fontSize: '0.75rem',
                   '&:hover': {
-                    borderWidth: '1.5px',
-                    backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                    transform: 'translateY(-2px)',
-                  },
-                  transition: 'all 0.3s ease'
+                    backgroundColor: alpha(theme.palette.primary.main, 0.05)
+                  }
                 }}
               >
                 שנה חיפוש
@@ -248,18 +219,18 @@ const SearchResultsPage = () => {
       </Paper>
       
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress size={50} thickness={4} sx={{ color: theme.palette.primary.main }} />
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress size={32} thickness={4} sx={{ color: theme.palette.primary.main }} />
         </Box>
       ) : error ? (
         <Alert 
           severity="error" 
           sx={{ 
-            maxWidth: '900px', 
+            maxWidth: '850px', 
             mx: 'auto', 
-            mb: 4,
-            borderRadius: 2,
-            py: 1.5
+            mb: 3,
+            borderRadius: 1,
+            py: 1
           }}
         >
           {error}
@@ -268,101 +239,102 @@ const SearchResultsPage = () => {
         <Alert 
           severity="info" 
           sx={{ 
-            maxWidth: '900px', 
+            maxWidth: '850px', 
             mx: 'auto',
-            borderRadius: 2,
-            py: 1.5
+            borderRadius: 1,
+            py: 1
           }}
         >
           אין חדרים זמינים בתאריכים שנבחרו. אנא בחר תאריכים אחרים.
         </Alert>
       ) : (
-        <Grid container spacing={4} sx={{ mt: 1 }}>
+        <Grid container spacing={2} sx={{ mt: 0.5 }}>
           {roomsList.map((room) => (
             <Grid item xs={12} sm={6} md={4} key={room._id}>
               <Card sx={{ 
                 height: '100%', 
                 display: 'flex', 
                 flexDirection: 'column',
-                borderRadius: 4,
+                borderRadius: 2,
                 overflow: 'hidden',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-                transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                boxShadow: '0 3px 10px rgba(0,0,0,0.06)',
+                transition: 'all 0.3s ease',
                 '&:hover': {
-                  transform: 'translateY(-10px)',
-                  boxShadow: '0 15px 30px rgba(0,0,0,0.12)'
+                  transform: 'translateY(-5px)',
+                  boxShadow: '0 6px 15px rgba(0,0,0,0.08)'
                 }
               }}>
                 <Box sx={{ position: 'relative' }}>
                   <CardMedia
                     component="img"
-                    height="220"
-                    image={room.images[0] || 'https://via.placeholder.com/400x200?text=אין+תמונה'}
-                    alt={`חדר ${room.name}`}
+                    height="180"
+                    image={room.images[0]?.url || room.images[0] || 'https://via.placeholder.com/400x200?text=אין+תמונה'}
+                    alt={`חדר ${room.name || room.roomNumber}`}
                     sx={{
-                      transition: 'transform 0.7s ease',
+                      transition: 'transform 0.5s ease',
                       '&:hover': {
-                        transform: 'scale(1.05)'
+                        transform: 'scale(1.03)'
                       }
                     }}
                   />
                   <Chip 
                     icon={<CheckIcon />} 
-                    label="זמין לתאריכים שבחרת" 
+                    label="זמין" 
                     color="success" 
                     size="small"
                     sx={{
                       position: 'absolute',
-                      top: 12,
-                      left: 12,
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      top: 8,
+                      left: 8,
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
                       color: theme.palette.success.main,
-                      fontWeight: 'medium',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                      fontSize: '0.7rem',
+                      height: '24px',
                       '& .MuiChip-icon': {
-                        color: theme.palette.success.main
+                        color: theme.palette.success.main,
+                        fontSize: '0.9rem'
                       }
                     }}
                   />
                 </Box>
-                <CardContent sx={{ flexGrow: 1, p: 3 }}>
-                  <Typography gutterBottom variant="h5" component="div" sx={{ fontWeight: 'bold', mb: 1.5 }}>
-                    {room.name}
+                <CardContent sx={{ flexGrow: 1, p: 2, pb: 1 }}>
+                  <Typography gutterBottom variant="h6" component="div" sx={{ fontWeight: 'bold', fontSize: '1rem', mb: 1 }}>
+                    {room.name || `חדר ${room.roomNumber}`}
                   </Typography>
                   
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 1.5 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <KingBedIcon fontSize="small" color="action" />
-                      <Typography variant="body2" color="text.secondary">
+                      <KingBedIcon fontSize="small" color="action" sx={{ fontSize: '1rem' }} />
+                      <Typography variant="body2" color="text.secondary" fontSize="0.8rem">
                         {room.maxGuests} אורחים
                       </Typography>
                     </Box>
                     
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <SquareIcon fontSize="small" color="action" />
-                      <Typography variant="body2" color="text.secondary">
+                      <SquareIcon fontSize="small" color="action" sx={{ fontSize: '1rem' }} />
+                      <Typography variant="body2" color="text.secondary" fontSize="0.8rem">
                         {room.size || 20} מ"ר
                       </Typography>
                     </Box>
                   </Box>
                   
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, lineHeight: 1.6 }}>
-                    {room.description ? room.description.substring(0, 90) + (room.description.length > 90 ? '...' : '') : 'חדר נעים ומאובזר עם כל הצרכים לשהייה מושלמת.'}
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, lineHeight: 1.4, fontSize: '0.8rem' }}>
+                    {room.description ? room.description.substring(0, 80) + (room.description.length > 80 ? '...' : '') : 'חדר נעים ומאובזר עם כל הצרכים לשהייה מושלמת.'}
                   </Typography>
                   
-                  <Divider sx={{ my: 2 }} />
+                  <Divider sx={{ my: 1 }} />
                   
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                    <Typography variant="h6" color="primary.dark" fontWeight="bold">
-                      {room.basePrice} ₪ <Typography component="span" variant="body2" color="text.secondary">/ לילה</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="body1" color="primary.dark" fontWeight="bold">
+                      {room.basePrice} ₪ <Typography component="span" variant="body2" color="text.secondary" fontSize="0.75rem">/ לילה</Typography>
                     </Typography>
-                    <Typography variant="h6" color="primary" fontWeight="medium">
+                    <Typography variant="body1" color="primary" fontWeight="medium">
                       {room.basePrice * calculateNights()} ₪ 
-                      <Typography component="span" variant="body2" color="text.secondary"> סה"כ</Typography>
+                      <Typography component="span" variant="body2" color="text.secondary" fontSize="0.75rem"> סה"כ</Typography>
                     </Typography>
                   </Box>
                   
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 1.5 }}>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
                     {room.amenities && room.amenities.slice(0, 3).map((amenity, index) => (
                       <Chip 
                         key={index} 
@@ -370,11 +342,13 @@ const SearchResultsPage = () => {
                         label={amenity} 
                         size="small"
                         sx={{
-                          bgcolor: alpha(theme.palette.primary.light, 0.1),
-                          color: theme.palette.primary.dark,
-                          fontWeight: 'medium',
+                          bgcolor: alpha(theme.palette.primary.light, 0.08),
+                          color: theme.palette.text.secondary,
+                          fontSize: '0.7rem',
+                          height: '22px',
                           '& .MuiChip-icon': {
-                            color: alpha(theme.palette.primary.main, 0.9)
+                            color: alpha(theme.palette.primary.main, 0.7),
+                            fontSize: '0.8rem'
                           }
                         }}
                       />
@@ -385,34 +359,37 @@ const SearchResultsPage = () => {
                         size="small" 
                         variant="outlined"
                         sx={{
-                          borderColor: alpha(theme.palette.primary.main, 0.3)
+                          borderColor: alpha(theme.palette.primary.main, 0.3),
+                          fontSize: '0.7rem',
+                          height: '22px'
                         }}
                       />
                     )}
                   </Box>
                 </CardContent>
-                <CardActions sx={{ p: 2.5, pt: 0.5 }}>
-                  <Grid container spacing={2}>
+                <CardActions sx={{ p: 2, pt: 0 }}>
+                  <Grid container spacing={1}>
                     <Grid item xs={5}>
                       <Button 
                         fullWidth 
                         variant="outlined"
-                        size="large"
+                        size="small"
                         onClick={() => navigate(`/room/${room._id}`, {
                           state: { backToSearch: true, checkIn, checkOut }
                         })}
                         sx={{
-                          borderRadius: 2,
-                          py: 1,
-                          borderWidth: '1.5px',
+                          borderRadius: 1.5,
+                          py: 0.5,
+                          fontSize: '0.8rem',
+                          borderWidth: '1px',
                           transition: 'all 0.3s ease',
                           '&:hover': {
-                            borderWidth: '1.5px',
-                            transform: 'translateY(-3px)',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.07)'
+                            borderWidth: '1px',
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 3px 8px rgba(0,0,0,0.05)'
                           }
                         }}
-                        startIcon={<InfoIcon />}
+                        startIcon={<InfoIcon style={{ fontSize: '1rem' }} />}
                       >
                         פרטים
                       </Button>
@@ -421,19 +398,20 @@ const SearchResultsPage = () => {
                       <Button 
                         fullWidth 
                         variant="contained"
-                        size="large"
+                        size="small"
                         onClick={() => handleBookRoom(room._id)}
                         sx={{
-                          borderRadius: 2,
-                          py: 1,
+                          borderRadius: 1.5,
+                          py: 0.5,
+                          fontSize: '0.8rem',
                           fontWeight: 'bold',
                           backgroundColor: theme.palette.primary.main,
                           transition: 'all 0.3s ease',
-                          boxShadow: '0 4px 12px rgba(25, 118, 210, 0.25)',
+                          boxShadow: '0 3px 8px rgba(25, 118, 210, 0.2)',
                           '&:hover': {
                             backgroundColor: theme.palette.primary.dark,
-                            transform: 'translateY(-3px)',
-                            boxShadow: '0 6px 16px rgba(25, 118, 210, 0.35)'
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 4px 12px rgba(25, 118, 210, 0.25)'
                           }
                         }}
                       >
