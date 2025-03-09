@@ -55,6 +55,97 @@ import Slider from 'react-slick';
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 
+const SliderItem = ({ children }) => {
+  return (
+    <div style={{ padding: '0 8px' }}>
+      {children}
+    </div>
+  );
+};
+
+const GallerySlider = ({ gallery, isMobile, theme }) => {
+  const settings = {
+    dots: true,
+    infinite: true,
+    speed: 500,
+    slidesToShow: isMobile ? 1 : 3,
+    slidesToScroll: 1,
+    autoplay: true,
+    autoplaySpeed: 5000,
+    pauseOnHover: true,
+    arrows: true,
+    responsive: [
+      {
+        breakpoint: 1024,
+        settings: {
+          slidesToShow: 3,
+          slidesToScroll: 1,
+        }
+      },
+      {
+        breakpoint: 900,
+        settings: {
+          slidesToShow: 2,
+          slidesToScroll: 1,
+        }
+      },
+      {
+        breakpoint: 600,
+        settings: {
+          slidesToShow: 1,
+          slidesToScroll: 1,
+          dots: true
+        }
+      }
+    ]
+  };
+
+  return (
+    <Slider {...settings}>
+      {gallery.images.map((image, index) => (
+        <div key={image._id || index}>
+          <div style={{ 
+            height: isMobile ? '240px' : '280px',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            position: 'relative',
+            boxShadow: '0 6px 16px rgba(0,0,0,0.1)',
+            margin: '10px',
+            transition: 'all 0.3s ease'
+          }}>
+            <img
+              src={image.url}
+              alt={image.title || `תמונה ${index + 1}`}
+              style={{ 
+                width: '100%', 
+                height: '100%', 
+                objectFit: 'cover',
+                transition: 'transform 0.6s ease'
+              }}
+            />
+            {image.title && (
+              <div style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                padding: '16px',
+                background: 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.0))',
+                color: 'white',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
+                  {image.title}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </Slider>
+  );
+};
+
 const HomePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -647,127 +738,15 @@ const HomePage = () => {
         ) : gallery && gallery.images && gallery.images.length > 0 ? (
           <Box sx={{ 
             px: { xs: 1, sm: 2, md: 4 },
-            '& .slick-slide': { 
-              px: 1.5, 
-              outline: 'none',
+            '.slick-dots': {
+              bottom: '-35px',
             },
-            '& .slick-next:before, & .slick-prev:before': {
+            '.slick-prev:before, .slick-next:before': {
               color: theme.palette.primary.main,
-              fontSize: { xs: '24px', md: '32px' },
-              opacity: 0.8,
-            },
-            '& .slick-next, & .slick-prev': {
-              width: 'auto',
-              height: 'auto',
-              zIndex: 2,
-              '&:hover:before': {
-                opacity: 1,
-              }
-            },
-            '& .slick-prev': {
-              left: { xs: -25, md: -35 }
-            },
-            '& .slick-next': {
-              right: { xs: -25, md: -35 }
-            },
-            '& .slick-list': {
-              px: 2, // מרווח בצדדים
-              overflow: 'visible',
-            },
-            '& .slick-track': {
-              display: 'flex',
-              gap: 2,
-              my: 2
+              fontSize: '24px',
             }
           }}>
-            <Slider
-              dots={true}
-              infinite={true}
-              speed={500}
-              slidesToShow={isMobile ? 1 : (isTablet ? 2 : (isDesktop ? 3 : 4))}
-              slidesToScroll={1}
-              autoplay={true}
-              autoplaySpeed={5000}
-              pauseOnHover={true}
-              arrows={true}
-              responsive={[
-                {
-                  breakpoint: 1024,
-                  settings: {
-                    slidesToShow: 3,
-                    slidesToScroll: 1,
-                  }
-                },
-                {
-                  breakpoint: 900,
-                  settings: {
-                    slidesToShow: 2,
-                    slidesToScroll: 1,
-                  }
-                },
-                {
-                  breakpoint: 600,
-                  settings: {
-                    slidesToShow: 1,
-                    slidesToScroll: 1,
-                    dots: true
-                  }
-                }
-              ]}
-            >
-              {gallery.images.map((image, index) => (
-                <Box key={image._id || index} sx={{ px: 1 }}>
-                  <Paper 
-                    elevation={3}
-                    sx={{ 
-                      height: isMobile ? 240 : 280,
-                      borderRadius: 4,
-                      overflow: 'hidden',
-                      position: 'relative',
-                      transition: 'all 0.3s ease',
-                      boxShadow: '0 6px 16px rgba(0,0,0,0.1)',
-                      '&:hover': {
-                        transform: 'translateY(-10px)',
-                        boxShadow: '0 12px 24px rgba(0,0,0,0.15)',
-                      },
-                      '&:hover img': {
-                        transform: 'scale(1.08)',
-                      }
-                    }}
-                  >
-                    <Box
-                      component="img"
-                      src={image.url}
-                      alt={image.title || `תמונה ${index + 1}`}
-                      sx={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        objectFit: 'cover',
-                        transition: 'transform 0.6s ease',
-                      }}
-                    />
-                    {image.title && (
-                      <Box 
-                        sx={{
-                          position: 'absolute',
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          padding: 2,
-                          background: 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.0))',
-                          color: 'white',
-                          textAlign: 'center'
-                        }}
-                      >
-                        <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-                          {image.title}
-                        </Typography>
-                      </Box>
-                    )}
-                  </Paper>
-                </Box>
-              ))}
-            </Slider>
+            <GallerySlider gallery={gallery} isMobile={isMobile} theme={theme} />
           </Box>
         ) : (
           <Box sx={{ py: 4, textAlign: 'center' }}>
