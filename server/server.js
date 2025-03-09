@@ -19,13 +19,19 @@ const app = express();
 // Middleware
 // הגדרות CORS דינמיות לפי סביבה
 const corsOptions = {
-  origin: '*', // מאפשר גישה מכל מקום בסביבת פיתוח
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: ['https://rothschild-gamma.vercel.app', 'https://rothschild-79.vercel.app', 'http://localhost:3000', 'http://localhost:3001'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'Cache-Control', 'Pragma', 'Expires'],
-  credentials: true
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
+
+// הוספת middleware כדי לטפל באופן מפורש בבקשות preflight
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -38,12 +44,10 @@ mongoose.connect(process.env.MONGODB_URI, {
 .catch(err => console.error('שגיאה בחיבור למסד הנתונים:', err));
 
 // Import Routes
-const roomRoutes = require('./routes/roomRoutes');
-const bookingRoutes = require('./routes/bookingRoutes');
-const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes');
-const uploadRoutes = require('./routes/uploadRoutes');
-const icalsRoutes = require('./routes/icalsRoutes');
+const roomRoutes = require('./routes/rooms');
+const bookingRoutes = require('./routes/bookings');
+const authRoutes = require('./routes/auth');
+const uploadRoutes = require('./routes/uploads');
 const chatRoutes = require('./routes/chatRoutes');
 const manageBookingRoutes = require('./routes/manageBookingRoutes');
 
@@ -51,14 +55,11 @@ const manageBookingRoutes = require('./routes/manageBookingRoutes');
 app.use('/api/rooms', roomRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
 app.use('/api/upload', uploadRoutes);
-app.use('/api/icals', icalsRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/manage-booking', manageBookingRoutes);
 
-// נתיבי API
-app.use('/api/uploads', require('./routes/uploads'));
+// נתיבי API נוספים
 app.use('/api/invoices', require('./routes/invoices'));
 
 // נתיב בדיקה בסיסי
