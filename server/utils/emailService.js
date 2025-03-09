@@ -24,12 +24,6 @@ const sendBookingConfirmation = async (booking, room) => {
     lastCancellationDate.setDate(lastCancellationDate.getDate() - 3);
     const lastCancellationDateFormatted = lastCancellationDate.toLocaleDateString('he-IL');
     
-    // בדיקה אם האורח הוא תייר
-    const isTourist = booking.guest.isTourist === true || booking.guest.isTourist === 'true';
-    const priceNote = isTourist ? 
-      "נא להציג דרכון בהגעה לפטור ממע\"מ" : 
-      "מחיר כולל מע\"מ";
-    
     // כמות האורחים
     const guestCount = booking.guests || booking.numberOfGuests || 1;
     
@@ -79,14 +73,14 @@ const sendBookingConfirmation = async (booking, room) => {
               </tr>
               <tr>
                 <td style="padding: 8px 0; font-weight: bold;">מחיר כולל:</td>
-                <td style="padding: 8px 0;">₪${booking.totalPrice.toFixed(2)}<br><span style="font-size: 15px; color: #555;">${priceNote}</span></td>
+                <td style="padding: 8px 0;">₪${booking.totalPrice.toFixed(2)}</td>
               </tr>
             </table>
           </div>
           
           <div style="background-color: #f0f7ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #1976d2;">
             <h3 style="margin-top: 0; margin-bottom: 12px; color: #1976d2; font-size: 20px;">מידע שימושי</h3>
-            <p style="margin: 10px 0; font-size: 17px;"><strong>שימו לב:</strong> אנו מציעים צ'ק אין עצמי נוח. ביום ההגעה תקבלו בוואטסאפ את כל פרטי הכניסה והקודים הדרושים</p>
+            <p style="margin: 10px 0; font-size: 17px;"><strong>שימו לב:</strong> אנו מציעים צ'ק אין עצמי נוח. ביום ההגעה תקבלו בוואטסאפ את כל פרטי הכניסה הדרושים</p>
             <p style="margin: 10px 0; font-size: 17px;"><strong>צ'ק אין:</strong> החל מהשעה 15:00</p>
             <p style="margin: 10px 0; font-size: 17px;"><strong>צ'ק אאוט:</strong> עד השעה 10:00</p>
             <p style="margin: 10px 0; font-size: 17px;"><strong>לכל שאלה:</strong> ניתן לפנות בטלפון 050-607-0260, להשיב למייל זה או לשלוח הודעת וואטסאפ</p>
