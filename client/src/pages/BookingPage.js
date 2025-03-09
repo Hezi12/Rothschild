@@ -40,10 +40,6 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import { alpha } from '@mui/material/styles';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import LockIcon from '@mui/icons-material/Lock';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import HomeIcon from '@mui/icons-material/Home';
-import EmailIcon from '@mui/icons-material/Email';
-import AlertTitle from '@mui/material/AlertTitle';
 
 const steps = ['בחירת תאריכים', 'פרטי אורח', 'פרטי תשלום', 'סיכום'];
 
@@ -383,13 +379,6 @@ const BookingPage = () => {
       try {
         const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingPayload);
         console.log('תשובה מהשרת:', response.data);
-        
-        // שמירת מספר ההזמנה למסך הסיום
-        setBookingData(prev => ({
-          ...prev,
-          bookingId: response.data._id,
-          bookingNumber: response.data.bookingNumber || response.data._id.substring(0, 8).toUpperCase()
-        }));
         
         toast.success('ההזמנה נשלחה בהצלחה!');
         setActiveStep(steps.length);
@@ -1136,124 +1125,23 @@ const BookingPage = () => {
 
   // תצוגת שלב סיום
   const renderComplete = () => (
-    <Box sx={{ 
-      textAlign: 'center', 
-      py: 4, 
-      px: 2,
-      maxWidth: 800, 
-      mx: 'auto',
-      my: 4,
-      bgcolor: 'background.paper',
-      borderRadius: 4,
-      boxShadow: 5,
-      border: '1px solid #e0e0e0',
-      overflow: 'hidden'
-    }}>
-      {/* כותרת עם רקע */}
-      <Box sx={{ 
-        bgcolor: 'primary.main', 
-        py: 3, 
-        mb: 4, 
-        mx: -2, 
-        color: 'white',
-        backgroundImage: 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)'
-      }}>
-        <CheckCircleIcon 
-          sx={{ 
-            fontSize: 80, 
-            color: 'white',
-            mb: 2,
-            bgcolor: 'success.main',
-            p: 1,
-            borderRadius: '50%',
-            boxShadow: 2
-          }} 
-        />
-        
-        <Typography variant="h4" gutterBottom fontWeight="bold">
-          תודה על הזמנתך!
-        </Typography>
-        
-        <Typography variant="subtitle1" color="white" sx={{ opacity: 0.9 }}>
-          ההזמנה שלך התקבלה בהצלחה ונשלחה לאישור
-        </Typography>
-      </Box>
-      
-      {/* פרטי הזמנה */}
-      <Box sx={{ 
-        maxWidth: 500, 
-        mx: 'auto', 
-        mb: 4, 
-        p: 3, 
-        border: '1px solid #e0e0e0', 
-        borderRadius: 2,
-        bgcolor: '#f9f9f9'
-      }}>
-        <Typography variant="h6" fontWeight="bold" color="primary.main" paragraph>
-          מספר הזמנה: {bookingData.bookingNumber}
-        </Typography>
-        
-        <Divider sx={{ my: 2 }} />
-        
-        <Grid container spacing={2} sx={{ textAlign: 'right' }}>
-          <Grid item xs={12} sm={6}>
-            <Typography variant="body2" color="text.secondary">שם האורח</Typography>
-            <Typography variant="body1" fontWeight="medium">{bookingData.guest.firstName} {bookingData.guest.lastName}</Typography>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Typography variant="body2" color="text.secondary">דוא"ל</Typography>
-            <Typography variant="body1" fontWeight="medium">{bookingData.guest.email}</Typography>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Typography variant="body2" color="text.secondary">תאריך הגעה</Typography>
-            <Typography variant="body1" fontWeight="medium">{new Date(bookingData.checkIn).toLocaleDateString('he-IL')}</Typography>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Typography variant="body2" color="text.secondary">תאריך יציאה</Typography>
-            <Typography variant="body1" fontWeight="medium">{new Date(bookingData.checkOut).toLocaleDateString('he-IL')}</Typography>
-          </Grid>
-          <Grid item xs={12}>
-            <Typography variant="body2" color="text.secondary">מספר לילות</Typography>
-            <Typography variant="body1" fontWeight="medium">{calculateNights()}</Typography>
-          </Grid>
-        </Grid>
-      </Box>
-      
-      <Typography variant="body1" paragraph sx={{ mb: 3 }}>
-        אישור הזמנה נשלח לכתובת האימייל
-        <Box component="span" fontWeight="bold"> {bookingData.guest.email}</Box>
+    <Box sx={{ textAlign: 'center', py: 3 }}>
+      <Typography variant="h5" gutterBottom>
+        תודה על הזמנתך!
       </Typography>
-      
-      <Alert 
-        severity="info" 
-        sx={{ mb: 4, mx: 'auto', maxWidth: '90%' }}
+      <Typography variant="subtitle1" paragraph>
+        ההזמנה שלך התקבלה בהצלחה. אישור הזמנה נשלח לכתובת האימייל שלך.
+      </Typography>
+      <Typography paragraph>
+        מספר הזמנה: {/* כאן יוצג מספר ההזמנה אם יש */}
+      </Typography>
+      <Button
+        variant="contained"
+        onClick={handleReset}
+        sx={{ mt: 3 }}
       >
-        <AlertTitle>שים לב</AlertTitle>
-        אם לא קיבלת אימייל בתוך מספר דקות, אנא בדוק בתיקיית הספאם או צור קשר איתנו בטלפון 050-607-0260
-      </Alert>
-      
-      <Box sx={{ mt: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
-        <Button
-          variant="contained"
-          onClick={handleReset}
-          startIcon={<HomeIcon />}
-          sx={{ px: 3, py: 1.2, borderRadius: 2 }}
-          size="large"
-        >
-          חזרה לדף הבית
-        </Button>
-        
-        <Button
-          variant="outlined"
-          component="a"
-          href={`mailto:diamshotels@gmail.com?subject=שאלה לגבי הזמנה מספר ${bookingData.bookingNumber}`}
-          startIcon={<EmailIcon />}
-          sx={{ px: 3, py: 1.2, borderRadius: 2 }}
-          size="large"
-        >
-          צור קשר
-        </Button>
-      </Box>
+        חזרה לדף הבית
+      </Button>
     </Box>
   );
 

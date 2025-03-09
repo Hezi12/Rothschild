@@ -69,9 +69,6 @@ const ChatBox = () => {
     setIsLoading(true);
     
     try {
-      // הדפסת לוג של כתובת השרת אליה פונים (לצורכי דיבוג)
-      console.log('שולח בקשה לכתובת:', `${process.env.REACT_APP_API_URL}/chat`);
-      
       // שליחת בקשה ל-API של השרת, עם שימוש בקובץ הגדרות הסביבה
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/chat`, {
         messages: [...messages, userMessage].map(msg => ({ role: msg.role, content: msg.content }))
@@ -81,24 +78,9 @@ const ChatBox = () => {
       setMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
     } catch (error) {
       console.error('שגיאה בשליחת הודעה:', error);
-      console.error('פרטי השגיאה:', error.response?.data || 'אין פרטים נוספים');
-      console.error('סטטוס:', error.response?.status || 'אין סטטוס');
-      
-      // הודעת שגיאה מותאמת לפי סוג הבעיה
-      let errorMessage = 'מצטער, נתקלתי בבעיה. אנא נסה שוב מאוחר יותר.';
-      
-      // בדיקה אם זו בעיית התחברות לשרת
-      if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
-        errorMessage = 'לא ניתן להתחבר לשרת הצ\'אט. אנא ודא שהשרת פעיל ונסה שוב.';
-      } 
-      // בדיקה אם זו בעיית מפתח API של OpenAI
-      else if (error.response?.status === 500 && error.response?.data?.includes('OpenAI')) {
-        errorMessage = 'אירעה שגיאה בשרת הצ\'אט. אנא פנה למנהל המערכת.';
-      }
-      
       setMessages(prev => [
         ...prev, 
-        { role: 'assistant', content: errorMessage }
+        { role: 'assistant', content: 'מצטער, נתקלתי בבעיה. אנא נסה שוב מאוחר יותר.' }
       ]);
     } finally {
       setIsLoading(false);
