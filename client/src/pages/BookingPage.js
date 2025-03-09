@@ -64,6 +64,7 @@ const BookingPage = () => {
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [error, setError] = useState(null);
   const [availableRooms, setAvailableRooms] = useState([]);
+  const [bookingId, setBookingId] = useState('');
   
   // פרטי הזמנה
   const [bookingData, setBookingData] = useState({
@@ -379,6 +380,11 @@ const BookingPage = () => {
       try {
         const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingPayload);
         console.log('תשובה מהשרת:', response.data);
+        
+        // שמירת מספר ההזמנה שהתקבל מהשרת
+        if (response.data && response.data._id) {
+          setBookingId(response.data._id);
+        }
         
         toast.success('ההזמנה נשלחה בהצלחה!');
         setActiveStep(steps.length);
@@ -1133,7 +1139,7 @@ const BookingPage = () => {
         ההזמנה שלך התקבלה בהצלחה. אישור הזמנה נשלח לכתובת האימייל שלך.
       </Typography>
       <Typography paragraph>
-        מספר הזמנה: {/* כאן יוצג מספר ההזמנה אם יש */}
+        מספר הזמנה: {bookingId ? <strong>{bookingId}</strong> : 'ממתין לאישור מהשרת...'}
       </Typography>
       <Button
         variant="contained"
