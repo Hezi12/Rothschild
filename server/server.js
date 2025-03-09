@@ -58,203 +58,173 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'שרת API של מלונית רוטשילד 79 פועל!' });
 });
 
-// נתיב ביטול ישיר - נגיש מחוץ ל-API הרגיל
-app.get('/cancel/:id', async (req, res) => {
-  try {
-    console.log('קיבלנו בקשת ביטול ישירה עם מזהה:', req.params.id);
-    
-    // וידוא שהמזהה תקין
-    if (!req.params.id || !req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).send(`
-        <html dir="rtl">
-          <head>
-            <meta charset="utf-8">
-            <title>שגיאה - מזהה הזמנה לא תקין</title>
-            <meta http-equiv="refresh" content="5;url=${process.env.WEBSITE_URL || 'http://localhost:3000'}">
-            <style>
-              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-              h1 { color: #e53935; }
-              p { margin: 20px 0; }
-              .redirect { color: #666; font-size: 14px; margin-top: 30px; }
-            </style>
-          </head>
-          <body>
-            <h1>שגיאה - מזהה הזמנה לא תקין</h1>
-            <p>לא ניתן למצוא את ההזמנה המבוקשת.</p>
-            <p class="redirect">מועבר לדף הבית בעוד 5 שניות...</p>
-          </body>
-        </html>
-      `);
-    }
-    
-    const Booking = require('./models/Booking');
-    const booking = await Booking.findById(req.params.id)
-      .populate('room', 'roomNumber type basePrice');
-    
-    if (!booking) {
-      return res.status(404).send(`
-        <html dir="rtl">
-          <head>
-            <meta charset="utf-8">
-            <title>שגיאה - ההזמנה לא נמצאה</title>
-            <meta http-equiv="refresh" content="5;url=${process.env.WEBSITE_URL || 'http://localhost:3000'}">
-            <style>
-              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-              h1 { color: #e53935; }
-              p { margin: 20px 0; }
-              .redirect { color: #666; font-size: 14px; margin-top: 30px; }
-            </style>
-          </head>
-          <body>
-            <h1>שגיאה - ההזמנה לא נמצאה</h1>
-            <p>לא ניתן למצוא את ההזמנה המבוקשת.</p>
-            <p class="redirect">מועבר לדף הבית בעוד 5 שניות...</p>
-          </body>
-        </html>
-      `);
-    }
-    
-    // חישוב הפרש הימים בין היום לתאריך הצ'ק-אין
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // איפוס שעות
-    
-    const checkInDate = new Date(booking.checkIn);
-    checkInDate.setHours(0, 0, 0, 0); // איפוס שעות
-    
-    const diffTime = checkInDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    // קביעת סטטוס הביטול לפי מדיניות החברה
-    const isFree = diffDays >= 3;
-    const cancellationFee = isFree ? 0 : booking.totalPrice;
-    const feeFormatted = cancellationFee.toFixed(2);
-    
-    // שליחת מייל התראה למנהל
-    const cancellationDetails = {
-      isFree,
-      fee: cancellationFee,
-      daysUntilCheckIn: diffDays
-    };
-    
-    try {
-      const { sendCancellationAlert } = require('./utils/emailService');
-      await sendCancellationAlert(booking, cancellationDetails);
-      console.log('נשלחה התראת ביטול למנהל');
-    } catch (emailError) {
-      console.error('שגיאה בשליחת התראת ביטול למנהל:', emailError);
-    }
-    
-    // שלב זה נשלח HTML עם מידע על הביטול ישירות מהשרת
-    res.status(200).send(`
-      <html dir="rtl">
-        <head>
-          <meta charset="utf-8">
-          <title>בקשת הביטול התקבלה</title>
-          <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              text-align: center; 
-              padding: 30px;
-              max-width: 800px;
-              margin: 0 auto;
-              line-height: 1.6;
-            }
-            .container {
-              border: 1px solid #ddd;
-              border-radius: 8px;
-              padding: 30px;
-              margin: 30px 0;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            }
-            h1 { 
-              color: #4caf50;
-              margin-bottom: 30px;
-            }
-            .details {
-              background-color: ${isFree ? '#e8f5e9' : '#ffebee'};
-              border-radius: 8px;
-              padding: 20px;
-              margin: 20px 0;
-              text-align: right;
-              border-right: 4px solid ${isFree ? '#4caf50' : '#f44336'};
-            }
-            .status {
-              font-size: 20px;
-              font-weight: bold;
-              color: ${isFree ? '#2e7d32' : '#c62828'};
-              margin: 15px 0;
-            }
-            .back-link {
-              display: inline-block;
-              margin-top: 30px;
-              background-color: #1976d2;
-              color: white;
-              padding: 10px 20px;
-              text-decoration: none;
-              border-radius: 4px;
-            }
-            p { margin: 15px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>בקשת הביטול התקבלה בהצלחה</h1>
-            
-            <p class="status">
-              ${isFree 
-                ? 'ההזמנה בוטלה ללא עלות' 
-                : `ההזמנה בוטלה בעלות של ₪${feeFormatted}`}
-            </p>
-            
-            <div class="details">
-              <p><strong>מספר הזמנה:</strong> ${booking.bookingNumber}</p>
-              <p><strong>פרטי חדר:</strong> ${booking.room.roomNumber} - ${booking.room.type}</p>
-              <p><strong>שם אורח:</strong> ${booking.guest.name}</p>
-              <p><strong>תאריך הגעה:</strong> ${new Date(booking.checkIn).toLocaleDateString('he-IL')}</p>
-              <p><strong>תאריך יציאה:</strong> ${new Date(booking.checkOut).toLocaleDateString('he-IL')}</p>
-              <p><strong>מספר לילות:</strong> ${booking.nights}</p>
-              <p><strong>תאריך ביטול:</strong> ${new Date().toLocaleDateString('he-IL')}</p>
-              ${!isFree ? `<p><strong>עלות ביטול:</strong> ₪${feeFormatted}</p>` : ''}
-            </div>
-            
-            <p>
-              בקשת הביטול שלך התקבלה והועברה לטיפול.
-              ${isFree 
-                ? 'הביטול אושר ללא עלות כיוון שבוצע 3 ימים או יותר לפני מועד ההגעה.' 
-                : 'הביטול אושר בחיוב מלא כיוון שבוצע פחות מ-3 ימים לפני מועד ההגעה.'}
-            </p>
-            
-            <p>התראה על הביטול נשלחה למנהל המערכת וההזמנה תבוטל באופן ידני.</p>
-            
-            <a href="${process.env.WEBSITE_URL || 'http://localhost:3000'}" class="back-link">חזרה לאתר המלונית</a>
-          </div>
-        </body>
-      </html>
-    `);
-    
-  } catch (error) {
-    console.error('שגיאה בבקשת ביטול ישירה:', error);
-    res.status(500).send(`
-      <html dir="rtl">
-        <head>
-          <meta charset="utf-8">
-          <title>שגיאה - לא ניתן לבטל את ההזמנה</title>
-          <meta http-equiv="refresh" content="5;url=${process.env.WEBSITE_URL || 'http://localhost:3000'}">
-          <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-            h1 { color: #e53935; }
-            p { margin: 20px 0; }
-            .redirect { color: #666; font-size: 14px; margin-top: 30px; }
-          </style>
-        </head>
-        <body>
-          <h1>שגיאה - לא ניתן לבטל את ההזמנה</h1>
-          <p>אירעה שגיאה במהלך ביטול ההזמנה. אנא נסה שוב מאוחר יותר או צור קשר עם המלונית.</p>
-          <p class="redirect">מועבר לדף הבית בעוד 5 שניות...</p>
-        </body>
-      </html>
-    `);
-  }
+// דף נחיתה לביטול הזמנות
+app.get('/cancel', (req, res) => {
+  const bookingId = req.query.id || '';
+  
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="he" dir="rtl">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>ביטול או שינוי הזמנה - מלונית רוטשילד 79</title>
+      <style>
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          background-color: #f5f5f5;
+        }
+        .container {
+          max-width: 600px;
+          margin: 40px auto;
+          padding: 30px;
+          background-color: white;
+          border-radius: 10px;
+          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+          text-align: center;
+        }
+        .header {
+          margin-bottom: 25px;
+          border-bottom: 2px solid #1976d2;
+          padding-bottom: 15px;
+        }
+        h1 {
+          color: #1976d2;
+          font-size: 26px;
+          margin-bottom: 10px;
+        }
+        h2 {
+          font-size: 20px;
+          color: #555;
+          font-weight: normal;
+          margin-bottom: 30px;
+        }
+        .info-box {
+          background-color: #f9f9f9;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+          text-align: right;
+          border-right: 4px solid #1976d2;
+        }
+        .step {
+          margin: 25px 0;
+          text-align: right;
+        }
+        .step-number {
+          display: inline-block;
+          width: 30px;
+          height: 30px;
+          background-color: #1976d2;
+          color: white;
+          border-radius: 50%;
+          text-align: center;
+          line-height: 30px;
+          margin-left: 10px;
+          font-weight: bold;
+        }
+        .whatsapp-btn {
+          display: inline-block;
+          background-color: #25d366;
+          color: white;
+          text-decoration: none;
+          padding: 12px 25px;
+          border-radius: 50px;
+          font-weight: bold;
+          margin: 20px 0;
+          font-size: 16px;
+          transition: all 0.3s ease;
+        }
+        .whatsapp-btn:hover {
+          background-color: #128c7e;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .policy {
+          background-color: #fff9c4;
+          border-radius: 8px;
+          padding: 15px;
+          margin-top: 30px;
+          border-right: 4px solid #ffc107;
+          text-align: right;
+        }
+        .policy h3 {
+          color: #f57c00;
+          margin-bottom: 10px;
+        }
+        .footer {
+          margin-top: 40px;
+          color: #777;
+          font-size: 14px;
+          border-top: 1px solid #eee;
+          padding-top: 20px;
+        }
+        @media (max-width: 600px) {
+          .container {
+            margin: 20px;
+            padding: 20px;
+          }
+          h1 {
+            font-size: 22px;
+          }
+          h2 {
+            font-size: 16px;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>ביטול או שינוי הזמנה</h1>
+          <h2>מלונית רוטשילד 79</h2>
+        </div>
+        
+        <div class="info-box">
+          <p>לביטול או שינוי ההזמנה שלך, אנא שלח/י הודעת וואטסאפ למספר <strong>050-607-0260</strong> עם פרטי ההזמנה.</p>
+        </div>
+        
+        <div class="step">
+          <span class="step-number">1</span>
+          <span>מצא/י את מספר ההזמנה שלך במייל האישור שקיבלת</span>
+        </div>
+        
+        <div class="step">
+          <span class="step-number">2</span>
+          <span>לחץ/י על הכפתור למטה לפתיחת צ'אט וואטסאפ</span>
+        </div>
+        
+        <div class="step">
+          <span class="step-number">3</span>
+          <span>ציין/י את מספר ההזמנה ואת הבקשה שלך (ביטול או שינוי פרטים)</span>
+        </div>
+        
+        <a href="https://wa.me/972506070260?text=שלום,%20ברצוני%20לבטל/לשנות%20את%20הזמנה%20מספר:%20${bookingId}" class="whatsapp-btn">
+          פתיחת צ'אט וואטסאפ
+        </a>
+        
+        <div class="policy">
+          <h3>מדיניות ביטול הזמנות:</h3>
+          <p>• ביטול עד 3 ימים לפני ההגעה - ללא עלות</p>
+          <p>• ביטול פחות מ-3 ימים לפני ההגעה - חיוב במחיר מלא</p>
+          <p>• שינויים בהזמנה כפופים לזמינות ולמדיניות הביטול</p>
+        </div>
+        
+        <div class="footer">
+          <p>צוות מלונית רוטשילד 79</p>
+          <p>טלפון: 050-607-0260 | אימייל: diamshotels@gmail.com</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
 });
 
 // שירות קבצים סטטיים מתיקיית הבילד של האפליקציה במצב פרודקשן
