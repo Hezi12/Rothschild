@@ -76,6 +76,8 @@ const MaterialGalleryCarousel = ({ gallery, isMobile, theme }) => {
       swipe={true}
       cycleNavigation={true}
       fullHeightHover={false}
+      next={(next, active) => active + 1 === totalGroups ? 0 : active + 1}
+      prev={(prev, active) => active - 1 < 0 ? totalGroups - 1 : active - 1}
       navButtonsProps={{
         style: {
           backgroundColor: theme.palette.primary.main,
@@ -89,6 +91,8 @@ const MaterialGalleryCarousel = ({ gallery, isMobile, theme }) => {
           marginTop: '20px',
         }
       }}
+      NextIcon={<ArrowBackIcon />}
+      PrevIcon={<ArrowForwardIcon />}
     >
       {imageGroups.map((imageGroup, groupIndex) => (
         <div 
@@ -736,7 +740,7 @@ const HomePage = () => {
           }}
         >
           <HotelIcon sx={{ mr: 1.5, verticalAlign: 'middle', color: theme.palette.primary.main }} />
-          הגלריה שלנו
+          החדרים שלנו
         </Typography>
 
         {galleryLoading ? (
