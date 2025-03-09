@@ -1195,7 +1195,7 @@ const BookingPage = () => {
         variant="outlined"
         color="primary"
         component={Link}
-        to="/find-booking"
+        to="#/find-booking"
         sx={{ mt: 2 }}
       >
         מעבר לדף ניהול הזמנות

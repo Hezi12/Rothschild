@@ -26,11 +26,11 @@ const sendBookingConfirmation = async (booking, room) => {
     
     // יצירת קישור לניהול ההזמנה - משתמש בכתובת האתר ולא בכתובת ה-API
     const siteUrl = process.env.FRONTEND_URL || 'https://rothschild-gamma.vercel.app';
-    const findBookingUrl = `${siteUrl}/find-booking`;
+    const findBookingUrl = `${siteUrl}/#/find-booking`;
     
     // יצירת קישור ישיר לביטול ההזמנה
     const apiUrl = process.env.API_URL || 'https://rothschild-79-server.onrender.com';
-    const cancelBookingUrl = `${siteUrl}/cancel-booking?token=${booking.cancellationToken}`;
+    const cancelBookingUrl = `${siteUrl}/#/cancel-booking?token=${booking.cancellationToken}`;
     
     // תוכן המייל
     const mailOptions = {
@@ -111,7 +111,7 @@ const sendCancellationConfirmation = async (booking, room, cancellationDetails) 
     
     // ליצירת קישור לצפייה בהזמנה המבוטלת
     const siteUrl = process.env.FRONTEND_URL || 'https://rothschild-gamma.vercel.app';
-    const findBookingUrl = `${siteUrl}/find-booking`;
+    const findBookingUrl = `${siteUrl}/#/find-booking`;
     
     // תוכן המייל
     const mailOptions = {
