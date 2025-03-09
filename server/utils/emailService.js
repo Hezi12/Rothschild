@@ -24,9 +24,9 @@ const sendBookingConfirmation = async (booking, room) => {
     cancelDate.setDate(cancelDate.getDate() - 3);
     const freeCancelUntil = cancelDate.toLocaleDateString('he-IL');
     
-    // ליצירת קישור לניהול ההזמנה
-    const serverUrl = process.env.SERVER_URL || 'https://rothschild-79-server.onrender.com';
-    const manageBookingUrl = `${serverUrl}/manage-booking/${booking._id}`;
+    // ליצירת קישור לניהול ההזמנה - משתמש בכתובת האתר ולא בכתובת ה-API
+    const siteUrl = process.env.FRONTEND_URL || 'https://rothschild-gamma.vercel.app';
+    const manageBookingUrl = `${siteUrl}/manage-booking/${booking._id}`;
     
     // תוכן המייל
     const mailOptions = {
@@ -90,23 +90,20 @@ const sendBookingConfirmation = async (booking, room) => {
 };
 
 /**
- * פונקציה לשליחת אישור ביטול הזמנה
+ * פונקציה לשליחת מייל אישור ביטול
  * @param {Object} booking - אובייקט ההזמנה
  * @param {Object} room - פרטי החדר
- * @param {number} refundAmount - סכום ההחזר (אם יש)
+ * @param {Object} cancellationDetails - פרטי הביטול
  */
-const sendCancellationConfirmation = async (booking, room, refundAmount = 0) => {
+const sendCancellationConfirmation = async (booking, room, cancellationDetails) => {
   try {
     const checkIn = new Date(booking.checkIn).toLocaleDateString('he-IL');
     const checkOut = new Date(booking.checkOut).toLocaleDateString('he-IL');
     const cancellationDate = new Date().toLocaleDateString('he-IL');
     
-    // חישוב האם הביטול נעשה לפחות 3 ימים לפני ההגעה
-    const today = new Date();
-    const arrivalDate = new Date(booking.checkIn);
-    const timeDiff = arrivalDate.getTime() - today.getTime();
-    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    const hasCancellationFee = daysDiff < 3;
+    // ליצירת קישור לצפייה בהזמנה המבוטלת
+    const siteUrl = process.env.FRONTEND_URL || 'https://rothschild-gamma.vercel.app';
+    const viewBookingUrl = `${siteUrl}/manage-booking/${booking._id}`;
     
     // תוכן המייל
     const mailOptions = {
@@ -115,9 +112,9 @@ const sendCancellationConfirmation = async (booking, room, refundAmount = 0) => 
       subject: 'אישור ביטול הזמנה - מלונית רוטשילד 79',
       html: `
         <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2 style="color: #1976d2; border-bottom: 2px solid #1976d2; padding-bottom: 10px;">אישור ביטול הזמנה - מלונית רוטשילד 79</h2>
+          <h2 style="color: #e91e63; border-bottom: 2px solid #e91e63; padding-bottom: 10px;">אישור ביטול הזמנה - מלונית רוטשילד 79</h2>
           <p>שלום ${booking.guest.name},</p>
-          <p>הזמנתך במלונית רוטשילד 79 בוטלה בהצלחה. להלן פרטי הביטול:</p>
+          <p>הזמנתך במלונית רוטשילד 79 בוטלה בהצלחה. להלן פרטי ההזמנה שבוטלה:</p>
           
           <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
             <p><strong>מספר הזמנה:</strong> ${booking._id}</p>
@@ -125,20 +122,34 @@ const sendCancellationConfirmation = async (booking, room, refundAmount = 0) => 
             <p><strong>תאריך הגעה (מקורי):</strong> ${checkIn}</p>
             <p><strong>תאריך יציאה (מקורי):</strong> ${checkOut}</p>
             <p><strong>תאריך ביטול:</strong> ${cancellationDate}</p>
-            <p><strong>סכום ששולם:</strong> ₪${booking.totalPrice}</p>
-            ${hasCancellationFee 
-              ? `<p><strong>דמי ביטול:</strong> ₪${booking.totalPrice - refundAmount}</p>` 
-              : '<p><strong>דמי ביטול:</strong> ₪0</p>'
-            }
-            ${refundAmount > 0 
-              ? `<p><strong>סכום לזיכוי:</strong> ₪${refundAmount}</p><p><strong>הזיכוי יבוצע תוך 7-14 ימי עסקים.</strong></p>` 
-              : ''
-            }
           </div>
           
-          <p>אנו מקווים לארח אותך בעתיד!</p>
+          ${cancellationDetails.refundAmount > 0 ? `
+            <div style="margin: 20px 0; padding: 15px; border-left: 4px solid #43a047; background-color: #e8f5e9;">
+              <h3 style="margin-top: 0; color: #43a047;">פרטי החזר</h3>
+              <p><strong>סכום ששולם:</strong> ₪${booking.amountPaid || 0}</p>
+              <p><strong>סכום להחזר:</strong> ₪${cancellationDetails.refundAmount}</p>
+              <p><strong>סיבת הביטול:</strong> ${cancellationDetails.reason || 'לא צוין'}</p>
+              <p>ההחזר יתבצע באמצעות ${booking.paymentMethod === 'credit' ? 'כרטיס האשראי שחויב' : 'העברה בנקאית'} תוך 7-14 ימי עסקים.</p>
+            </div>
+          ` : `
+            <div style="margin: 20px 0; padding: 15px; border-left: 4px solid #f44336; background-color: #ffebee;">
+              <h3 style="margin-top: 0; color: #f44336;">מידע על החזר</h3>
+              <p>בהתאם למדיניות הביטול, לא ניתן החזר כספי לביטול הזמנה זו.</p>
+              <p><strong>סיבה:</strong> הביטול בוצע פחות מ-3 ימים לפני מועד ההגעה.</p>
+            </div>
+          `}
+          
+          <div style="margin: 20px 0;">
+            <p>לצפייה בפרטי ההזמנה המבוטלת, אנא לחץ על הקישור הבא:</p>
+            <p style="margin: 15px 0;">
+              <a href="${viewBookingUrl}" style="background-color: #9e9e9e; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; font-weight: bold;">לצפייה בהזמנה המבוטלת</a>
+            </p>
+          </div>
+          
+          <p>אנו מקווים לראותך בביקורים עתידיים במלונית רוטשילד 79.</p>
           <p style="margin-bottom: 0;">צוות מלונית רוטשילד 79</p>
-          <p style="color: #666; font-size: 0.8em; margin-top: 5px;">* אין להשיב למייל זה. לפניות ובירורים יש ליצור קשר בטלפון או באתר.</p>
+          <p style="color: #666; font-size: 0.8em; margin-top: 5px;">* אין להשיב למייל זה. לפניות ובירורים יש ליצור קשר בטלפון 050-607-0260 או באתר.</p>
         </div>
       `
     };

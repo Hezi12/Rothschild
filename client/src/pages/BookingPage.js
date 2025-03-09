@@ -27,7 +27,8 @@ import {
   useMediaQuery,
   Container,
   MobileStepper,
-  StepContent
+  StepContent,
+  Link
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -40,7 +41,7 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import { alpha } from '@mui/material/styles';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import LockIcon from '@mui/icons-material/Lock';
-import InfoOutlined from '@mui/icons-material/InfoOutlined';
+import InfoIcon from '@mui/icons-material/Info';
 
 const steps = ['בחירת תאריכים', 'פרטי אורח', 'פרטי תשלום', 'סיכום'];
 
@@ -1115,31 +1116,32 @@ const BookingPage = () => {
               </Box>
             </Box>
             
-            <Alert 
-              severity="info" 
+            {/* מדיניות ביטול */}
+            <Box 
               sx={{ 
-                borderRadius: 2,
-                mt: 2
+                mt: 3, 
+                p: 2, 
+                borderRadius: 1, 
+                bgcolor: 'rgba(0, 0, 0, 0.02)',
+                border: '1px solid rgba(0, 0, 0, 0.08)'
               }}
             >
-              לאחר אישור ההזמנה, תקבל אישור במייל עם פרטי ההזמנה המלאים.
-            </Alert>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, display: 'flex', alignItems: 'center' }}>
+                <InfoIcon fontSize="small" sx={{ mr: 1, color: theme.palette.info.main }} />
+                מדיניות ביטול:
+              </Typography>
+              <Typography variant="body2" paragraph>
+                • ביטול עד 3 ימים לפני מועד ההגעה - ללא עלות
+              </Typography>
+              <Typography variant="body2" paragraph>
+                • ביטול מ-3 ימים לפני מועד ההגעה ועד למועד ההגעה - חיוב מלא (100%)
+              </Typography>
+              <Typography variant="body2" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
+                * במקרה של ביטול, יישלח אישור ביטול לכתובת האימייל שלך.
+              </Typography>
+            </Box>
           </Grid>
         </Grid>
-        
-        {/* מדיניות ביטול */}
-        <Box sx={{ mb: 3, p: 2, bgcolor: '#f8f8f8', borderRadius: 1, border: '1px dashed #ccc' }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1, display: 'flex', alignItems: 'center' }}>
-            <InfoOutlined sx={{ mr: 1, fontSize: '1.2rem', color: 'primary.main' }} />
-            מדיניות ביטול
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            • ביטול עד 3 ימים לפני מועד ההגעה: ללא עלות
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            • ביטול פחות מ-3 ימים לפני מועד ההגעה: חיוב בעלות מלאה (100%)
-          </Typography>
-        </Box>
       </Paper>
     </Box>
   );
@@ -1156,10 +1158,53 @@ const BookingPage = () => {
       <Typography paragraph>
         מספר הזמנה: {bookingId ? <strong>{bookingId}</strong> : 'ממתין לאישור מהשרת...'}
       </Typography>
+
+      {/* קישור לניהול ההזמנה */}
+      <Typography paragraph>
+        <Link 
+          component="button" 
+          variant="body2" 
+          onClick={() => {
+            // השתמש בדומיין של האתר עצמו ולא של ה-API
+            const siteUrl = window.location.origin; // לדוגמה: https://rothschild-gamma.vercel.app
+            window.location.href = `${siteUrl}/manage-booking/${bookingId}`;
+          }}
+          sx={{ textDecoration: 'none', fontWeight: 'bold' }}
+        >
+          לניהול ההזמנה שלך
+        </Link>
+      </Typography>
+      
+      {/* מדיניות ביטול במסך אישור */}
+      <Box 
+        sx={{ 
+          mt: 2, 
+          mb: 3, 
+          p: 2, 
+          borderRadius: 1, 
+          bgcolor: 'rgba(0, 0, 0, 0.02)',
+          border: '1px solid rgba(0, 0, 0, 0.08)',
+          maxWidth: '600px',
+          mx: 'auto',
+          textAlign: 'right'
+        }}
+      >
+        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, display: 'flex', alignItems: 'center', justifyContent: 'right' }}>
+          <InfoIcon fontSize="small" sx={{ ml: 1, color: theme.palette.info.main }} />
+          מדיניות ביטול:
+        </Typography>
+        <Typography variant="body2" paragraph>
+          • ביטול עד 3 ימים לפני מועד ההגעה - ללא עלות
+        </Typography>
+        <Typography variant="body2" paragraph>
+          • ביטול מ-3 ימים לפני מועד ההגעה ועד למועד ההגעה - חיוב מלא (100%)
+        </Typography>
+      </Box>
+      
       <Button
         variant="contained"
         onClick={handleReset}
-        sx={{ mt: 3 }}
+        sx={{ mt: 1 }}
       >
         חזרה לדף הבית
       </Button>
