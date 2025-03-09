@@ -10,7 +10,9 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Divider
+  Divider,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import { 
   Menu as MenuIcon,
@@ -25,6 +27,8 @@ const Layout = () => {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [mobileAnchorEl, setMobileAnchorEl] = React.useState(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -49,15 +53,19 @@ const Layout = () => {
   };
 
   return (
-    <>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column',
+      minHeight: '100vh'
+    }}>
       <AppBar position="static">
-        <Toolbar>
+        <Toolbar sx={{ padding: isMobile ? '0 8px' : '0 16px' }}>
           {/* תפריט נייד */}
           <IconButton
             edge="start"
             color="inherit"
             aria-label="menu"
-            sx={{ mr: 2, display: { sm: 'none' } }}
+            sx={{ mr: 1, display: { sm: 'none' } }}
             onClick={handleMobileMenu}
           >
             <MenuIcon />
@@ -68,6 +76,13 @@ const Layout = () => {
             keepMounted
             open={Boolean(mobileAnchorEl)}
             onClose={handleMobileClose}
+            PaperProps={{
+              style: {
+                maxHeight: '100vh',
+                width: '100%',
+                maxWidth: '300px'
+              },
+            }}
           >
             <MenuItem component={Link} to="/" onClick={handleMobileClose}>
               דף הבית
@@ -79,10 +94,12 @@ const Layout = () => {
               <>
                 {isAdmin() && (
                   <MenuItem component={Link} to="/dashboard" onClick={handleMobileClose}>
+                    <DashboardIcon fontSize="small" sx={{ ml: 1 }} />
                     ניהול
                   </MenuItem>
                 )}
                 <MenuItem onClick={() => { handleMobileClose(); handleLogout(); }}>
+                  <LogoutIcon fontSize="small" sx={{ ml: 1 }} />
                   התנתק
                 </MenuItem>
               </>
@@ -102,7 +119,9 @@ const Layout = () => {
               flexGrow: 1,
               textDecoration: 'none',
               color: 'inherit',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              fontSize: isMobile ? '1rem' : '1.25rem',
+              textAlign: 'right'
             }}
           >
             מלונית רוטשילד 79
@@ -127,6 +146,7 @@ const Layout = () => {
                 aria-haspopup="true"
                 onClick={handleMenu}
                 color="inherit"
+                size={isMobile ? "small" : "medium"}
               >
                 <AccountCircle />
               </IconButton>
@@ -136,6 +156,16 @@ const Layout = () => {
                 keepMounted
                 open={Boolean(anchorEl)}
                 onClose={handleClose}
+                PaperProps={{
+                  style: {
+                    maxHeight: '100vh',
+                    width: isMobile ? '200px' : '250px'
+                  },
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
               >
                 <MenuItem disabled>
                   {user?.name || 'משתמש'}
@@ -143,33 +173,40 @@ const Layout = () => {
                 <Divider />
                 {isAdmin() && (
                   <MenuItem component={Link} to="/dashboard" onClick={handleClose}>
-                    <DashboardIcon fontSize="small" sx={{ mr: 1 }} />
+                    <DashboardIcon fontSize="small" sx={{ ml: 1 }} />
                     ניהול
                   </MenuItem>
                 )}
                 <MenuItem onClick={handleLogout}>
-                  <LogoutIcon fontSize="small" sx={{ mr: 1 }} />
+                  <LogoutIcon fontSize="small" sx={{ ml: 1 }} />
                   התנתק
                 </MenuItem>
               </Menu>
             </div>
           ) : (
-            <Button color="inherit" component={Link} to="/login">
+            <Button color="inherit" component={Link} to="/login" size={isMobile ? "small" : "medium"}>
               התחברות
             </Button>
           )}
         </Toolbar>
       </AppBar>
 
-      <Container sx={{ py: 4 }}>
+      <Container 
+        component="main" 
+        sx={{ 
+          py: { xs: 2, sm: 4 }, 
+          px: { xs: 1, sm: 2 },
+          flexGrow: 1
+        }}
+      >
         <Outlet />
       </Container>
 
       <Box
         component="footer"
         sx={{
-          py: 3,
-          px: 2,
+          py: { xs: 2, sm: 3 },
+          px: { xs: 1, sm: 2 },
           mt: 'auto',
           backgroundColor: (theme) => theme.palette.grey[200],
           textAlign: 'center'
@@ -179,7 +216,7 @@ const Layout = () => {
           © {new Date().getFullYear()} מלונית רוטשילד 79, פתח תקווה. כל הזכויות שמורות.
         </Typography>
       </Box>
-    </>
+    </Box>
   );
 };
 

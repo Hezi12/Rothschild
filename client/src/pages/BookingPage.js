@@ -22,7 +22,12 @@ import {
   CircularProgress,
   Card,
   CardContent,
-  Alert
+  Alert,
+  useTheme,
+  useMediaQuery,
+  Container,
+  MobileStepper,
+  StepContent
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -35,9 +40,12 @@ const steps = ['בחירת תאריכים', 'פרטי אורח', 'פרטי תש�
 const BookingPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const initialCheckIn = location.state?.checkIn || null;
   const initialCheckOut = location.state?.checkOut || null;
-  const initialRoomId = location.state?.roomId || null;
+  const initialRoomId = location.state?.selectedRoomId || location.state?.roomId || null;
   const initialGuests = location.state?.guests || 1;
   const initialRooms = location.state?.rooms || 1;
   
@@ -49,6 +57,7 @@ const BookingPage = () => {
   const [loading, setLoading] = useState(true);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [error, setError] = useState(null);
+  const [availableRooms, setAvailableRooms] = useState([]);
   
   // פרטי הזמנה
   const [bookingData, setBookingData] = useState({
@@ -366,51 +375,274 @@ const BookingPage = () => {
     navigate('/');
   };
 
+  // חישוב מחיר סופי
+  const calculateTotalPrice = (basePrice) => {
+    const nights = calculateNights();
+    if (!nights || nights <= 0 || !basePrice) return 0;
+    return basePrice * nights;
+  };
+
   // תצוגת שלב 1 - בחירת תאריכים
   const renderDateSelection = () => (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        בחר תאריכי שהייה
+      <Typography 
+        variant={isMobile ? "h5" : "h4"} 
+        component="h1" 
+        align="center" 
+        gutterBottom 
+        sx={{ mb: 3, fontWeight: 'bold' }}
+      >
+        הזמנת חדר
       </Typography>
       
-      <Grid container spacing={3}>
-        <Grid item xs={12} sm={6}>
-          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-            <DatePicker
-              label="תאריך צ'ק-אין"
-              value={bookingData.checkIn}
-              onChange={(date) => handleDateChange('checkIn', date)}
-              disablePast
-              renderInput={(params) => <TextField {...params} fullWidth required />}
+      <Paper 
+        elevation={3} 
+        sx={{ 
+          p: { xs: 2, sm: 3 }, 
+          borderRadius: 2,
+          mb: { xs: 3, sm: 4 }
+        }}
+      >
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={6}>
+            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+              <DatePicker
+                label="תאריך הגעה"
+                disablePast
+                value={bookingData.checkIn}
+                onChange={(newValue) => handleDateChange('checkIn', newValue)}
+                sx={{ width: '100%' }}
+                slotProps={{
+                  textField: {
+                    variant: 'outlined',
+                    fullWidth: true,
+                    size: isMobile ? "small" : "medium"
+                  },
+                  actionBar: {
+                    actions: ['clear', 'today'],
+                  }
+                }}
+              />
+            </LocalizationProvider>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+              <DatePicker
+                label="תאריך עזיבה"
+                disablePast
+                minDate={bookingData.checkIn ? addDays(bookingData.checkIn, 1) : addDays(new Date(), 1)}
+                value={bookingData.checkOut}
+                onChange={(newValue) => handleDateChange('checkOut', newValue)}
+                sx={{ width: '100%' }}
+                slotProps={{
+                  textField: {
+                    variant: 'outlined',
+                    fullWidth: true,
+                    size: isMobile ? "small" : "medium"
+                  },
+                  actionBar: {
+                    actions: ['clear', 'today'],
+                  }
+                }}
+              />
+            </LocalizationProvider>
+          </Grid>
+          
+          <Grid item xs={6}>
+            <TextField
+              label="מספר אורחים"
+              name="guests"
+              value={bookingData.guests}
+              onChange={handleChange}
+              type="number"
+              InputProps={{ inputProps: { min: 1, max: 10 } }}
+              fullWidth
+              size={isMobile ? "small" : "medium"}
             />
-          </LocalizationProvider>
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-            <DatePicker
-              label="תאריך צ'ק-אאוט"
-              value={bookingData.checkOut}
-              onChange={(date) => handleDateChange('checkOut', date)}
-              minDate={bookingData.checkIn ? addDays(bookingData.checkIn, 1) : addDays(new Date(), 1)}
-              renderInput={(params) => <TextField {...params} fullWidth required />}
+          </Grid>
+          <Grid item xs={6}>
+            <TextField
+              label="מספר חדרים"
+              name="rooms"
+              value={bookingData.rooms}
+              onChange={handleChange}
+              type="number"
+              InputProps={{ inputProps: { min: 1, max: 5 } }}
+              fullWidth
+              size={isMobile ? "small" : "medium"}
             />
-          </LocalizationProvider>
+          </Grid>
         </Grid>
-      </Grid>
-      
-      {bookingData.checkIn && bookingData.checkOut && (
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="subtitle1">
-            סיכום:
-          </Typography>
-          <Typography>
-            מספר לילות: {calculations.nights}
-          </Typography>
-          <Typography>
-            מחיר בסיס: {calculations.basePrice} ₪
-          </Typography>
+        
+        {bookingData.checkIn && bookingData.checkOut && calculateNights() > 0 && (
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Typography variant="body1">
+              משך שהייה: <strong>{calculateNights()} לילות</strong>
+            </Typography>
+          </Box>
+        )}
+        
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
+          <Button
+            onClick={() => navigate(-1)}
+            variant="outlined"
+            size={isMobile ? "small" : "medium"}
+          >
+            חזרה
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={checkAvailability}
+            disabled={checkingAvailability || !bookingData.checkIn || !bookingData.checkOut}
+            size={isMobile ? "small" : "medium"}
+            sx={{ minWidth: isMobile ? 100 : 120 }}
+          >
+            {checkingAvailability ? <CircularProgress size={24} /> : 'בדוק זמינות'}
+          </Button>
         </Box>
-      )}
+      </Paper>
+      
+      <Box sx={{ mb: 4 }}>
+        <Typography 
+          variant={isMobile ? "h6" : "h5"} 
+          component="h2" 
+          gutterBottom 
+          align="center"
+          sx={{ mb: 2, fontWeight: 'bold' }}
+        >
+          חדרים זמינים
+        </Typography>
+        
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : availableRooms.length > 0 ? (
+          <Grid container spacing={3}>
+            {availableRooms.map((room) => (
+              <Grid item xs={12} sm={6} md={4} key={room._id}>
+                <Card 
+                  sx={{ 
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                    cursor: 'pointer',
+                    border: bookingData.roomId === room._id ? `2px solid ${theme.palette.primary.main}` : 'none',
+                    '&:hover': {
+                      transform: 'translateY(-5px)',
+                      boxShadow: 4
+                    }
+                  }}
+                  onClick={() => {
+                    setBookingData({
+                      ...bookingData,
+                      roomId: room._id,
+                      totalPrice: calculateTotalPrice(room.basePrice || room.price)
+                    });
+                  }}
+                >
+                  <Box
+                    sx={{
+                      height: 160,
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={room.images?.[0] || '/images/placeholder.jpg'}
+                      alt={room.name}
+                      sx={{
+                        height: '100%',
+                        width: '100%',
+                        objectFit: 'cover'
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 10,
+                        right: 10,
+                        bgcolor: 'rgba(255,255,255,0.9)',
+                        px: 1,
+                        py: 0.5,
+                        borderRadius: 1,
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      ₪{room.basePrice || room.price} / לילה
+                    </Box>
+                  </Box>
+                  <CardContent sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2 } }}>
+                    <Typography variant="h6" component="h3" gutterBottom>
+                      {room.name}
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary"
+                      sx={{
+                        mb: 1,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
+                      {room.description}
+                    </Typography>
+                    <Box sx={{ mt: 'auto', pt: 1 }}>
+                      <Button
+                        variant={bookingData.roomId === room._id ? "contained" : "outlined"}
+                        fullWidth
+                        size={isMobile ? "small" : "medium"}
+                        onClick={() => {
+                          setBookingData({
+                            ...bookingData,
+                            roomId: room._id,
+                            totalPrice: calculateTotalPrice(room.basePrice || room.price)
+                          });
+                        }}
+                      >
+                        {bookingData.roomId === room._id ? 'נבחר' : 'בחר חדר זה'}
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        ) : (
+          <Alert 
+            severity="info" 
+            sx={{ 
+              borderRadius: 2,
+              py: { xs: 1.5, sm: 2 }
+            }}
+          >
+            <Typography variant="body1">אין חדרים זמינים לתאריכים שבחרת. אנא בחר תאריכים אחרים.</Typography>
+          </Alert>
+        )}
+      </Box>
+      
+      <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
+        <Button
+          variant="contained"
+          color="primary"
+          disabled={!bookingData.roomId}
+          onClick={handleNext}
+          size={isMobile ? "medium" : "large"}
+          sx={{ 
+            minWidth: isMobile ? 150 : 200,
+            py: { xs: 1, sm: 1.5 },
+            fontWeight: 'bold'
+          }}
+        >
+          המשך להזמנה
+        </Button>
+      </Box>
     </Box>
   );
 
@@ -665,6 +897,94 @@ const BookingPage = () => {
     }
   };
 
+  // רנדור הסטפר בהתאם לגודל המסך
+  const renderStepper = () => {
+    if (isMobile) {
+      // עבור מסכים קטנים, נציג רק את השלב הנוכחי והשלבים הקודמים/הבאים
+      return (
+        <Box sx={{ mb: 3 }}>
+          <MobileStepper
+            variant="text"
+            steps={steps.length}
+            position="static"
+            activeStep={activeStep}
+            sx={{ 
+              bgcolor: 'transparent',
+              p: 0,
+              '& .MuiMobileStepper-dot': {
+                width: 10,
+                height: 10,
+                mx: 0.5
+              },
+              '& .MuiMobileStepper-dotActive': {
+                bgcolor: 'primary.main'
+              }
+            }}
+            nextButton={<Box />}
+            backButton={<Box />}
+          />
+          <Typography 
+            variant="h6" 
+            align="center" 
+            sx={{ mt: 1, fontWeight: 'bold' }}
+          >
+            {steps[activeStep]}
+          </Typography>
+        </Box>
+      );
+    } else {
+      // עבור מסכים גדולים, נציג את הסטפר המלא
+      return (
+        <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+      );
+    }
+  };
+  
+  // בדיקת תקינות פרטי האורח
+  const isGuestDetailsValid = () => {
+    const { firstName, lastName, phone, email, idNumber } = bookingData;
+    return (
+      firstName && 
+      firstName.length >= 2 && 
+      lastName && 
+      lastName.length >= 2 && 
+      phone && 
+      phone.length >= 9 &&
+      email && 
+      email.includes('@') && 
+      email.includes('.') &&
+      idNumber && 
+      idNumber.length >= 8
+    );
+  };
+  
+  // בדיקת תקינות פרטי התשלום
+  const isPaymentDetailsValid = () => {
+    if (bookingData.paymentMethod === 'credit') {
+      const { cardNumber, cardName, cardExpiry, cardCvv } = bookingData;
+      return (
+        cardNumber && 
+        cardNumber.length >= 14 && 
+        cardName && 
+        cardName.length >= 5 && 
+        cardExpiry && 
+        cardCvv && 
+        cardCvv.length >= 3
+      );
+    } else if (bookingData.paymentMethod === 'paypal') {
+      return !!bookingData.paypalEmail;
+    } else if (bookingData.paymentMethod === 'cash') {
+      return true;
+    }
+    return false;
+  };
+
   if (loading && !room) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -691,58 +1011,38 @@ const BookingPage = () => {
   }
 
   return (
-    <Box>
-      <Typography variant="h4" component="h1" gutterBottom align="center">
-        הזמנת חדר
-      </Typography>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 } }}>
+      {renderStepper()}
       
-      <Paper sx={{ p: 3, mb: 4 }}>
-        {activeStep === steps.length ? (
-          renderComplete()
-        ) : (
-          <>
-            <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-              {steps.map((label) => (
-                <Step key={label}>
-                  <StepLabel>{label}</StepLabel>
-                </Step>
-              ))}
-            </Stepper>
-            
-            {getStepContent(activeStep)}
-            
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-              <Button
-                disabled={activeStep === 0 || loading || checkingAvailability}
-                onClick={handleBack}
-              >
-                חזור
+      {activeStep === steps.length ? (
+        renderComplete()
+      ) : (
+        <Box>
+          {getStepContent(activeStep)}
+          
+          {activeStep !== 0 && (
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+              <Button onClick={handleBack} disabled={activeStep === 0} size={isMobile ? "small" : "medium"}>
+                חזרה
               </Button>
-              
-              {activeStep === steps.length - 1 ? (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleSubmit}
-                  disabled={loading || checkingAvailability}
-                >
-                  {loading ? <CircularProgress size={24} /> : 'אשר הזמנה'}
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleNext}
-                  disabled={loading || checkingAvailability}
-                >
-                  {checkingAvailability ? <CircularProgress size={24} /> : 'המשך'}
-                </Button>
-              )}
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={activeStep === steps.length - 1 ? handleSubmit : handleNext}
+                disabled={
+                  (activeStep === 0 && !bookingData.roomId) ||
+                  (activeStep === 1 && !isGuestDetailsValid()) ||
+                  (activeStep === 2 && !isPaymentDetailsValid())
+                }
+                size={isMobile ? "small" : "medium"}
+              >
+                {activeStep === steps.length - 1 ? 'סיים הזמנה' : 'המשך'}
+              </Button>
             </Box>
-          </>
-        )}
-      </Paper>
-    </Box>
+          )}
+        </Box>
+      )}
+    </Container>
   );
 };
 

@@ -6,6 +6,24 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   direction: rtl;
+  overflow-x: hidden; /* מניעת גלילה אופקית */
+  min-height: 100vh;
+}
+
+html {
+  box-sizing: border-box;
+  font-size: 16px;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+/* התאמת גודל גופן למסך קטן */
+@media (max-width: 600px) {
+  html {
+    font-size: 14px;
+  }
 }
 
 code {
@@ -27,4 +45,64 @@ input[type=number]::-webkit-outer-spin-button {
 
 input[type=number] {
   -moz-appearance: textfield;
+}
+
+/* שיפור תצוגת אינפוטים במובייל */
+input, select, textarea, button {
+  font-size: 16px; /* מונע זום אוטומטי במובייל */
+}
+
+/* ריווח משופר לאלמנטים במובייל */
+@media (max-width: 600px) {
+  .MuiContainer-root {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  
+  .MuiButton-root {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  
+  .MuiDialogContent-root {
+    padding: 16px;
+  }
+}
+
+/* הקטנת כפתורים ואייקונים במובייל */
+@media (max-width: 600px) {
+  .MuiSvgIcon-root {
+    font-size: 1.2rem;
+  }
+}
+
+/* התאמת מתגים לחוויית מובייל */
+.MuiSwitch-root {
+  touch-action: pan-x;
+}
+
+/* תמיכה במסך ברוחב קטן */
+@media (max-width: 400px) {
+  .MuiTab-root {
+    min-width: auto;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
+/* שיפור תצוגת טפסים ושדות */
+.MuiFormControl-root {
+  width: 100%;
+}
+
+/* שיפור תצוגת טבלאות במובייל */
+@media (max-width: 600px) {
+  .MuiTable-root {
+    table-layout: fixed;
+  }
+  
+  .MuiTableCell-root {
+    padding: 8px;
+    font-size: 0.8rem;
+  }
 } 

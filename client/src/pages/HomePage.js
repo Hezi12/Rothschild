@@ -198,417 +198,254 @@ const HomePage = () => {
   };
 
   return (
-    <Box sx={{ 
-      minHeight: '92vh', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      p: 0,
-      pb: 3,
-      background: 'linear-gradient(to bottom, #f7f9fc, #ffffff)',
-    }}>
-      {/* כותרת ראשית ומידע */}
-      <Box 
-        sx={{ 
-          textAlign: 'center', 
-          mb: 3,
-          mt: 2,
-          px: 2
-        }}
-      >
-        <Typography 
-          variant="h4" 
-          component="h1" 
-          gutterBottom 
-          sx={{
-            fontWeight: 600,
-            color: '#2c3e50',
-            fontSize: { xs: '1.8rem', md: '2.2rem' },
-          }}
-        >
-          מלונית רוטשילד 79
-        </Typography>
-        <Typography 
-          variant="subtitle1" 
-          color="text.secondary"
-          sx={{
-            maxWidth: '600px',
-            mx: 'auto',
-            fontSize: '1rem',
-            opacity: 0.9
-          }}
-        >
-          נוחות במחיר משתלם במרכז פתח תקווה
-        </Typography>
+    <Box>
+      {/* Hero Section */}
+      <Box sx={{ position: 'relative', height: { xs: '50vh', sm: '60vh' }, mb: 4 }}>
+        {rooms.length > 0 && (
+          <>
+            <Box
+              component="img"
+              src={rooms[0]?.images?.[currentImageIndex] || '/images/placeholder.jpg'}
+              alt="מלונית רוטשילד 79"
+              sx={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'center'
+              }}
+            />
+            <Box 
+              sx={{ 
+                position: 'absolute', 
+                top: 0, 
+                left: 0, 
+                right: 0, 
+                bottom: 0, 
+                backgroundColor: 'rgba(0,0,0,0.4)', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                p: { xs: 2, sm: 4 } 
+              }}
+            >
+              <Typography 
+                variant={isMobile ? "h4" : "h3"} 
+                component="h1" 
+                color="white" 
+                align="center" 
+                sx={{ mb: 2, fontWeight: 'bold', textShadow: '1px 1px 4px rgba(0,0,0,0.5)' }}
+              >
+                ברוכים הבאים למלונית רוטשילד 79
+              </Typography>
+              <Typography 
+                variant={isMobile ? "body1" : "h6"} 
+                color="white" 
+                align="center" 
+                sx={{ mb: 3, maxWidth: 600, textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
+              >
+                חוויית אירוח מושלמת במרכז פתח תקווה, במיקום מרכזי ונוח במיוחד
+              </Typography>
+              <Button 
+                variant="contained" 
+                size={isMobile ? "medium" : "large"}
+                color="primary" 
+                onClick={() => {
+                  setSearchFocused(true);
+                  searchSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                sx={{ fontWeight: 'bold' }}
+              >
+                הזמנת חדר עכשיו
+              </Button>
+            </Box>
+            {rooms[0]?.images?.length > 1 && (
+              <>
+                <IconButton
+                  onClick={handlePrevImage}
+                  sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    right: { xs: 8, sm: 16 },
+                    transform: 'translateY(-50%)',
+                    backgroundColor: 'rgba(255,255,255,0.3)',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.5)'
+                    }
+                  }}
+                >
+                  <ArrowForwardIcon sx={{ color: 'white' }} />
+                </IconButton>
+                <IconButton
+                  onClick={handleNextImage}
+                  sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: { xs: 8, sm: 16 },
+                    transform: 'translateY(-50%)',
+                    backgroundColor: 'rgba(255,255,255,0.3)',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.5)'
+                    }
+                  }}
+                >
+                  <ArrowBackIcon sx={{ color: 'white' }} />
+                </IconButton>
+              </>
+            )}
+          </>
+        )}
       </Box>
 
-      {/* חיפוש תאריכים - עיצוב מודרני ומקצועי */}
-      <Paper 
-        elevation={searchFocused ? 4 : 1} 
-        sx={{ 
-          p: { xs: 2, sm: 3 }, 
-          mb: 4, 
-          maxWidth: '850px', 
-          mx: 'auto',
-          borderRadius: '16px',
-          transition: 'all 0.3s ease',
-          background: searchFocused 
-            ? 'linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%)' 
-            : '#ffffff',
-          position: 'relative',
-          overflow: 'visible',
-          boxShadow: searchFocused 
-            ? '0 10px 30px rgba(0,0,0,0.08)'
-            : '0 2px 8px rgba(0,0,0,0.04)',
-          width: '90%'
-        }}
+      {/* חיפוש */}
+      <Paper
         ref={searchSectionRef}
-        onMouseEnter={() => setSearchFocused(true)}
-        onMouseLeave={() => setSearchFocused(false)}
+        elevation={3}
+        sx={{
+          p: { xs: 2, sm: 3 },
+          mb: 6,
+          mx: { xs: 0, md: 4 },
+          borderRadius: 2,
+          border: searchFocused ? '2px solid #1976d2' : 'none',
+          transition: 'all 0.3s ease'
+        }}
       >
-        <Grid 
-          container 
-          spacing={2} 
-          alignItems="center" 
-          sx={{ 
-            borderRadius: '12px',
-            p: { xs: 0, sm: 1 },
-          }}
+        <Typography 
+          variant={isMobile ? "h5" : "h4"} 
+          component="h2" 
+          align="center" 
+          gutterBottom 
+          sx={{ mb: { xs: 2, sm: 3 }, fontWeight: 'bold' }}
         >
-          {/* תאריך כניסה */}
-          <Grid item xs={6} sm={3}>
-            <Box>
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  display: 'block', 
-                  mb: 0.5, 
-                  fontWeight: 500,
-                  color: '#64748b'
+          <EventIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+          בדיקת זמינות וביצוע הזמנה
+        </Typography>
+
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={3}>
+            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+              <DatePicker
+                label="תאריך כניסה"
+                value={bookingData.checkIn}
+                onChange={(newValue) => handleDateChange('checkIn', newValue)}
+                disablePast
+                sx={{ width: '100%' }}
+                slotProps={{
+                  textField: {
+                    variant: 'outlined',
+                    fullWidth: true,
+                    size: isMobile ? "small" : "medium"
+                  },
+                  actionBar: {
+                    actions: ['clear', 'today'],
+                  }
                 }}
-              >
-                צ'ק אין
-              </Typography>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-                <DatePicker
-                  value={bookingData.checkIn}
-                  onChange={(date) => handleDateChange('checkIn', date)}
-                  disablePast
-                  renderInput={(params) => <TextField {...params} fullWidth size="small" />}
-                  inputFormat="dd/MM/yyyy"
-                  PaperProps={{
-                    sx: {
-                      borderRadius: '12px',
-                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-                    }
-                  }}
-                  PopperProps={{
-                    sx: {
-                      '& .MuiPickersDay-root': {
-                        borderRadius: '8px',
-                      },
-                      '& .MuiPickersDay-root.Mui-selected': {
-                        backgroundColor: theme.palette.primary.main,
-                      }
-                    }
-                  }}
-                  sx={{ 
-                    width: '100%',
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '10px',
-                      backgroundColor: '#f8fafc',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        backgroundColor: '#f1f5f9',
-                      },
-                      '&.Mui-focused': {
-                        backgroundColor: '#ffffff',
-                        boxShadow: '0 0 0 2px rgba(59, 130, 246, 0.3)'
-                      }
-                    },
-                    '& .MuiOutlinedInput-input': {
-                      padding: '10px 14px',
-                      fontSize: '0.9rem',
-                      fontWeight: 500,
-                    }
-                  }}
-                />
-              </LocalizationProvider>
-            </Box>
+              />
+            </LocalizationProvider>
           </Grid>
-          
-          {/* תאריך יציאה */}
-          <Grid item xs={6} sm={3}>
-            <Box>
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  display: 'block', 
-                  mb: 0.5, 
-                  fontWeight: 500,
-                  color: '#64748b'
+          <Grid item xs={12} sm={6} md={3}>
+            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+              <DatePicker
+                label="תאריך יציאה"
+                value={bookingData.checkOut}
+                onChange={(newValue) => handleDateChange('checkOut', newValue)}
+                disablePast
+                minDate={addDays(bookingData.checkIn, 1)}
+                sx={{ width: '100%' }}
+                slotProps={{
+                  textField: {
+                    variant: 'outlined',
+                    fullWidth: true,
+                    size: isMobile ? "small" : "medium"
+                  },
+                  actionBar: {
+                    actions: ['clear', 'today'],
+                  }
                 }}
-              >
-                צ'ק אאוט
-              </Typography>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-                <DatePicker
-                  value={bookingData.checkOut}
-                  onChange={(date) => handleDateChange('checkOut', date)}
-                  minDate={bookingData.checkIn ? addDays(bookingData.checkIn, 1) : addDays(new Date(), 1)}
-                  inputFormat="dd/MM/yyyy"
-                  PaperProps={{
-                    sx: {
-                      borderRadius: '12px',
-                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-                    }
-                  }}
-                  PopperProps={{
-                    sx: {
-                      '& .MuiPickersDay-root': {
-                        borderRadius: '8px',
-                      },
-                      '& .MuiPickersDay-root.Mui-selected': {
-                        backgroundColor: theme.palette.primary.main,
-                      }
-                    }
-                  }}
-                  renderInput={(params) => <TextField {...params} fullWidth size="small" />}
-                  sx={{ 
-                    width: '100%',
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '10px',
-                      backgroundColor: '#f8fafc',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        backgroundColor: '#f1f5f9',
-                      },
-                      '&.Mui-focused': {
-                        backgroundColor: '#ffffff',
-                        boxShadow: '0 0 0 2px rgba(59, 130, 246, 0.3)'
-                      }
-                    },
-                    '& .MuiOutlinedInput-input': {
-                      padding: '10px 14px',
-                      fontSize: '0.9rem',
-                      fontWeight: 500,
-                    }
-                  }}
-                />
-              </LocalizationProvider>
-            </Box>
+              />
+            </LocalizationProvider>
           </Grid>
-          
-          {/* בחירת אורחים וחדרים */}
-          <Grid item xs={6} sm={3}>
+          <Grid item xs={6} sm={6} md={3}>
             <Box>
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  display: 'block', 
-                  mb: 0.5, 
-                  fontWeight: 500,
-                  color: '#64748b'
-                }}
-              >
-                אורחים וחדרים
-              </Typography>
               <Button
-                fullWidth
                 variant="outlined"
+                fullWidth
                 onClick={handleGuestsMenuOpen}
                 endIcon={<ArrowDropDownIcon />}
-                sx={{ 
-                  height: '40px',
-                  justifyContent: 'space-between',
-                  textTransform: 'none',
-                  color: '#334155',
-                  backgroundColor: '#f8fafc',
-                  borderColor: '#e2e8f0',
-                  borderRadius: '10px',
-                  transition: 'all 0.2s ease',
-                  fontWeight: 500,
-                  '&:hover': {
-                    borderColor: '#94a3b8',
-                    backgroundColor: '#f1f5f9'
-                  },
-                  '& .MuiButton-endIcon': {
-                    color: '#64748b'
-                  },
-                  fontSize: '0.9rem',
-                }}
+                size={isMobile ? "small" : "medium"}
+                sx={{ height: isMobile ? 40 : 56, justifyContent: 'space-between', px: 2 }}
               >
-                <Box sx={{ textAlign: 'start', width: '100%' }}>
-                  <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
-                    {bookingData.guests} {bookingData.guests === 1 ? 'אורח' : 'אורחים'}
-                    {bookingData.rooms > 1 && `, ${bookingData.rooms} חדרים`}
-                  </Typography>
-                </Box>
+                <Typography variant="body1">
+                  {`${bookingData.guests} אורחים, ${bookingData.rooms} חדרים`}
+                </Typography>
               </Button>
               <Menu
+                id="guests-menu"
                 anchorEl={guestsMenuAnchor}
                 open={Boolean(guestsMenuAnchor)}
                 onClose={handleGuestsMenuClose}
-                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
                 sx={{ mt: 1 }}
                 PaperProps={{
-                  sx: {
-                    width: 280,
-                    p: 2,
-                    borderRadius: '16px',
-                    boxShadow: '0 10px 40px rgba(0, 0, 0, 0.12)',
-                    border: '1px solid #f1f5f9'
+                  style: {
+                    width: isMobile ? '90%' : '300px',
+                    padding: '16px'
                   }
                 }}
               >
-                {/* בחירת אורחים */}
-                <Box sx={{ mb: 3 }}>
-                  <Typography 
-                    variant="subtitle2" 
-                    sx={{ 
-                      mb: 1.5, 
-                      fontWeight: 600, 
-                      color: '#334155'
-                    }}
-                  >
-                    אורחים
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleGuestsRoomsChange('guests', bookingData.guests - 1)}
-                      disabled={bookingData.guests <= 1}
-                      sx={{ 
-                        border: '1px solid', 
-                        borderColor: bookingData.guests <= 1 ? '#e2e8f0' : '#cbd5e1',
-                        borderRadius: '8px',
-                        width: '32px',
-                        height: '32px',
-                        color: bookingData.guests <= 1 ? '#94a3b8' : '#64748b',
-                        '&:hover': {
-                          backgroundColor: 'rgba(59, 130, 246, 0.04)'
-                        },
-                        '&:active': {
-                          backgroundColor: 'rgba(59, 130, 246, 0.1)'
-                        }
-                      }}
-                    >
-                      <RemoveIcon fontSize="small" />
-                    </IconButton>
-                    <Typography 
-                      variant="body1" 
-                      sx={{ 
-                        fontWeight: 600, 
-                        color: '#334155',
-                        mx: 2
-                      }}
-                    >
-                      {bookingData.guests}
-                    </Typography>
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleGuestsRoomsChange('guests', bookingData.guests + 1)}
-                      disabled={bookingData.guests >= 10}
-                      sx={{ 
-                        border: '1px solid', 
-                        borderColor: bookingData.guests >= 10 ? '#e2e8f0' : '#cbd5e1',
-                        borderRadius: '8px',
-                        width: '32px',
-                        height: '32px',
-                        color: bookingData.guests >= 10 ? '#94a3b8' : '#64748b',
-                        '&:hover': {
-                          backgroundColor: 'rgba(59, 130, 246, 0.04)'
-                        },
-                        '&:active': {
-                          backgroundColor: 'rgba(59, 130, 246, 0.1)'
-                        }
-                      }}
-                    >
-                      <AddIcon fontSize="small" />
-                    </IconButton>
+                <Box sx={{ p: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography>אורחים</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleGuestsRoomsChange('guests', Math.max(1, bookingData.guests - 1))}
+                      >
+                        <RemoveIcon />
+                      </IconButton>
+                      <Typography sx={{ mx: 2, minWidth: '20px', textAlign: 'center' }}>
+                        {bookingData.guests}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleGuestsRoomsChange('guests', bookingData.guests + 1)}
+                      >
+                        <AddIcon />
+                      </IconButton>
+                    </Box>
                   </Box>
-                </Box>
-                
-                {/* בחירת חדרים */}
-                <Box>
-                  <Typography 
-                    variant="subtitle2" 
-                    sx={{ 
-                      mb: 1.5, 
-                      fontWeight: 600, 
-                      color: '#334155'
-                    }}
-                  >
-                    חדרים
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleGuestsRoomsChange('rooms', bookingData.rooms - 1)}
-                      disabled={bookingData.rooms <= 1}
-                      sx={{ 
-                        border: '1px solid', 
-                        borderColor: bookingData.rooms <= 1 ? '#e2e8f0' : '#cbd5e1',
-                        borderRadius: '8px',
-                        width: '32px',
-                        height: '32px',
-                        color: bookingData.rooms <= 1 ? '#94a3b8' : '#64748b',
-                        '&:hover': {
-                          backgroundColor: 'rgba(59, 130, 246, 0.04)'
-                        },
-                        '&:active': {
-                          backgroundColor: 'rgba(59, 130, 246, 0.1)'
-                        }
-                      }}
-                    >
-                      <RemoveIcon fontSize="small" />
-                    </IconButton>
-                    <Typography 
-                      variant="body1" 
-                      sx={{ 
-                        fontWeight: 600, 
-                        color: '#334155',
-                        mx: 2
-                      }}
-                    >
-                      {bookingData.rooms}
-                    </Typography>
-                    <IconButton 
-                      size="small" 
-                      onClick={() => handleGuestsRoomsChange('rooms', bookingData.rooms + 1)}
-                      disabled={bookingData.rooms >= 5}
-                      sx={{ 
-                        border: '1px solid', 
-                        borderColor: bookingData.rooms >= 5 ? '#e2e8f0' : '#cbd5e1',
-                        borderRadius: '8px',
-                        width: '32px',
-                        height: '32px',
-                        color: bookingData.rooms >= 5 ? '#94a3b8' : '#64748b',
-                        '&:hover': {
-                          backgroundColor: 'rgba(59, 130, 246, 0.04)'
-                        },
-                        '&:active': {
-                          backgroundColor: 'rgba(59, 130, 246, 0.1)'
-                        }
-                      }}
-                    >
-                      <AddIcon fontSize="small" />
-                    </IconButton>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography>חדרים</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleGuestsRoomsChange('rooms', Math.max(1, bookingData.rooms - 1))}
+                      >
+                        <RemoveIcon />
+                      </IconButton>
+                      <Typography sx={{ mx: 2, minWidth: '20px', textAlign: 'center' }}>
+                        {bookingData.rooms}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleGuestsRoomsChange('rooms', Math.min(10, bookingData.rooms + 1))}
+                      >
+                        <AddIcon />
+                      </IconButton>
+                    </Box>
                   </Box>
-                </Box>
-                
-                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
                   <Button 
-                    size="small" 
+                    variant="contained" 
+                    fullWidth 
+                    sx={{ mt: 2 }} 
                     onClick={handleGuestsMenuClose}
-                    sx={{ 
-                      fontWeight: 600,
-                      textTransform: 'none',
-                      color: theme.palette.primary.main,
-                      '&:hover': {
-                        backgroundColor: 'rgba(59, 130, 246, 0.04)'
-                      }
-                    }}
                   >
                     אישור
                   </Button>
@@ -616,286 +453,216 @@ const HomePage = () => {
               </Menu>
             </Box>
           </Grid>
-          
-          {/* כפתור חיפוש */}
-          <Grid item xs={6} sm={3}>
-            <Box sx={{ mt: { xs: 'auto', sm: '17px' } }}>
-              <Button
-                variant="contained"
-                fullWidth
-                onClick={handleCheckAvailability}
-                disabled={searchLoading || !bookingData.checkIn || !bookingData.checkOut}
-                sx={{ 
-                  height: '40px',
-                  borderRadius: '10px',
-                  textTransform: 'none',
-                  fontSize: '0.95rem',
-                  fontWeight: 600,
-                  background: !searchLoading && bookingData.checkIn && bookingData.checkOut ? 
-                    'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : undefined,
-                  boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    boxShadow: '0 6px 20px rgba(59, 130, 246, 0.4)',
-                    transform: 'translateY(-1px)',
-                    background: 'linear-gradient(135deg, #4f86f7 0%, #2563eb 100%)'
-                  },
-                  '&:active': {
-                    transform: 'translateY(1px)',
-                    boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)'
-                  }
-                }}
-              >
-                {searchLoading ? (
-                  <CircularProgress size={20} color="inherit" />
-                ) : (
-                  <>
-                    <SearchIcon sx={{ mr: 1, fontSize: '1.1rem' }} />
-                    חפש זמינות
-                  </>
-                )}
-              </Button>
-            </Box>
+          <Grid item xs={6} sm={6} md={3}>
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              startIcon={<SearchIcon />}
+              onClick={handleCheckAvailability}
+              disabled={searchLoading}
+              size={isMobile ? "small" : "medium"}
+              sx={{ height: isMobile ? 40 : 56 }}
+            >
+              {searchLoading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                'חפש זמינות'
+              )}
+            </Button>
           </Grid>
-          
-          {/* הודעות שגיאה או מידע */}
-          {searchError && (
-            <Grid item xs={12}>
-              <Alert 
-                severity="error" 
-                sx={{ 
-                  mt: 1.5, 
-                  borderRadius: '10px', 
-                  py: 0.5,
-                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.1)',
-                  border: '1px solid rgba(239, 68, 68, 0.1)'
-                }}
-              >
-                <Typography variant="body2">{searchError}</Typography>
-              </Alert>
-            </Grid>
-          )}
-          
-          {bookingData.checkIn && bookingData.checkOut && calculateNights() > 0 && (
-            <Grid item xs={12}>
-              <Alert 
-                severity="info" 
-                icon={<EventIcon />}
-                sx={{ 
-                  mt: 1.5, 
-                  borderRadius: '10px',
-                  py: 0.5,
-                  boxShadow: '0 2px 8px rgba(59, 130, 246, 0.1)',
-                  border: '1px solid rgba(59, 130, 246, 0.1)',
-                  '& .MuiAlert-icon': {
-                    color: theme.palette.primary.main
-                  }
-                }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  משך שהייה: <strong>{calculateNights()} לילות</strong> 
-                  {bookingData.guests > 1 && ` • ${bookingData.guests} אורחים`}
-                  {bookingData.rooms > 1 && ` • ${bookingData.rooms} חדרים`}
-                </Typography>
-              </Alert>
-            </Grid>
-          )}
         </Grid>
+
+        {searchError && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {searchError}
+          </Alert>
+        )}
+
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            {calculateNights()} לילות |{' '}
+            <Typography component="span" variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
+              מחירים מיוחדים להזמנות דרך האתר
+            </Typography>
+          </Typography>
+        </Box>
       </Paper>
 
-      {/* פרטי מיקום ומידע בסיסי - קומפקטי */}
-      <Paper 
-        elevation={1} 
-        sx={{ 
-          p: 2.5, 
-          mb: 4, 
-          maxWidth: '850px', 
-          mx: 'auto',
-          borderRadius: '16px',
-          width: '90%'
-        }}
-      >
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-              <LocationIcon 
-                sx={{ 
-                  mr: 1, 
-                  fontSize: '1.2rem',
-                  color: theme.palette.primary.main,
-                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                  p: 0.5,
-                  borderRadius: '50%'
-                }} 
-              />
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
+      {/* מידע על המלונית */}
+      <Box sx={{ mb: 6 }}>
+        <Typography 
+          variant={isMobile ? "h5" : "h4"} 
+          component="h2" 
+          align="center" 
+          sx={{ mb: { xs: 3, sm: 4 }, fontWeight: 'bold' }}
+        >
+          <HotelIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+          אודות המלונית
+        </Typography>
+
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Typography variant="body1" paragraph>
+              מלונית רוטשילד 79 ממוקמת במתחם המחודש של מרכז העיר פתח תקווה, במרחק הליכה קצר ממגוון מסעדות, חנויות ואטרקציות.
+            </Typography>
+            <Typography variant="body1" paragraph>
+              המלונית מציעה חדרים מודרניים ומאובזרים היטב, המתאימים לזוגות, משפחות ואנשי עסקים, עם חניה, WiFi חופשי וארוחת בוקר אופציונלית.
+            </Typography>
+            <Typography variant="body1">
+              הצוות המסור שלנו זמין 24/7 כדי להבטיח את הנוחות והשירות הטוב ביותר לאורחים.
+            </Typography>
+
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                <LocationIcon sx={{ mr: 1, color: 'primary.main' }} />
+                מיקום
+              </Typography>
+              <Typography variant="body2">
                 רחוב רוטשילד 79, פתח תקווה
               </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <PhoneIcon 
-                sx={{ 
-                  mr: 1, 
-                  fontSize: '1.2rem',
-                  color: theme.palette.primary.main,
-                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                  p: 0.5,
-                  borderRadius: '50%'
-                }} 
-              />
-              <Typography 
-                variant="body1" 
-                component="a" 
-                href="tel:03-1234567" 
-                sx={{ 
-                  fontWeight: 500,
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  '&:hover': {
-                    color: theme.palette.primary.main
-                  }
-                }}
-              >
-                03-1234567
+              <Typography variant="body2" paragraph>
+                במרכז העיר, 5 דקות הליכה מהקניון הגדול, 10 דקות נסיעה מקניון סירקין
+              </Typography>
+
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
+                <PhoneIcon sx={{ mr: 1, color: 'primary.main' }} />
+                צור קשר
+              </Typography>
+              <Typography variant="body2">
+                טלפון: 03-1234567
+              </Typography>
+              <Typography variant="body2">
+                אימייל: info@rothschild79.co.il
               </Typography>
             </Box>
           </Grid>
-          <Grid item xs={12} sm={6}>
-            <Typography variant="body2" sx={{ color: '#475569' }}>
-              מלונית במיקום מרכזי, חדרים מאובזרים עם מיזוג, טלוויזיה, Wi-Fi חינם ומקלחת פרטית.
-            </Typography>
+
+          <Grid item xs={12} md={6}>
+            <Paper 
+              elevation={3} 
+              sx={{ 
+                height: '100%', 
+                overflow: 'hidden',
+                borderRadius: 2
+              }}
+            >
+              <Box
+                component="iframe"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3379.8881269602824!2d34.884986!3d32.089128!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x151d366440afbecd%3A0x99ad886c7d7ebb2f!2sRothschild%20St%2079%2C%20Petah%20Tikva!5e0!3m2!1sen!2sil!4v1709767271407!5m2!1sen!2sil"
+                sx={{
+                  border: 0,
+                  width: '100%',
+                  height: '100%',
+                  minHeight: { xs: '300px', md: '100%' }
+                }}
+                allowFullScreen=""
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </Paper>
           </Grid>
         </Grid>
-      </Paper>
+      </Box>
 
-      {/* הצגת החדרים - גלריה מינימליסטית */}
-      <Box sx={{ 
-        textAlign: 'center', 
-        flexGrow: 1, 
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'center',
-        px: 2
-      }}>
+      {/* החדרים שלנו */}
+      <Box sx={{ mb: 6 }}>
         <Typography 
-          variant="h5" 
+          variant={isMobile ? "h5" : "h4"} 
           component="h2" 
-          gutterBottom
-          sx={{
-            fontWeight: 600,
-            color: '#2c3e50',
-            mb: 2
-          }}
+          align="center" 
+          sx={{ mb: { xs: 3, sm: 4 }, fontWeight: 'bold' }}
         >
+          <HotelIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
           החדרים שלנו
         </Typography>
 
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
-        ) : rooms?.length > 0 ? (
-          <Box sx={{ maxWidth: '850px', mx: 'auto', position: 'relative', width: '90%' }}>
-            <Paper 
-              elevation={2} 
-              sx={{ 
-                overflow: 'hidden', 
-                mb: 2, 
-                borderRadius: '16px',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)'
-              }}
-            >
-              {rooms[0] && rooms[0]?.images && Array.isArray(rooms[0]?.images) && rooms[0].images.length > 0 && (
-                <Box sx={{ position: 'relative' }}>
+        ) : (
+          <Grid container spacing={3}>
+            {rooms.map((room) => (
+              <Grid item xs={12} sm={6} md={4} key={room._id}>
+                <Card 
+                  sx={{ 
+                    height: '100%', 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-5px)',
+                      boxShadow: 6
+                    }
+                  }}
+                >
                   <CardMedia
                     component="img"
-                    height={isMobile ? '200' : '300'}
-                    image={rooms[0]?.images?.[currentImageIndex]?.url || 'https://via.placeholder.com/800x400?text=אין+תמונה'}
-                    alt="חדר במלונית"
-                    sx={{ 
-                      objectFit: 'cover',
-                      transition: 'transform 0.4s ease',
-                      '&:hover': {
-                        transform: 'scale(1.02)'
-                      }
-                    }}
+                    height={isMobile ? "180" : "200"}
+                    image={room.images[0] || '/images/placeholder.jpg'}
+                    alt={room.name}
                   />
-                  {rooms[0]?.images && Array.isArray(rooms[0]?.images) && rooms[0].images.length > 1 && (
-                    <>
-                      <IconButton 
-                        sx={{ 
-                          position: 'absolute', 
-                          top: '50%', 
-                          left: 16, 
-                          transform: 'translateY(-50%)',
-                          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                          backdropFilter: 'blur(4px)',
-                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                          '&:hover': { 
-                            backgroundColor: 'rgba(255, 255, 255, 1)',
-                            transform: 'translateY(-50%) scale(1.05)'
-                          },
-                          transition: 'all 0.2s ease'
-                        }}
-                        onClick={handlePrevImage}
-                      >
-                        <ArrowForwardIcon />
-                      </IconButton>
-                      <IconButton 
-                        sx={{ 
-                          position: 'absolute', 
-                          top: '50%', 
-                          right: 16, 
-                          transform: 'translateY(-50%)',
-                          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                          backdropFilter: 'blur(4px)',
-                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                          '&:hover': { 
-                            backgroundColor: 'rgba(255, 255, 255, 1)',
-                            transform: 'translateY(-50%) scale(1.05)'
-                          },
-                          transition: 'all 0.2s ease'
-                        }}
-                        onClick={handleNextImage}
-                      >
-                        <ArrowBackIcon />
-                      </IconButton>
-                      
-                      <Box 
-                        sx={{ 
-                          position: 'absolute', 
-                          bottom: 10, 
-                          left: '50%', 
-                          transform: 'translateX(-50%)',
-                          display: 'flex',
-                          gap: '4px'
-                        }}
-                      >
-                        {rooms[0]?.images && Array.isArray(rooms[0].images) && rooms[0].images.map((_, idx) => (
-                          <Box 
-                            key={idx}
-                            sx={{ 
-                              width: 8,
-                              height: 8,
-                              borderRadius: '50%',
-                              backgroundColor: idx === currentImageIndex ? theme.palette.primary.main : 'rgba(255, 255, 255, 0.7)',
-                              transition: 'all 0.2s ease'
-                            }}
-                          />
-                        ))}
-                      </Box>
-                    </>
-                  )}
-                </Box>
-              )}
-            </Paper>
-          </Box>
-        ) : (
-          <Typography sx={{ color: '#475569' }}>לא נמצאו חדרים זמינים כרגע.</Typography>
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Typography variant="h6" component="h3" gutterBottom>
+                      {room.name}
+                    </Typography>
+                    <Box sx={{ mb: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {room.amenities.slice(0, 3).map((amenity, index) => (
+                        <Chip 
+                          key={index} 
+                          label={amenity} 
+                          size="small" 
+                          sx={{ mb: 0.5 }}
+                        />
+                      ))}
+                      {room.amenities.length > 3 && (
+                        <Chip 
+                          icon={<InfoIcon />} 
+                          label={`${room.amenities.length - 3}+`} 
+                          size="small" 
+                          variant="outlined" 
+                          sx={{ mb: 0.5 }}
+                        />
+                      )}
+                    </Box>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      sx={{ 
+                        mb: 1,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
+                      {room.description}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>עד {room.maxGuests} אורחים</strong>
+                    </Typography>
+                  </CardContent>
+                  <CardActions sx={{ p: 2, pt: 0 }}>
+                    <Button 
+                      variant="outlined" 
+                      fullWidth 
+                      component={Link} 
+                      to={`/room/${room._id}`}
+                      size={isMobile ? "small" : "medium"}
+                    >
+                      פרטים נוספים
+                    </Button>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
         )}
       </Box>
 
-      {/* צ'אט בוט */}
+      {/* צ'אט */}
       <ChatBox />
     </Box>
   );
