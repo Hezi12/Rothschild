@@ -35,7 +35,9 @@ import {
   KingBed,
   Kitchen,
   DirectionsCar,
-  Bathtub
+  Bathtub,
+  EventAvailable as EventAvailableIcon,
+  EventBusy as EventBusyIcon
 } from '@mui/icons-material';
 
 // מיפוי של האייקונים לפי סוג השירות
@@ -242,6 +244,24 @@ const RoomPage = () => {
                   }}
                 />
               ))}
+            </Box>
+
+            <Divider sx={{ my: 2 }} />
+            
+            {/* הוספת מדיניות ביטול */}
+            <Typography variant={isMobile ? "h6" : "h5"} gutterBottom>
+              מדיניות ביטול
+            </Typography>
+            
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="body1" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <EventAvailableIcon sx={{ mr: 1, color: 'success.main' }} fontSize="small" />
+                ביטול עד 3 ימים לפני ההגעה - ללא עלות
+              </Typography>
+              <Typography variant="body1" sx={{ display: 'flex', alignItems: 'center' }}>
+                <EventBusyIcon sx={{ mr: 1, color: 'error.main' }} fontSize="small" />
+                ביטול פחות מ-3 ימים לפני ההגעה - חיוב במחיר מלא
+              </Typography>
             </Box>
 
             <Button

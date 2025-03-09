@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { 
@@ -27,7 +27,7 @@ import {
   useMediaQuery,
   Container,
   MobileStepper,
-  StepContent,
+  StepContent
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -41,6 +41,7 @@ import { alpha } from '@mui/material/styles';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import LockIcon from '@mui/icons-material/Lock';
 import InfoIcon from '@mui/icons-material/Info';
+import { EventAvailable as EventAvailableIcon, EventBusy as EventBusyIcon } from '@mui/icons-material';
 
 const steps = ['בחירת תאריכים', 'פרטי אורח', 'פרטי תשלום', 'סיכום'];
 
@@ -1115,29 +1116,30 @@ const BookingPage = () => {
               </Box>
             </Box>
             
-            {/* מדיניות ביטול */}
-            <Box 
-              sx={{ 
-                mt: 3, 
-                p: 2, 
-                borderRadius: 1, 
-                bgcolor: 'rgba(0, 0, 0, 0.02)',
-                border: '1px solid rgba(0, 0, 0, 0.08)'
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, display: 'flex', alignItems: 'center' }}>
-                <InfoIcon fontSize="small" sx={{ mr: 1, color: theme.palette.info.main }} />
-                מדיניות ביטול:
+            <Box sx={{ my: 2 }}>
+              <Typography 
+                variant="subtitle1" 
+                sx={{ 
+                  fontWeight: 'medium',
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: theme.palette.text.primary,
+                  mb: 1
+                }}
+              >
+                <InfoIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+                מדיניות ביטול
               </Typography>
-              <Typography variant="body2" paragraph>
-                • ביטול עד 3 ימים לפני מועד ההגעה - ללא עלות
-              </Typography>
-              <Typography variant="body2" paragraph>
-                • ביטול מ-3 ימים לפני מועד ההגעה ועד למועד ההגעה - חיוב מלא (100%)
-              </Typography>
-              <Typography variant="body2" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
-                * במקרה של ביטול, יישלח אישור ביטול לכתובת האימייל שלך.
-              </Typography>
+              <Box sx={{ pl: 3, mt: 1 }}>
+                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <EventAvailableIcon sx={{ mr: 1, color: 'success.main', fontSize: '1rem' }} />
+                  ביטול עד 3 ימים לפני ההגעה - ללא עלות
+                </Typography>
+                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
+                  <EventBusyIcon sx={{ mr: 1, color: 'error.main', fontSize: '1rem' }} />
+                  ביטול פחות מ-3 ימים לפני ההגעה - חיוב במחיר מלא
+                </Typography>
+              </Box>
             </Box>
           </Grid>
         </Grid>
@@ -1149,62 +1151,18 @@ const BookingPage = () => {
   const renderComplete = () => (
     <Box sx={{ textAlign: 'center', py: 3 }}>
       <Typography variant="h5" gutterBottom>
-        תודה על ההזמנה שלך!
+        תודה על הזמנתך!
       </Typography>
       <Typography variant="subtitle1" paragraph>
-        ההזמנה שלך התקבלה בהצלחה. אישור נשלח לכתובת האימייל שלך.
+        ההזמנה שלך התקבלה בהצלחה. אישור הזמנה נשלח לכתובת האימייל שלך.
       </Typography>
       <Typography paragraph>
         מספר הזמנה: {bookingId ? <strong>{bookingId}</strong> : 'ממתין לאישור מהשרת...'}
       </Typography>
-
-      {/* הודעה במקום קישור */}
-      <Typography paragraph sx={{ backgroundColor: '#f5f5f5', p: 2, borderRadius: 1, maxWidth: '400px', mx: 'auto', mt: 2 }}>
-        <strong>שמור על מספר ההזמנה הזה!</strong><br />
-        כדי לנהל את ההזמנה שלך בעתיד, תצטרך להשתמש במספר הזמנה זה ובכתובת האימייל שלך.
-      </Typography>
-      
-      {/* מדיניות ביטול במסך אישור */}
-      <Box 
-        sx={{ 
-          mt: 2, 
-          mb: 3, 
-          p: 2, 
-          borderRadius: 1, 
-          bgcolor: 'rgba(0, 0, 0, 0.02)',
-          border: '1px solid rgba(0, 0, 0, 0.08)',
-          maxWidth: '600px',
-          mx: 'auto',
-          textAlign: 'right'
-        }}
-      >
-        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, display: 'flex', alignItems: 'center', justifyContent: 'right' }}>
-          <InfoIcon fontSize="small" sx={{ ml: 1, color: theme.palette.info.main }} />
-          מדיניות ביטול:
-        </Typography>
-        <Typography variant="body2" paragraph>
-          • ביטול עד 3 ימים לפני מועד ההגעה - ללא עלות
-        </Typography>
-        <Typography variant="body2" paragraph>
-          • ביטול מ-3 ימים לפני מועד ההגעה ועד למועד ההגעה - חיוב מלא (100%)
-        </Typography>
-      </Box>
-      
-      {/* קישור לדף חיפוש הזמנה */}
-      <Button
-        variant="outlined"
-        color="primary"
-        component={Link}
-        to="#/find-booking"
-        sx={{ mt: 2 }}
-      >
-        מעבר לדף ניהול הזמנות
-      </Button>
-      
       <Button
         variant="contained"
         onClick={handleReset}
-        sx={{ mt: 1 }}
+        sx={{ mt: 3 }}
       >
         חזרה לדף הבית
       </Button>
