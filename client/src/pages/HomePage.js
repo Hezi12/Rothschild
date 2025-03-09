@@ -28,7 +28,9 @@ import {
   useMediaQuery,
   useTheme,
   Menu,
-  MenuItem
+  MenuItem,
+  Link as MuiLink,
+  Tooltip
 } from '@mui/material';
 import { 
   Hotel as HotelIcon,
@@ -41,7 +43,9 @@ import {
   Info as InfoIcon,
   ArrowDropDown as ArrowDropDownIcon,
   Remove as RemoveIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  WhatsApp as WhatsAppIcon,
+  Call as CallIcon
 } from '@mui/icons-material';
 import ChatBox from '../components/ChatBox';
 
@@ -199,128 +203,21 @@ const HomePage = () => {
 
   return (
     <Box>
-      {/* Hero Section */}
-      <Box sx={{ position: 'relative', height: { xs: '50vh', sm: '60vh' }, mb: 4 }}>
-        {rooms.length > 0 && (
-          <>
-            <Box
-              component="img"
-              src={rooms[0]?.images?.[currentImageIndex] || '/images/placeholder.jpg'}
-              alt="מלונית רוטשילד 79"
-              sx={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                objectPosition: 'center'
-              }}
-            />
-            <Box 
-              sx={{ 
-                position: 'absolute', 
-                top: 0, 
-                left: 0, 
-                right: 0, 
-                bottom: 0, 
-                backgroundColor: 'rgba(0,0,0,0.4)', 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                p: { xs: 2, sm: 4 } 
-              }}
-            >
-              <Typography 
-                variant={isMobile ? "h4" : "h3"} 
-                component="h1" 
-                color="white" 
-                align="center" 
-                sx={{ mb: 2, fontWeight: 'bold', textShadow: '1px 1px 4px rgba(0,0,0,0.5)' }}
-              >
-                ברוכים הבאים למלונית רוטשילד 79
-              </Typography>
-              <Typography 
-                variant={isMobile ? "body1" : "h6"} 
-                color="white" 
-                align="center" 
-                sx={{ mb: 3, maxWidth: 600, textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
-              >
-                חוויית אירוח מושלמת במרכז פתח תקווה, במיקום מרכזי ונוח במיוחד
-              </Typography>
-              <Button 
-                variant="contained" 
-                size={isMobile ? "medium" : "large"}
-                color="primary" 
-                onClick={() => {
-                  setSearchFocused(true);
-                  searchSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                sx={{ fontWeight: 'bold' }}
-              >
-                הזמנת חדר עכשיו
-              </Button>
-            </Box>
-            {rooms[0]?.images?.length > 1 && (
-              <>
-                <IconButton
-                  onClick={handlePrevImage}
-                  sx={{
-                    position: 'absolute',
-                    top: '50%',
-                    right: { xs: 8, sm: 16 },
-                    transform: 'translateY(-50%)',
-                    backgroundColor: 'rgba(255,255,255,0.3)',
-                    '&:hover': {
-                      backgroundColor: 'rgba(255,255,255,0.5)'
-                    }
-                  }}
-                >
-                  <ArrowForwardIcon sx={{ color: 'white' }} />
-                </IconButton>
-                <IconButton
-                  onClick={handleNextImage}
-                  sx={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: { xs: 8, sm: 16 },
-                    transform: 'translateY(-50%)',
-                    backgroundColor: 'rgba(255,255,255,0.3)',
-                    '&:hover': {
-                      backgroundColor: 'rgba(255,255,255,0.5)'
-                    }
-                  }}
-                >
-                  <ArrowBackIcon sx={{ color: 'white' }} />
-                </IconButton>
-              </>
-            )}
-          </>
-        )}
-      </Box>
-
       {/* חיפוש */}
       <Paper
         ref={searchSectionRef}
-        elevation={3}
+        elevation={5}
         sx={{
-          p: { xs: 2, sm: 3 },
+          p: { xs: 3, sm: 4 },
           mb: 6,
-          mx: { xs: 0, md: 4 },
-          borderRadius: 2,
+          mx: { xs: 2, md: 6 },
+          mt: { xs: 2, md: 3 },
+          borderRadius: 3,
           border: searchFocused ? '2px solid #1976d2' : 'none',
-          transition: 'all 0.3s ease'
+          transition: 'all 0.3s ease',
+          boxShadow: searchFocused ? '0px 8px 25px rgba(0,0,0,0.15)' : '0px 4px 15px rgba(0,0,0,0.1)'
         }}
       >
-        <Typography 
-          variant={isMobile ? "h5" : "h4"} 
-          component="h2" 
-          align="center" 
-          gutterBottom 
-          sx={{ mb: { xs: 2, sm: 3 }, fontWeight: 'bold' }}
-        >
-          <EventIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-          בדיקת זמינות וביצוע הזמנה
-        </Typography>
-
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={3}>
             <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
@@ -490,52 +387,106 @@ const HomePage = () => {
       </Paper>
 
       {/* מידע על המלונית */}
-      <Box sx={{ mb: 6 }}>
+      <Box sx={{ mb: 6, px: { xs: 2, md: 4 } }}>
         <Typography 
           variant={isMobile ? "h5" : "h4"} 
           component="h2" 
           align="center" 
-          sx={{ mb: { xs: 3, sm: 4 }, fontWeight: 'bold' }}
+          sx={{ 
+            mb: { xs: 4, sm: 5 }, 
+            fontWeight: 'bold',
+            position: 'relative',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              width: '60px',
+              height: '3px',
+              bottom: '-12px',
+              left: 'calc(50% - 30px)',
+              backgroundColor: 'primary.main'
+            }
+          }}
         >
           <HotelIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
           אודות המלונית
         </Typography>
 
-        <Grid container spacing={3}>
+        <Grid container spacing={4}>
           <Grid item xs={12} md={6}>
-            <Typography variant="body1" paragraph>
-              מלונית רוטשילד 79 ממוקמת במתחם המחודש של מרכז העיר פתח תקווה, במרחק הליכה קצר ממגוון מסעדות, חנויות ואטרקציות.
-            </Typography>
-            <Typography variant="body1" paragraph>
-              המלונית מציעה חדרים מודרניים ומאובזרים היטב, המתאימים לזוגות, משפחות ואנשי עסקים, עם חניה, WiFi חופשי וארוחת בוקר אופציונלית.
-            </Typography>
-            <Typography variant="body1">
-              הצוות המסור שלנו זמין 24/7 כדי להבטיח את הנוחות והשירות הטוב ביותר לאורחים.
-            </Typography>
-
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                <LocationIcon sx={{ mr: 1, color: 'primary.main' }} />
-                מיקום
+            <Paper elevation={2} sx={{ p: 3, borderRadius: 2, height: '100%' }}>
+              <Typography variant="body1" paragraph>
+                המלונית שלנו ממוקמת במתחם המחודש של מרכז העיר פתח תקווה, במרחק הליכה קצר ממגוון מסעדות, חנויות ואטרקציות.
               </Typography>
-              <Typography variant="body2">
-                רחוב רוטשילד 79, פתח תקווה
+              <Typography variant="body1" paragraph>
+                אנו מציעים חדרים מודרניים ומאובזרים היטב, המתאימים לזוגות, משפחות ואנשי עסקים, עם חניה, WiFi חופשי וארוחת בוקר אופציונלית.
               </Typography>
-              <Typography variant="body2" paragraph>
-                במרכז העיר, 5 דקות הליכה מהקניון הגדול, 10 דקות נסיעה מקניון סירקין
+              <Typography variant="body1">
+                הצוות המסור שלנו זמין 24/7 כדי להבטיח את הנוחות והשירות הטוב ביותר לאורחים.
               </Typography>
 
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <PhoneIcon sx={{ mr: 1, color: 'primary.main' }} />
-                צור קשר
-              </Typography>
-              <Typography variant="body2">
-                טלפון: 03-1234567
-              </Typography>
-              <Typography variant="body2">
-                אימייל: info@rothschild79.co.il
-              </Typography>
-            </Box>
+              <Box sx={{ mt: 4 }}>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                  <LocationIcon sx={{ mr: 1, color: 'primary.main' }} />
+                  מיקום
+                </Typography>
+                <Typography variant="body2">
+                  רחוב רוטשילד 79, פתח תקווה
+                </Typography>
+                <Typography variant="body2" paragraph>
+                  במרכז העיר, 5 דקות הליכה מהקניון הגדול, 10 דקות נסיעה מקניון סירקין
+                </Typography>
+
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', mt: 3 }}>
+                  <PhoneIcon sx={{ mr: 1, color: 'primary.main' }} />
+                  צור קשר
+                </Typography>
+                
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Tooltip title="התקשר אלינו">
+                      <Button 
+                        variant="outlined" 
+                        color="primary" 
+                        startIcon={<CallIcon />}
+                        component="a"
+                        href="tel:0506070260"
+                        size="small"
+                        sx={{ 
+                          borderRadius: '50px',
+                          '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.08)' }
+                        }}
+                      >
+                        050-607-0260
+                      </Button>
+                    </Tooltip>
+                    
+                    <Tooltip title="שלח לנו הודעה בוואטסאפ">
+                      <Button 
+                        variant="contained" 
+                        color="success" 
+                        startIcon={<WhatsAppIcon />}
+                        component="a"
+                        href="https://wa.me/972506070260"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        size="small"
+                        sx={{ 
+                          borderRadius: '50px',
+                          backgroundColor: '#25D366',
+                          '&:hover': { backgroundColor: '#1fb655' }
+                        }}
+                      >
+                        וואטסאפ
+                      </Button>
+                    </Tooltip>
+                  </Box>
+                  
+                  <Typography variant="body2">
+                    אימייל: info@rothschild79.co.il
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
           </Grid>
 
           <Grid item xs={12} md={6}>
@@ -544,7 +495,8 @@ const HomePage = () => {
               sx={{ 
                 height: '100%', 
                 overflow: 'hidden',
-                borderRadius: 2
+                borderRadius: 2,
+                boxShadow: '0px 4px 20px rgba(0,0,0,0.1)'
               }}
             >
               <Box
@@ -566,12 +518,25 @@ const HomePage = () => {
       </Box>
 
       {/* החדרים שלנו */}
-      <Box sx={{ mb: 6 }}>
+      <Box sx={{ mb: 6, px: { xs: 2, md: 4 } }}>
         <Typography 
           variant={isMobile ? "h5" : "h4"} 
           component="h2" 
           align="center" 
-          sx={{ mb: { xs: 3, sm: 4 }, fontWeight: 'bold' }}
+          sx={{ 
+            mb: { xs: 4, sm: 5 }, 
+            fontWeight: 'bold',
+            position: 'relative',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              width: '60px',
+              height: '3px',
+              bottom: '-12px',
+              left: 'calc(50% - 30px)',
+              backgroundColor: 'primary.main'
+            }
+          }}
         >
           <HotelIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
           החדרים שלנו
@@ -582,7 +547,7 @@ const HomePage = () => {
             <CircularProgress />
           </Box>
         ) : (
-          <Grid container spacing={3}>
+          <Grid container spacing={4}>
             {rooms.map((room) => (
               <Grid item xs={12} sm={6} md={4} key={room._id}>
                 <Card 
@@ -590,24 +555,26 @@ const HomePage = () => {
                     height: '100%', 
                     display: 'flex', 
                     flexDirection: 'column',
+                    borderRadius: 2,
+                    overflow: 'hidden',
                     transition: 'transform 0.3s ease, box-shadow 0.3s ease',
                     '&:hover': {
-                      transform: 'translateY(-5px)',
-                      boxShadow: 6
+                      transform: 'translateY(-7px)',
+                      boxShadow: '0px 10px 30px rgba(0,0,0,0.15)'
                     }
                   }}
                 >
                   <CardMedia
                     component="img"
-                    height={isMobile ? "180" : "200"}
+                    height={isMobile ? "180" : "220"}
                     image={room.images[0] || '/images/placeholder.jpg'}
                     alt={room.name}
                   />
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Typography variant="h6" component="h3" gutterBottom>
+                  <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                    <Typography variant="h6" component="h3" gutterBottom fontWeight="bold">
                       {room.name}
                     </Typography>
-                    <Box sx={{ mb: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
                       {room.amenities.slice(0, 3).map((amenity, index) => (
                         <Chip 
                           key={index} 
@@ -630,7 +597,7 @@ const HomePage = () => {
                       variant="body2" 
                       color="text.secondary" 
                       sx={{ 
-                        mb: 1,
+                        mb: 2,
                         display: '-webkit-box',
                         WebkitLineClamp: 3,
                         WebkitBoxOrient: 'vertical',
@@ -640,17 +607,21 @@ const HomePage = () => {
                     >
                       {room.description}
                     </Typography>
-                    <Typography variant="body2">
+                    <Typography variant="body2" fontWeight="medium">
                       <strong>עד {room.maxGuests} אורחים</strong>
                     </Typography>
                   </CardContent>
-                  <CardActions sx={{ p: 2, pt: 0 }}>
+                  <CardActions sx={{ p: 2.5, pt: 0 }}>
                     <Button 
                       variant="outlined" 
                       fullWidth 
                       component={Link} 
                       to={`/room/${room._id}`}
-                      size={isMobile ? "small" : "medium"}
+                      size={isMobile ? "medium" : "medium"}
+                      sx={{ 
+                        borderRadius: '50px',
+                        py: 0.8
+                      }}
                     >
                       פרטים נוספים
                     </Button>
