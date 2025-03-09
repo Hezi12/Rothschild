@@ -27,7 +27,8 @@ import {
   WhatsApp as WhatsAppIcon,
   Call as CallIcon,
   Info as InfoIcon,
-  Construction as ConstructionIcon
+  Construction as ConstructionIcon,
+  MenuBook as MenuBookIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 
@@ -371,6 +372,12 @@ const Layout = () => {
             ניהול
           </MenuItem>
         )}
+        {isAdmin() && (
+          <MenuItem component={Link} to="/installation-guide" onClick={handleClose}>
+            <MenuBookIcon fontSize="small" sx={{ ml: 1 }} />
+            מדריך התקנה
+          </MenuItem>
+        )}
         <MenuItem onClick={handleLogout}>
           <LogoutIcon fontSize="small" sx={{ ml: 1 }} />
           התנתק
@@ -398,6 +405,12 @@ const Layout = () => {
               <MenuItem component={Link} to="/dashboard" onClick={handleMobileClose}>
                 <DashboardIcon fontSize="small" sx={{ ml: 1 }} />
                 ניהול
+              </MenuItem>
+            )}
+            {isAdmin() && (
+              <MenuItem component={Link} to="/installation-guide" onClick={handleMobileClose}>
+                <MenuBookIcon fontSize="small" sx={{ ml: 1 }} />
+                מדריך התקנה
               </MenuItem>
             )}
             <MenuItem onClick={() => { handleMobileClose(); handleLogout(); }}>

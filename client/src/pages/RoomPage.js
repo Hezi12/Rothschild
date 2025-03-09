@@ -39,6 +39,7 @@ import {
   EventAvailable as EventAvailableIcon,
   EventBusy as EventBusyIcon
 } from '@mui/icons-material';
+import { alpha } from '@mui/material/styles';
 
 // מיפוי של האייקונים לפי סוג השירות
 const amenityIcons = {
@@ -169,6 +170,160 @@ const RoomPage = () => {
 
       {/* כרטיס מידע על החדר */}
       <Grid container spacing={3}>
+        {/* תמונות החדר - שיפור הגלריה */}
+        <Grid item xs={12} md={5}>
+          <Paper
+            elevation={3}
+            sx={{
+              borderRadius: 2,
+              overflow: 'hidden',
+              height: '100%',
+              position: 'relative',
+              mb: { xs: 2, md: 0 }
+            }}
+          >
+            {hasImages ? (
+              <>
+                <Box sx={{ position: 'relative', height: 0, paddingTop: '75%' }}>
+                  <CardMedia
+                    component="img"
+                    image={room.images[activeStep].url}
+                    alt={`תמונה של ${room.name}`}
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      transition: 'transform 0.3s ease-in-out',
+                      '&:hover': {
+                        transform: 'scale(1.02)'
+                      }
+                    }}
+                  />
+                </Box>
+                {maxSteps > 1 && (
+                  <>
+                    {/* כפתורי ניווט בין התמונות בצדדים */}
+                    <IconButton
+                      size="large"
+                      onClick={handleBack}
+                      disabled={activeStep === 0}
+                      sx={{
+                        position: 'absolute',
+                        top: '50%',
+                        right: 16,
+                        transform: 'translateY(-50%)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        '&:hover': {
+                          backgroundColor: 'rgba(255, 255, 255, 0.9)'
+                        },
+                        zIndex: 2
+                      }}
+                    >
+                      <KeyboardArrowRight />
+                    </IconButton>
+                    <IconButton
+                      size="large"
+                      onClick={handleNext}
+                      disabled={activeStep === maxSteps - 1}
+                      sx={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: 16,
+                        transform: 'translateY(-50%)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        '&:hover': {
+                          backgroundColor: 'rgba(255, 255, 255, 0.9)'
+                        },
+                        zIndex: 2
+                      }}
+                    >
+                      <KeyboardArrowLeft />
+                    </IconButton>
+                    
+                    {/* תצוגה של כמה תמונות יש ואיזו תמונה מוצגת כעת */}
+                    <MobileStepper
+                      steps={maxSteps}
+                      position="static"
+                      activeStep={activeStep}
+                      sx={{
+                        bgcolor: 'rgba(255, 255, 255, 0.9)',
+                        mt: 0,
+                        borderRadius: 0
+                      }}
+                      backButton={<Box />}
+                      nextButton={<Box />}
+                    />
+                    
+                    {/* גלריית תמונות ממוזערות */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        overflowX: 'auto',
+                        p: 1,
+                        bgcolor: 'rgba(255, 255, 255, 0.9)',
+                        '&::-webkit-scrollbar': {
+                          height: 6,
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                          borderRadius: 3,
+                          backgroundColor: theme.palette.primary.main,
+                        }
+                      }}
+                    >
+                      {room.images.map((image, index) => (
+                        <Box
+                          key={index}
+                          onClick={() => setActiveStep(index)}
+                          sx={{
+                            width: 60,
+                            height: 60,
+                            flexShrink: 0,
+                            mr: 1,
+                            opacity: index === activeStep ? 1 : 0.6,
+                            border: index === activeStep ? `2px solid ${theme.palette.primary.main}` : '2px solid transparent',
+                            borderRadius: 1,
+                            overflow: 'hidden',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            '&:hover': {
+                              opacity: 0.9
+                            }
+                          }}
+                        >
+                          <img
+                            src={image.url}
+                            alt={`תמונה ממוזערת ${index + 1}`}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                          />
+                        </Box>
+                      ))}
+                    </Box>
+                  </>
+                )}
+              </>
+            ) : (
+              <Box
+                sx={{
+                  height: 300,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: 'grey.100'
+                }}
+              >
+                <HotelIcon sx={{ fontSize: 80, color: 'grey.400' }} />
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
         {/* מידע על החדר */}
         <Grid item xs={12} md={7}>
           <Paper 
@@ -248,21 +403,38 @@ const RoomPage = () => {
 
             <Divider sx={{ my: 2 }} />
             
-            {/* הוספת מדיניות ביטול */}
+            {/* מדיניות ביטול */}
             <Typography variant={isMobile ? "h6" : "h5"} gutterBottom>
               מדיניות ביטול
             </Typography>
             
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body1" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <EventAvailableIcon sx={{ mr: 1, color: 'success.main' }} fontSize="small" />
-                ביטול עד 3 ימים לפני ההגעה - ללא עלות
-              </Typography>
-              <Typography variant="body1" sx={{ display: 'flex', alignItems: 'center' }}>
-                <EventBusyIcon sx={{ mr: 1, color: 'error.main' }} fontSize="small" />
-                ביטול פחות מ-3 ימים לפני ההגעה - חיוב במחיר מלא
+            <Box 
+              sx={{ 
+                p: 2, 
+                bgcolor: (theme) => alpha(theme.palette.info.main, 0.07),
+                borderRadius: 2,
+                border: `1px dashed ${alpha(theme.palette.info.main, 0.4)}`,
+                mb: 3
+              }}
+            >
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'flex-start',
+                  fontSize: '0.95rem',
+                  color: theme.palette.info.dark
+                }}
+              >
+                <EventAvailableIcon fontSize="small" sx={{ mr: 1, mt: '2px', color: theme.palette.info.main }} />
+                <Box>
+                  <b>ביטול חינם עד 24 שעות לפני ההגעה.</b><br />
+                  לאחר מכן יחויב לילה אחד במקרה של אי הגעה או ביטול.
+                </Box>
               </Typography>
             </Box>
+
+            <Divider sx={{ my: 2 }} />
 
             <Button
               variant="contained"
@@ -286,124 +458,6 @@ const RoomPage = () => {
             >
               הזמן עכשיו
             </Button>
-          </Paper>
-        </Grid>
-
-        {/* גלריית תמונות */}
-        <Grid item xs={12} md={5}>
-          <Paper 
-            elevation={2} 
-            sx={{ 
-              borderRadius: 2,
-              overflow: 'hidden',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-          >
-            {hasImages ? (
-              <>
-                <Box
-                  sx={{
-                    height: { xs: '250px', sm: '300px', md: '350px' },
-                    width: '100%',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}
-                >
-                  <Box
-                    component="img"
-                    src={room.images[activeStep]}
-                    alt={`${room.name} - תמונה ${activeStep + 1}`}
-                    sx={{
-                      height: '100%',
-                      width: '100%',
-                      objectFit: 'cover',
-                      display: 'block'
-                    }}
-                  />
-                  {maxSteps > 1 && (
-                    <>
-                      <IconButton
-                        size="large"
-                        sx={{
-                          position: 'absolute',
-                          top: '50%',
-                          right: 16,
-                          transform: 'translateY(-50%)',
-                          backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                          '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.8)' }
-                        }}
-                        onClick={handleBack}
-                        disabled={activeStep === 0}
-                      >
-                        <KeyboardArrowRight />
-                      </IconButton>
-                      <IconButton
-                        size="large"
-                        sx={{
-                          position: 'absolute',
-                          top: '50%',
-                          left: 16,
-                          transform: 'translateY(-50%)',
-                          backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                          '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.8)' }
-                        }}
-                        onClick={handleNext}
-                        disabled={activeStep === maxSteps - 1}
-                      >
-                        <KeyboardArrowLeft />
-                      </IconButton>
-                    </>
-                  )}
-                </Box>
-
-                <MobileStepper
-                  steps={maxSteps}
-                  position="static"
-                  activeStep={activeStep}
-                  sx={{ 
-                    p: { xs: 1, sm: 2 },
-                    backgroundColor: 'background.paper' 
-                  }}
-                  nextButton={
-                    <Button
-                      size="small"
-                      onClick={handleNext}
-                      disabled={activeStep === maxSteps - 1}
-                    >
-                      הבא
-                      <KeyboardArrowLeft />
-                    </Button>
-                  }
-                  backButton={
-                    <Button 
-                      size="small" 
-                      onClick={handleBack} 
-                      disabled={activeStep === 0}
-                    >
-                      <KeyboardArrowRight />
-                      הקודם
-                    </Button>
-                  }
-                />
-              </>
-            ) : (
-              <Box
-                sx={{
-                  height: '300px',
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: '#f5f5f5'
-                }}
-              >
-                <Typography variant="body1" color="text.secondary">
-                  אין תמונות זמינות
-                </Typography>
-              </Box>
-            )}
           </Paper>
         </Grid>
       </Grid>

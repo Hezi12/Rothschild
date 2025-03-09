@@ -15,8 +15,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      // לוודא שיש קונסול.לוג כדי לבדוק
+      console.log('Authorization header set:', `Bearer ${token}`);
     } else {
       delete axios.defaults.headers.common['Authorization'];
+      console.log('Authorization header removed');
     }
   }, [token]);
 

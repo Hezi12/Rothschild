@@ -19,6 +19,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import CalendarLinksPage from './pages/CalendarLinksPage';
 import IcalEditorPage from './pages/IcalEditorPage';
 import SearchResultsPage from './pages/SearchResultsPage';
+import InstallationGuidePage from './pages/InstallationGuidePage';
 
 // רכיבים
 import Layout from './components/Layout';
@@ -71,6 +72,7 @@ function App() {
             <Route path="search-results" element={<SearchResultsPage />} />
             <Route path="booking" element={<BookingPage />} />
             <Route path="login" element={<LoginPage />} />
+            <Route path="installation-guide" element={<InstallationGuidePage />} />
             
             {/* נתיבים מוגנים (רק למנהלים) */}
             <Route path="dashboard" element={

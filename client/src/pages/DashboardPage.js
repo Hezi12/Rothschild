@@ -26,6 +26,7 @@ import {
   Edit as EditIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
+import { toast } from 'react-toastify';
 
 const DashboardPage = () => {
   const { user } = useContext(AuthContext);
@@ -66,6 +67,7 @@ const DashboardPage = () => {
         setRecentBookings(bookings.slice(0, 5));
       } catch (error) {
         console.error('שגיאה בטעינת נתוני הדשבורד:', error);
+        toast.error('שגיאה בטעינת נתוני הדשבורד');
       } finally {
         setLoading(false);
       }

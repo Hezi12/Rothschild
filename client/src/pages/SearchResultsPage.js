@@ -30,7 +30,8 @@ import {
   Wifi as WifiIcon,
   AcUnit as AcIcon,
   LocalParking as ParkingIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  Hotel as HotelIcon
 } from '@mui/icons-material';
 
 const SearchResultsPage = () => {
@@ -59,18 +60,16 @@ const SearchResultsPage = () => {
       try {
         setLoading(true);
         
-        // במציאות היינו בודקים מול השרת אילו חדרים זמינים בתאריכים שנבחרו
-        // לצורך הדוגמה, נשתמש בכל החדרים הקיימים
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`);
+        // שליחת בקשה לבדיקת זמינות אמיתית מול השרת
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
+          checkIn: new Date(checkIn).toISOString(),
+          checkOut: new Date(checkOut).toISOString(),
+          guests: guests,
+          rooms: roomsCount
+        });
         
-        // נסמן את כל החדרים כזמינים בתאריכים הנבחרים
-        // במציאות זה יגיע מהשרת
-        const availableRooms = response.data.data.map(room => ({
-          ...room,
-          isAvailable: true
-        }));
-        
-        setRoomsList(availableRooms);
+        // עדכון רשימת החדרים הזמינים
+        setRoomsList(response.data.data || []);
       } catch (error) {
         console.error('שגיאה בטעינת חדרים זמינים:', error);
         setError('שגיאה בטעינת החדרים הזמינים. אנא נסה שוב מאוחר יותר.');
@@ -80,7 +79,7 @@ const SearchResultsPage = () => {
     };
     
     fetchAvailableRooms();
-  }, [checkIn, checkOut, navigate]);
+  }, [checkIn, checkOut, guests, roomsCount, navigate]);
   
   const formatDate = (date) => {
     if (!date) return '';
@@ -248,178 +247,152 @@ const SearchResultsPage = () => {
           אין חדרים זמינים בתאריכים שנבחרו. אנא בחר תאריכים אחרים.
         </Alert>
       ) : (
-        <Grid container spacing={2} sx={{ mt: 0.5 }}>
+        <Grid container spacing={3}>
           {roomsList.map((room) => (
             <Grid item xs={12} sm={6} md={4} key={room._id}>
-              <Card sx={{ 
-                height: '100%', 
-                display: 'flex', 
-                flexDirection: 'column',
-                borderRadius: 2,
-                overflow: 'hidden',
-                boxShadow: '0 3px 10px rgba(0,0,0,0.06)',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  transform: 'translateY(-5px)',
-                  boxShadow: '0 6px 15px rgba(0,0,0,0.08)'
-                }
-              }}>
-                <Box sx={{ position: 'relative' }}>
+              <Card 
+                elevation={2} 
+                sx={{ 
+                  borderRadius: 2, 
+                  overflow: 'hidden',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'transform 0.3s, box-shadow 0.3s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 8px 20px rgba(0,0,0,0.1)'
+                  }
+                }}
+              >
+                {room.images && room.images.length > 0 ? (
                   <CardMedia
                     component="img"
-                    height="180"
-                    image={room.images[0]?.url || room.images[0] || 'https://via.placeholder.com/400x200?text=אין+תמונה'}
-                    alt={`חדר ${room.name || room.roomNumber}`}
-                    sx={{
-                      transition: 'transform 0.5s ease',
-                      '&:hover': {
-                        transform: 'scale(1.03)'
-                      }
-                    }}
+                    height={200}
+                    image={room.images[0].url}
+                    alt={`תמונה של ${room.name}`}
+                    sx={{ objectFit: 'cover' }}
                   />
-                  <Chip 
-                    icon={<CheckIcon />} 
-                    label="זמין" 
-                    color="success" 
-                    size="small"
-                    sx={{
-                      position: 'absolute',
-                      top: 8,
-                      left: 8,
-                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                      color: theme.palette.success.main,
-                      fontSize: '0.7rem',
-                      height: '24px',
-                      '& .MuiChip-icon': {
-                        color: theme.palette.success.main,
-                        fontSize: '0.9rem'
-                      }
+                ) : (
+                  <Box sx={{ 
+                    height: 200, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    bgcolor: 'grey.100'
+                  }}>
+                    <HotelIcon sx={{ fontSize: 60, color: 'grey.400' }} />
+                  </Box>
+                )}
+                
+                <CardContent sx={{ flexGrow: 1, pb: 0 }}>
+                  <Typography 
+                    variant="h6" 
+                    component="h2" 
+                    gutterBottom
+                    sx={{ 
+                      fontWeight: 'bold',
+                      fontSize: '1.1rem',
+                      borderBottom: `2px solid ${theme.palette.primary.main}`,
+                      pb: 1,
+                      display: 'inline-block'
                     }}
-                  />
-                </Box>
-                <CardContent sx={{ flexGrow: 1, p: 2, pb: 1 }}>
-                  <Typography gutterBottom variant="h6" component="div" sx={{ fontWeight: 'bold', fontSize: '1rem', mb: 1 }}>
-                    {room.name || `חדר ${room.roomNumber}`}
+                  >
+                    {room.name}
                   </Typography>
                   
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 1.5 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <KingBedIcon fontSize="small" color="action" sx={{ fontSize: '1rem' }} />
-                      <Typography variant="body2" color="text.secondary" fontSize="0.8rem">
-                        {room.maxGuests} אורחים
-                      </Typography>
-                    </Box>
-                    
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <SquareIcon fontSize="small" color="action" sx={{ fontSize: '1rem' }} />
-                      <Typography variant="body2" color="text.secondary" fontSize="0.8rem">
-                        {room.size || 20} מ"ר
-                      </Typography>
-                    </Box>
-                  </Box>
-                  
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, lineHeight: 1.4, fontSize: '0.8rem' }}>
-                    {room.description ? room.description.substring(0, 80) + (room.description.length > 80 ? '...' : '') : 'חדר נעים ומאובזר עם כל הצרכים לשהייה מושלמת.'}
-                  </Typography>
-                  
-                  <Divider sx={{ my: 1 }} />
-                  
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="body1" color="primary.dark" fontWeight="bold">
-                      {room.basePrice} ₪ <Typography component="span" variant="body2" color="text.secondary" fontSize="0.75rem">/ לילה</Typography>
-                    </Typography>
-                    <Typography variant="body1" color="primary" fontWeight="medium">
-                      {room.basePrice * calculateNights()} ₪ 
-                      <Typography component="span" variant="body2" color="text.secondary" fontSize="0.75rem"> סה"כ</Typography>
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
-                    {room.amenities && room.amenities.slice(0, 3).map((amenity, index) => (
-                      <Chip 
-                        key={index} 
-                        icon={getAmenityIcon(amenity)} 
-                        label={amenity} 
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                    {room.amenities && room.amenities.slice(0, 4).map((amenity, index) => (
+                      <Chip
+                        key={index}
+                        icon={getAmenityIcon(amenity)}
+                        label={amenity}
                         size="small"
-                        sx={{
-                          bgcolor: alpha(theme.palette.primary.light, 0.08),
-                          color: theme.palette.text.secondary,
-                          fontSize: '0.7rem',
-                          height: '22px',
-                          '& .MuiChip-icon': {
-                            color: alpha(theme.palette.primary.main, 0.7),
-                            fontSize: '0.8rem'
-                          }
+                        sx={{ 
+                          fontSize: '0.75rem', 
+                          height: '24px',
+                          bgcolor: alpha(theme.palette.primary.main, 0.1),
+                          '& .MuiChip-label': { px: 1 }
                         }}
                       />
                     ))}
-                    {room.amenities && room.amenities.length > 3 && (
-                      <Chip 
-                        label={`+${room.amenities.length - 3}`} 
-                        size="small" 
-                        variant="outlined"
-                        sx={{
-                          borderColor: alpha(theme.palette.primary.main, 0.3),
-                          fontSize: '0.7rem',
-                          height: '22px'
-                        }}
-                      />
-                    )}
                   </Box>
-                </CardContent>
-                <CardActions sx={{ p: 2, pt: 0 }}>
-                  <Grid container spacing={1}>
-                    <Grid item xs={5}>
-                      <Button 
-                        fullWidth 
-                        variant="outlined"
-                        size="small"
-                        onClick={() => navigate(`/room/${room._id}`, {
-                          state: { backToSearch: true, checkIn, checkOut }
-                        })}
-                        sx={{
-                          borderRadius: 1.5,
-                          py: 0.5,
-                          fontSize: '0.8rem',
-                          borderWidth: '1px',
-                          transition: 'all 0.3s ease',
-                          '&:hover': {
-                            borderWidth: '1px',
-                            transform: 'translateY(-2px)',
-                            boxShadow: '0 3px 8px rgba(0,0,0,0.05)'
-                          }
-                        }}
-                        startIcon={<InfoIcon style={{ fontSize: '1rem' }} />}
+                  
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary" 
+                    sx={{ 
+                      mb: 2,
+                      display: '-webkit-box',
+                      overflow: 'hidden',
+                      WebkitBoxOrient: 'vertical',
+                      WebkitLineClamp: 3,
+                      minHeight: '3.6em'
+                    }}
+                  >
+                    {room.description}
+                  </Typography>
+                  
+                  {/* מדיניות ביטול בקצרה */}
+                  <Box sx={{ 
+                    mb: 2, 
+                    p: 1, 
+                    bgcolor: alpha(theme.palette.info.main, 0.08),
+                    borderRadius: 1,
+                    border: `1px dashed ${alpha(theme.palette.info.main, 0.3)}`
+                  }}>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        fontSize: '0.75rem',
+                        color: theme.palette.info.dark
+                      }}
+                    >
+                      <InfoIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.9rem' }} />
+                      <b>מדיניות ביטול:</b> ביטול חינם עד 24 שעות לפני ההגעה
+                    </Typography>
+                  </Box>
+                  
+                  <Grid container spacing={1} alignItems="center" sx={{ mt: 'auto' }}>
+                    <Grid item xs={6}>
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary"
+                        sx={{ fontSize: '0.8rem' }}
                       >
-                        פרטים
-                      </Button>
-                    </Grid>
-                    <Grid item xs={7}>
-                      <Button 
-                        fullWidth 
-                        variant="contained"
-                        size="small"
-                        onClick={() => handleBookRoom(room._id)}
-                        sx={{
-                          borderRadius: 1.5,
-                          py: 0.5,
-                          fontSize: '0.8rem',
+                        מחיר ללילה:
+                      </Typography>
+                      <Typography 
+                        variant="h6" 
+                        sx={{ 
                           fontWeight: 'bold',
-                          backgroundColor: theme.palette.primary.main,
-                          transition: 'all 0.3s ease',
-                          boxShadow: '0 3px 8px rgba(25, 118, 210, 0.2)',
-                          '&:hover': {
-                            backgroundColor: theme.palette.primary.dark,
-                            transform: 'translateY(-2px)',
-                            boxShadow: '0 4px 12px rgba(25, 118, 210, 0.25)'
-                          }
+                          color: theme.palette.primary.main 
                         }}
                       >
-                        הזמן עכשיו
-                      </Button>
+                        ₪{room.basePrice}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sx={{ textAlign: 'right' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={() => handleBookRoom(room._id)}
+                          sx={{ 
+                            borderRadius: '50px',
+                            px: 2,
+                            fontWeight: 'bold',
+                            boxShadow: 2
+                          }}
+                        >
+                          הזמן עכשיו
+                        </Button>
+                      </Box>
                     </Grid>
                   </Grid>
-                </CardActions>
+                </CardContent>
               </Card>
             </Grid>
           ))}

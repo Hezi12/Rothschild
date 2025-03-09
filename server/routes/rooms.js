@@ -83,6 +83,12 @@ router.post('/check-availability', roomController.checkAvailability);
 // @access  Public
 router.get('/', roomController.getRooms);
 
+// בואו נוסיף נתיב ייעודי נוסף לדשבורד המנהלים
+// @route   GET /api/rooms/admin/all
+// @desc    קבלת כל החדרים למנהלים
+// @access  Private/Admin
+router.get('/admin/all', [protect, admin], roomController.getRooms);
+
 // @route   GET /api/rooms/:id
 // @desc    קבלת חדר לפי מזהה
 // @access  Public

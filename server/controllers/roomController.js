@@ -217,7 +217,7 @@ exports.deleteRoom = async (req, res) => {
 // @route   POST /api/rooms/check-availability
 // @access  Public
 exports.checkAvailability = async (req, res) => {
-  const { roomId, checkIn, checkOut } = req.body;
+  const { roomId, checkIn, checkOut, guests, rooms } = req.body;
 
   // וידוא שהתאריכים תקינים
   if (!checkIn || !checkOut || new Date(checkIn) >= new Date(checkOut)) {
@@ -228,49 +228,113 @@ exports.checkAvailability = async (req, res) => {
   }
 
   try {
-    // בדיקה אם החדר קיים
-    const room = await Room.findById(roomId);
-    
-    if (!room) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'החדר לא נמצא' 
+    // אם סופק מזהה חדר ספציפי, בדוק את הזמינות שלו
+    if (roomId) {
+      // בדיקה אם החדר קיים
+      const room = await Room.findById(roomId);
+      
+      if (!room) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'החדר לא נמצא' 
+        });
+      }
+      
+      // בדיקה אם יש הזמנות חופפות
+      const overlappingBookings = await Booking.find({
+        room: roomId,
+        $or: [
+          // צ'ק-אין בתוך תקופת הזמנה קיימת
+          { 
+            checkIn: { $lte: new Date(checkIn) },
+            checkOut: { $gt: new Date(checkIn) }
+          },
+          // צ'ק-אאוט בתוך תקופת הזמנה קיימת
+          { 
+            checkIn: { $lt: new Date(checkOut) },
+            checkOut: { $gte: new Date(checkOut) }
+          },
+          // תקופת ההזמנה מכילה הזמנה קיימת
+          { 
+            checkIn: { $gte: new Date(checkIn) },
+            checkOut: { $lte: new Date(checkOut) }
+          }
+        ]
+      });
+      
+      const isAvailable = overlappingBookings.length === 0;
+      
+      return res.json({
+        success: true,
+        isAvailable,
+        room: {
+          id: room._id,
+          roomNumber: room.roomNumber,
+          basePrice: room.basePrice
+        }
+      });
+    } else {
+      // אם לא סופק מזהה חדר, בדוק את כל החדרים הזמינים
+      const allRooms = await Room.find({ isActive: true });
+      const availableRooms = [];
+
+      // בדיקה עבור כל חדר
+      for (const room of allRooms) {
+        // תנאי סינון נוספים - לפי כמות מקס של אורחים
+        if (guests && room.maxOccupancy < guests) {
+          continue; // דלג על חדרים שלא תואמים למספר האורחים
+        }
+
+        // בדיקה אם יש הזמנות חופפות לחדר
+        const overlappingBookings = await Booking.find({
+          room: room._id,
+          $or: [
+            { 
+              checkIn: { $lte: new Date(checkIn) },
+              checkOut: { $gt: new Date(checkIn) }
+            },
+            { 
+              checkIn: { $lt: new Date(checkOut) },
+              checkOut: { $gte: new Date(checkOut) }
+            },
+            { 
+              checkIn: { $gte: new Date(checkIn) },
+              checkOut: { $lte: new Date(checkOut) }
+            }
+          ]
+        });
+
+        // בדיקה אם יש תאריכים חסומים חופפים
+        const overlappingBlockedDates = await BlockedDate.find({
+          room: room._id,
+          $or: [
+            { 
+              startDate: { $lte: new Date(checkIn) },
+              endDate: { $gt: new Date(checkIn) }
+            },
+            { 
+              startDate: { $lt: new Date(checkOut) },
+              endDate: { $gte: new Date(checkOut) }
+            },
+            { 
+              startDate: { $gte: new Date(checkIn) },
+              endDate: { $lte: new Date(checkOut) }
+            }
+          ]
+        });
+        
+        // אם אין הזמנות או תאריכים חסומים, הוסף לרשימת החדרים הזמינים
+        if (overlappingBookings.length === 0 && overlappingBlockedDates.length === 0) {
+          availableRooms.push(room);
+        }
+      }
+      
+      return res.json({
+        success: true,
+        count: availableRooms.length,
+        data: availableRooms
       });
     }
-    
-    // בדיקה אם יש הזמנות חופפות
-    const overlappingBookings = await Booking.find({
-      room: roomId,
-      $or: [
-        // צ'ק-אין בתוך תקופת הזמנה קיימת
-        { 
-          checkIn: { $lte: new Date(checkIn) },
-          checkOut: { $gt: new Date(checkIn) }
-        },
-        // צ'ק-אאוט בתוך תקופת הזמנה קיימת
-        { 
-          checkIn: { $lt: new Date(checkOut) },
-          checkOut: { $gte: new Date(checkOut) }
-        },
-        // תקופת ההזמנה מכילה הזמנה קיימת
-        { 
-          checkIn: { $gte: new Date(checkIn) },
-          checkOut: { $lte: new Date(checkOut) }
-        }
-      ]
-    });
-    
-    const isAvailable = overlappingBookings.length === 0;
-    
-    res.json({
-      success: true,
-      isAvailable,
-      room: {
-        id: room._id,
-        roomNumber: room.roomNumber,
-        basePrice: room.basePrice
-      }
-    });
   } catch (error) {
     console.error('שגיאה בבדיקת זמינות:', error);
     res.status(500).json({ 

@@ -64,10 +64,10 @@ const RoomsListPage = () => {
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/admin/all`);
       setRooms(response.data.data);
     } catch (error) {
-      console.error('שגיאה בטעינת חדרים:', error);
+      console.error('שגיאה בטעינת חדרים:', error.response?.data || error.message);
       toast.error('שגיאה בטעינת חדרים. אנא נסה שוב מאוחר יותר.');
     } finally {
       setLoading(false);
