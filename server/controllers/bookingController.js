@@ -201,7 +201,9 @@ exports.createBooking = async (req, res) => {
     
     res.status(201).json({
       success: true,
-      data: booking
+      message: 'ההזמנה נוצרה בהצלחה',
+      _id: booking._id,
+      bookingNumber: booking.bookingNumber
     });
   } catch (error) {
     console.error('שגיאה ביצירת הזמנה:', error);

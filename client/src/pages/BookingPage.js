@@ -381,12 +381,10 @@ const BookingPage = () => {
       
       try {
         const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingPayload);
-        console.log('תשובה מהשרת:', response.data);
+        console.log('ההזמנה נוצרה בהצלחה:', response.data);
         
-        // שמירת מספר ההזמנה שהתקבל מהשרת
-        if (response.data && response.data._id) {
-          setBookingId(response.data._id);
-        }
+        // עדכון מספר ההזמנה והמעבר לשלב הסיום
+        setBookingId(response.data.bookingNumber);
         
         toast.success('ההזמנה נשלחה בהצלחה!');
         setActiveStep(steps.length);

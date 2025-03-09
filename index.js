@@ -100,7 +100,7 @@ METHOD:PUBLISH
 
     // הוספת אירועים
     bookings.forEach(booking => {
-      const uid = `booking-${booking._id}@rothschild79`;
+      const uid = `booking-${booking.bookingNumber}@rothschild79`;
       const now = formatIcalDate(new Date(), true);
       const checkIn = formatIcalDate(booking.checkIn);
       const checkOut = formatIcalDate(booking.checkOut);

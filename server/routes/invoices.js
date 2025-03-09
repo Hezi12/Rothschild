@@ -25,7 +25,7 @@ router.get('/:bookingId', [protect, admin], async (req, res) => {
     
     // הגדרת כותרת למסמך
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=invoice-${booking._id}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=invoice-${booking.bookingNumber}.pdf`);
     
     // הזרמת ה-PDF לתגובה
     doc.pipe(res);
@@ -42,7 +42,7 @@ router.get('/:bookingId', [protect, admin], async (req, res) => {
     
     // פרטי הזמנה
     doc.fontSize(14).text('פרטי הזמנה:', { align: 'right' });
-    doc.fontSize(12).text(`מספר הזמנה: ${booking._id}`, { align: 'right' });
+    doc.fontSize(12).text(`מספר הזמנה: ${booking.bookingNumber}`, { align: 'right' });
     doc.text(`תאריך: ${new Date().toLocaleDateString('he-IL')}`, { align: 'right' });
     doc.moveDown();
     

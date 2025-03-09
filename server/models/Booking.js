@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 
 const BookingSchema = new mongoose.Schema({
+  bookingNumber: {
+    type: Number,
+    unique: true
+  },
   room: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Room',
@@ -75,10 +79,25 @@ const BookingSchema = new mongoose.Schema({
 });
 
 // וידוא שתאריך צ'ק-אאוט מאוחר מתאריך צ'ק-אין
-BookingSchema.pre('save', function(next) {
+BookingSchema.pre('save', async function(next) {
   if (this.checkOut <= this.checkIn) {
     return next(new Error('תאריך צ\'ק-אאוט חייב להיות מאוחר מתאריך צ\'ק-אין'));
   }
+
+  // אם אין מספר הזמנה, יצירת מספר הזמנה חדש
+  if (!this.bookingNumber) {
+    try {
+      // מציאת המספר הגבוה ביותר הקיים
+      const highestBooking = await this.constructor.findOne({}, { bookingNumber: 1 })
+        .sort({ bookingNumber: -1 });
+      
+      // קביעת מספר הזמנה חדש (1001 התחלתי או הגדלה ב-1)
+      this.bookingNumber = highestBooking && highestBooking.bookingNumber ? highestBooking.bookingNumber + 1 : 1001;
+    } catch (error) {
+      return next(error);
+    }
+  }
+  
   next();
 });
 
