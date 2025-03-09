@@ -16,6 +16,8 @@ import DashboardPage from './pages/DashboardPage';
 import BookingsCalendarPage from './pages/BookingsCalendarPage';
 import RoomsListPage from './pages/RoomsListPage';
 import NotFoundPage from './pages/NotFoundPage';
+import CalendarLinksPage from './pages/CalendarLinksPage';
+import IcalEditorPage from './pages/IcalEditorPage';
 
 // רכיבים
 import Layout from './components/Layout';
@@ -82,6 +84,16 @@ function App() {
             <Route path="dashboard/rooms" element={
               <ProtectedRoute>
                 <RoomsListPage />
+              </ProtectedRoute>
+            } />
+            <Route path="dashboard/calendar-links" element={
+              <ProtectedRoute>
+                <CalendarLinksPage />
+              </ProtectedRoute>
+            } />
+            <Route path="dashboard/ical-editor" element={
+              <ProtectedRoute>
+                <IcalEditorPage />
               </ProtectedRoute>
             } />
             

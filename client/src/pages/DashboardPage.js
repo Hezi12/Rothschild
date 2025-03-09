@@ -21,7 +21,9 @@ import {
   Hotel as HotelIcon,
   EventNote as BookingIcon,
   Person as PersonIcon,
-  CalendarToday as CalendarIcon
+  CalendarToday as CalendarIcon,
+  Link as LinkIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 
@@ -149,7 +151,7 @@ const DashboardPage = () => {
 
       {/* כפתורי ניווט מהירים */}
       <Grid container spacing={2} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6}>
+        <Grid item xs={12} sm={6} md={4}>
           <Button
             variant="contained"
             fullWidth
@@ -161,7 +163,7 @@ const DashboardPage = () => {
             לוח הזמנות
           </Button>
         </Grid>
-        <Grid item xs={12} sm={6}>
+        <Grid item xs={12} sm={6} md={4}>
           <Button
             variant="outlined"
             fullWidth
@@ -171,6 +173,19 @@ const DashboardPage = () => {
             startIcon={<HotelIcon />}
           >
             ניהול חדרים
+          </Button>
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <Button
+            variant="outlined"
+            fullWidth
+            size="large"
+            component={Link}
+            to="/dashboard/ical-editor"
+            startIcon={<EditIcon />}
+            color="secondary"
+          >
+            עריכת יומן iCal
           </Button>
         </Grid>
       </Grid>
