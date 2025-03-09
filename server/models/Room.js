@@ -45,6 +45,13 @@ const RoomSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  iCalUrl: {
+    type: String,
+    default: ''
+  },
+  lastSyncedAt: {
+    type: Date
+  },
   createdAt: {
     type: Date,
     default: Date.now

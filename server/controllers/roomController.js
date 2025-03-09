@@ -3,6 +3,7 @@ const Booking = require('../models/Booking');
 const BlockedDate = require('../models/BlockedDate');
 const cloudinary = require('../config/cloudinary');
 const { validationResult } = require('express-validator');
+const icalService = require('../utils/ical/icalService');
 
 // @desc    קבלת כל החדרים
 // @route   GET /api/rooms
@@ -444,7 +445,7 @@ exports.unblockDates = async (req, res) => {
     if (!blockedDate) {
       return res.status(404).json({ 
         success: false, 
-        message: 'החסימה לא נמצאה' 
+        message: 'רשומת תאריך חסום לא נמצאה' 
       });
     }
     
@@ -452,13 +453,193 @@ exports.unblockDates = async (req, res) => {
     
     res.json({
       success: true,
-      message: 'החסימה הוסרה בהצלחה'
+      message: 'חסימת התאריך הוסרה בהצלחה'
     });
   } catch (error) {
     console.error('שגיאה בהסרת חסימת תאריכים:', error);
     res.status(500).json({ 
       success: false, 
       message: 'שגיאת שרת' 
+    });
+  }
+};
+
+// @desc    עדכון פרטי אורח בחסימה מבוקינג
+// @route   PUT /api/rooms/blocked-dates/:id/guest-details
+// @access  Private/Admin
+exports.updateBlockedDateGuestDetails = async (req, res) => {
+  try {
+    const { guestDetails } = req.body;
+    
+    if (!guestDetails) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'חסרים פרטי אורח' 
+      });
+    }
+    
+    // מציאת רשומת החסימה
+    const blockedDate = await BlockedDate.findById(req.params.id);
+    
+    if (!blockedDate) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'רשומת תאריך חסום לא נמצאה' 
+      });
+    }
+    
+    // וידוא שזו חסימה מבוקינג
+    if (blockedDate.externalSource !== 'booking.com') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'רק חסימות מבוקינג ניתנות לעדכון פרטי אורח' 
+      });
+    }
+    
+    // עדכון פרטי האורח
+    blockedDate.guestDetails = guestDetails;
+    
+    // שמירת השינויים
+    await blockedDate.save();
+    
+    res.json({
+      success: true,
+      message: 'פרטי האורח עודכנו בהצלחה',
+      data: blockedDate
+    });
+  } catch (error) {
+    console.error('שגיאה בעדכון פרטי אורח בחסימה:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת',
+      error: error.message
+    });
+  }
+};
+
+// @desc    עדכון כתובת iCal לחדר
+// @route   PUT /api/rooms/:id/ical
+// @access  Private/Admin
+exports.updateICalUrl = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+
+  const { iCalUrl } = req.body;
+
+  try {
+    // בדיקה שהחדר קיים
+    const room = await Room.findById(req.params.id);
+    
+    if (!room) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'החדר לא נמצא' 
+      });
+    }
+    
+    // עדכון כתובת ה-iCal
+    room.iCalUrl = iCalUrl;
+    await room.save();
+    
+    // אם הכתובת ריקה, מחזירים הודעת הצלחה
+    if (!iCalUrl) {
+      return res.json({
+        success: true,
+        message: 'כתובת ה-iCal נמחקה בהצלחה',
+        data: room
+      });
+    }
+    
+    // ניסיון לסנכרן מיד
+    try {
+      const syncResult = await icalService.syncRoomBookings(room._id);
+      
+      res.json({
+        success: true,
+        message: 'כתובת ה-iCal עודכנה וסונכרנה בהצלחה',
+        data: room,
+        syncResult
+      });
+    } catch (syncError) {
+      // אם יש שגיאת סנכרון, עדיין מחזירים הצלחה, אבל עם הודעת שגיאה
+      console.error('שגיאה בסנכרון ראשוני של ה-iCal:', syncError);
+      
+      res.json({
+        success: true,
+        message: 'כתובת ה-iCal עודכנה, אך הסנכרון הראשוני נכשל',
+        data: room,
+        syncError: syncError.message
+      });
+    }
+  } catch (error) {
+    console.error('שגיאה בעדכון כתובת ה-iCal:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת',
+      error: error.message
+    });
+  }
+};
+
+// @desc    סנכרון ידני של יומן iCal לחדר ספציפי
+// @route   POST /api/rooms/:id/sync-ical
+// @access  Private/Admin
+exports.syncICalForRoom = async (req, res) => {
+  try {
+    // בדיקה שהחדר קיים
+    const room = await Room.findById(req.params.id);
+    
+    if (!room) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'החדר לא נמצא' 
+      });
+    }
+    
+    if (!room.iCalUrl) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'לחדר זה אין כתובת iCal מוגדרת' 
+      });
+    }
+    
+    // ביצוע הסנכרון
+    const result = await icalService.syncRoomBookings(room._id);
+    
+    res.json({
+      success: result.success,
+      data: result
+    });
+  } catch (error) {
+    console.error('שגיאה בסנכרון יומן ה-iCal:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת',
+      error: error.message
+    });
+  }
+};
+
+// @desc    סנכרון ידני של כל יומני ה-iCal
+// @route   POST /api/rooms/sync-all-icals
+// @access  Private/Admin
+exports.syncAllICals = async (req, res) => {
+  try {
+    // ביצוע הסנכרון לכל החדרים
+    const result = await icalService.syncAllRooms();
+    
+    res.json({
+      success: result.success,
+      data: result
+    });
+  } catch (error) {
+    console.error('שגיאה בסנכרון כל יומני ה-iCal:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת',
+      error: error.message
     });
   }
 }; 

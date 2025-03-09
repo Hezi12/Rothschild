@@ -44,6 +44,34 @@ app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/uploads', require('./routes/uploads'));
 app.use('/api/invoices', require('./routes/invoices'));
 
+// נתיב ייצוא iCal
+const { generateCalendarByRoomNumber } = require('./utils/ical/icalExport');
+
+// נתיב להורדת קבצי iCal של חדרים
+app.get('/ical/room-:roomNumber.ics', async (req, res) => {
+  try {
+    const { roomNumber } = req.params;
+    
+    // יצירת קובץ iCal
+    const calendar = await generateCalendarByRoomNumber(roomNumber);
+    
+    // הגדרת כותרות התגובה
+    res.writeHead(200, {
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Content-Disposition': `attachment; filename="room-${roomNumber}.ics"`,
+      'Cache-Control': 'no-cache'
+    });
+    
+    // שליחת הקובץ
+    res.end(calendar.toString());
+  } catch (error) {
+    console.error('שגיאה בייצוא קובץ iCal:', error);
+    
+    // שליחת שגיאה
+    res.status(404).send('קובץ לא נמצא');
+  }
+});
+
 // נתיב בדיקה בסיסי
 app.get('/api/test', (req, res) => {
   res.json({ message: 'שרת API של מלונית רוטשילד 79 פועל!' });

@@ -26,14 +26,18 @@ import {
   Chip,
   Divider,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  Tooltip,
+  Badge
 } from '@mui/material';
 import { 
   Edit as EditIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
   PhotoCamera as CameraIcon,
-  Star as StarIcon
+  Star as StarIcon,
+  Sync as SyncIcon,
+  Event as EventIcon
 } from '@mui/icons-material';
 
 const RoomsListPage = () => {
@@ -47,6 +51,10 @@ const RoomsListPage = () => {
   const [roomForUpload, setRoomForUpload] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [icalDialogOpen, setIcalDialogOpen] = useState(false);
+  const [roomForIcal, setRoomForIcal] = useState(null);
+  const [icalUrl, setIcalUrl] = useState('');
+  const [syncingIcal, setSyncingIcal] = useState(false);
 
   // טעינת חדרים
   useEffect(() => {
@@ -262,6 +270,98 @@ const RoomsListPage = () => {
     }
   };
 
+  const handleOpenIcalDialog = (room) => {
+    setRoomForIcal(room);
+    setIcalUrl(room.iCalUrl || '');
+    setIcalDialogOpen(true);
+  };
+
+  const handleCloseIcalDialog = () => {
+    setRoomForIcal(null);
+    setIcalUrl('');
+    setIcalDialogOpen(false);
+  };
+
+  const handleSaveIcalUrl = async () => {
+    if (!roomForIcal) return;
+    
+    try {
+      setSyncingIcal(true);
+      
+      const response = await axios.put(
+        `${process.env.REACT_APP_API_URL}/rooms/${roomForIcal._id}/ical`,
+        { iCalUrl: icalUrl },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-access-token': localStorage.getItem('token')
+          }
+        }
+      );
+      
+      // עדכון החדר ברשימה
+      setRooms(rooms.map(r => 
+        r._id === roomForIcal._id 
+          ? { ...r, iCalUrl: icalUrl, lastSyncedAt: response.data.syncResult?.syncTime || null } 
+          : r
+      ));
+      
+      // הצגת הודעת הצלחה
+      toast.success(response.data.message || 'כתובת ה-iCal עודכנה בהצלחה');
+      
+      // סגירת הדיאלוג
+      handleCloseIcalDialog();
+    } catch (error) {
+      console.error('שגיאה בעדכון כתובת ה-iCal:', error);
+      toast.error(
+        error.response?.data?.message || 
+        'שגיאה בעדכון כתובת ה-iCal. אנא נסה שוב.'
+      );
+    } finally {
+      setSyncingIcal(false);
+    }
+  };
+
+  const handleSyncIcal = async (roomId) => {
+    try {
+      setSyncingIcal(true);
+      
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/rooms/${roomId}/sync-ical`,
+        {},
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-access-token': localStorage.getItem('token')
+          }
+        }
+      );
+      
+      // עדכון החדר ברשימה
+      if (response.data.success) {
+        setRooms(rooms.map(r => 
+          r._id === roomId 
+            ? { ...r, lastSyncedAt: response.data.data.syncTime } 
+            : r
+        ));
+        
+        toast.success(
+          `סנכרון הצליח! נוספו ${response.data.data.addedEvents} אירועים.`
+        );
+      } else {
+        toast.error(response.data.data.error || 'סנכרון נכשל');
+      }
+    } catch (error) {
+      console.error('שגיאה בסנכרון יומן ה-iCal:', error);
+      toast.error(
+        error.response?.data?.message || 
+        'שגיאה בסנכרון יומן ה-iCal. אנא נסה שוב.'
+      );
+    } finally {
+      setSyncingIcal(false);
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -297,9 +397,14 @@ const RoomsListPage = () => {
                   image={room.images.find(img => img.isPrimary)?.url || room.images[0]?.url || 'https://via.placeholder.com/400x200?text=אין+תמונה'}
                   alt={`חדר ${room.roomNumber}`}
                 />
-                <CardContent>
-                  <Typography variant="h6">
-                    חדר {room.roomNumber} - {room.type === 'standard' ? 'סטנדרט' : room.type}
+                <CardContent sx={{ flexGrow: 1 }}>
+                  <Typography gutterBottom variant="h5" component="div">
+                    חדר {room.roomNumber}
+                    {room.iCalUrl && (
+                      <Tooltip title={room.lastSyncedAt ? `מסונכרן עם Booking.com (עדכון אחרון: ${new Date(room.lastSyncedAt).toLocaleString()})` : 'מסונכרן עם Booking.com'}>
+                        <EventIcon fontSize="small" color="primary" sx={{ ml: 1, verticalAlign: 'middle' }} />
+                      </Tooltip>
+                    )}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     {room.description.substring(0, 100)}...
@@ -407,26 +512,45 @@ const RoomsListPage = () => {
                 </CardContent>
                 
                 <CardActions>
-                  <Button 
-                    size="small" 
+                  <IconButton 
                     onClick={() => handleOpenEditDialog(room)}
+                    aria-label="ערוך"
+                    color="primary"
                   >
-                    ערוך
-                  </Button>
-                  <Button 
-                    size="small" 
-                    color="error" 
-                    onClick={() => handleOpenDeleteDialog(room)}
-                  >
-                    מחק
-                  </Button>
-                  <Button 
-                    size="small" 
-                    color="primary" 
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton 
                     onClick={() => handleOpenUploadDialog(room)}
+                    aria-label="הוסף תמונה"
+                    color="primary"
                   >
-                    העלה תמונה
-                  </Button>
+                    <CameraIcon />
+                  </IconButton>
+                  <IconButton 
+                    onClick={() => handleOpenIcalDialog(room)}
+                    aria-label="הגדר iCal"
+                    color="primary"
+                  >
+                    <EventIcon />
+                  </IconButton>
+                  {room.iCalUrl && (
+                    <IconButton 
+                      onClick={() => handleSyncIcal(room._id)}
+                      aria-label="סנכרן iCal"
+                      color="primary"
+                      disabled={syncingIcal}
+                    >
+                      <SyncIcon />
+                    </IconButton>
+                  )}
+                  <Box sx={{ flexGrow: 1 }} />
+                  <IconButton 
+                    onClick={() => handleOpenDeleteDialog(room)}
+                    aria-label="מחק"
+                    color="error"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
                 </CardActions>
               </Card>
             </Grid>
@@ -595,6 +719,46 @@ const RoomsListPage = () => {
             disabled={!selectedFile || uploading}
           >
             {uploading ? <CircularProgress size={24} /> : 'העלה'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* דיאלוג הגדרת iCal URL */}
+      <Dialog
+        open={icalDialogOpen}
+        onClose={handleCloseIcalDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>הגדרת סנכרון יומן Booking.com</DialogTitle>
+        <DialogContent>
+          <DialogContentText gutterBottom>
+            הזן את כתובת ה-iCal מ-Booking.com עבור חדר {roomForIcal?.roomNumber}.
+            הזמנות מהיומן יסונכרנו אוטומטית למערכת.
+          </DialogContentText>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="כתובת iCal URL"
+            type="url"
+            fullWidth
+            variant="outlined"
+            value={icalUrl}
+            onChange={(e) => setIcalUrl(e.target.value)}
+            disabled={syncingIcal}
+            placeholder="https://ical.booking.com/v1/export?t=..."
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseIcalDialog} disabled={syncingIcal}>ביטול</Button>
+          <Button 
+            onClick={handleSaveIcalUrl}
+            variant="contained"
+            disabled={syncingIcal}
+            startIcon={syncingIcal ? <CircularProgress size={20} /> : null}
+          >
+            {syncingIcal ? 'מסנכרן...' : 'שמור וסנכרן'}
           </Button>
         </DialogActions>
       </Dialog>

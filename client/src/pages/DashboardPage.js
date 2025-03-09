@@ -156,9 +156,9 @@ const DashboardPage = () => {
             size="large"
             component={Link}
             to="/dashboard/bookings"
-            startIcon={<BookingIcon />}
+            startIcon={<CalendarIcon />}
           >
-            ניהול הזמנות
+            לוח הזמנות
           </Button>
         </Grid>
         <Grid item xs={12} sm={6}>
@@ -212,7 +212,7 @@ const DashboardPage = () => {
             component={Link} 
             to="/dashboard/bookings"
           >
-            צפה בכל ההזמנות
+            צפה בלוח ההזמנות
           </Button>
         </CardActions>
       </Card>

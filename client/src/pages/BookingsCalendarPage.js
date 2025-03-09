@@ -53,7 +53,9 @@ import {
   Info as InfoIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
-  Cancel as CancelIcon
+  Cancel as CancelIcon,
+  Event as EventIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { format, addDays, startOfWeek, endOfWeek, addWeeks, subWeeks, isSameDay, isWithinInterval, parseISO, isToday, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, subDays } from 'date-fns';
@@ -63,7 +65,7 @@ const BookingsCalendarPage = () => {
   const theme = useTheme();
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
-  const [blockedDates, setBlockedDates] = useState([]); 
+  const [blockedDates, setBlockedDates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [loadingBookings, setLoadingBookings] = useState(true);
@@ -80,6 +82,7 @@ const BookingsCalendarPage = () => {
   const [showFullCardNumber, setShowFullCardNumber] = useState(false);
   const [error, setError] = useState(null);
   const [dataInitialized, setDataInitialized] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // פונקציות לפעולות על סטטוס תשלום והזמנות
   const [paymentStatus, setPaymentStatus] = useState('');
@@ -127,6 +130,17 @@ const BookingsCalendarPage = () => {
   
   // state להסרת חסימה כדי לעקוב אחר תהליך ההסרה של חסימות ספציפיות
   const [removingBlockId, setRemovingBlockId] = useState(null);
+  
+  // State לדיאלוג עריכת פרטי הזמנה מבוקינג
+  const [bookingBlockDialogOpen, setBookingBlockDialogOpen] = useState(false);
+  const [selectedBookingBlock, setSelectedBookingBlock] = useState(null);
+  const [updatingBookingBlock, setUpdatingBookingBlock] = useState(false);
+  const [bookingGuestData, setBookingGuestData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    notes: ''
+  });
   
   // פעולת האתחול הראשונית - רק פעם אחת
   useEffect(() => {
@@ -502,29 +516,67 @@ const BookingsCalendarPage = () => {
     }
   };
   
-  // פונקציה שבודקת אם תאריך חסום עבור חדר מסוים
+  // פונקציה שבודקת אם התאריך חסום
   const isDateBlocked = (roomId, date) => {
     if (!blockedDates || blockedDates.length === 0) {
       return false;
     }
     
     return blockedDates.some(blockedDate => {
-      // בדיקה שנתוני החדר קיימים
-      if (!blockedDate.room || !blockedDate.room._id) {
+      try {
+        // בדיקה שנתוני החדר קיימים
+        if (!blockedDate.room) {
+          return false;
+        }
+        
+        // השוואת מזהה החדר (תלוי במבנה הנתונים - לפעמים זה אובייקט ולפעמים רק מזהה)
+        const roomIdToCompare = typeof blockedDate.room === 'object' ? blockedDate.room._id : blockedDate.room;
+        const isSameRoom = roomIdToCompare === roomId;
+        
+        // ודאות שהתאריכים הם אובייקטי Date
+        const startDate = blockedDate.startDate instanceof Date ? blockedDate.startDate : new Date(blockedDate.startDate);
+        const endDate = blockedDate.endDate instanceof Date ? blockedDate.endDate : new Date(blockedDate.endDate);
+        
+        // בדיקה שהתאריך נמצא בטווח החסימה
+        const isDateInRange = date >= startDate && date < endDate;
+        
+        return isSameRoom && isDateInRange;
+      } catch (err) {
+        console.error('שגיאה בבדיקת תאריך חסום:', err);
         return false;
       }
-      
-      // השוואת מזהה החדר
-      const isSameRoom = blockedDate.room._id === roomId;
-      
-      // ודאות שהתאריכים הם אובייקטי Date
-      const startDate = blockedDate.startDate instanceof Date ? blockedDate.startDate : new Date(blockedDate.startDate);
-      const endDate = blockedDate.endDate instanceof Date ? blockedDate.endDate : new Date(blockedDate.endDate);
-      
-      // בדיקה שהתאריך נמצא בטווח החסימה
-      const isDateInRange = date >= startDate && date < endDate;
-      
-      return isSameRoom && isDateInRange;
+    });
+  };
+
+  // פונקציה שמחזירה את פרטי החסימה של תאריך מסוים
+  const getBlockedDateInfo = (roomId, date) => {
+    if (!blockedDates || blockedDates.length === 0) {
+      return null;
+    }
+    
+    return blockedDates.find(blockedDate => {
+      try {
+        // בדיקה שנתוני החדר קיימים
+        if (!blockedDate.room) {
+          return false;
+        }
+        
+        // השוואת מזהה החדר (תלוי במבנה הנתונים - לפעמים זה אובייקט ולפעמים רק מזהה)
+        const roomIdToCompare = typeof blockedDate.room === 'object' ? blockedDate.room._id : blockedDate.room;
+        const isSameRoom = roomIdToCompare === roomId;
+        
+        // ודאות שהתאריכים הם אובייקטי Date
+        const startDate = blockedDate.startDate instanceof Date ? blockedDate.startDate : new Date(blockedDate.startDate);
+        const endDate = blockedDate.endDate instanceof Date ? blockedDate.endDate : new Date(blockedDate.endDate);
+        
+        // בדיקה שהתאריך נמצא בטווח החסימה
+        const isDateInRange = date >= startDate && date < endDate;
+        
+        return isSameRoom && isDateInRange;
+      } catch (err) {
+        console.error('שגיאה בקבלת פרטי תאריך חסום:', err);
+        return false;
+      }
     });
   };
   
@@ -810,39 +862,135 @@ const BookingsCalendarPage = () => {
           })
         ) : dateIsBlocked ? (
           // אם התאריך חסום - מציג תצוגה של חדר חסום
-          <Box
-            onClick={() => toggleBlockDate(room, date)}
-            sx={{
-              width: '100%',
-              height: '100%',
-              backgroundColor: 'rgba(158, 158, 158, 0.15)',
-              border: '2px dashed rgb(158, 158, 158)',
-              borderRadius: '4px',
-              p: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              textAlign: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              '&:hover': {
-                backgroundColor: 'rgba(211, 47, 47, 0.1)',
-                borderColor: 'rgb(211, 47, 47)',
-              }
-            }}
-          >
-            <BlockIcon sx={{ color: 'rgb(158, 158, 158)', mb: 0.5 }} />
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                color: 'rgb(158, 158, 158)',
-                fontWeight: 'bold'
-              }}
-            >
-              חסום
-            </Typography>
-          </Box>
+          (() => {
+            // קבלת פרטי החסימה
+            const blockedDateInfo = getBlockedDateInfo(room._id, date);
+            const isExternal = blockedDateInfo?.externalSource === 'booking.com';
+            const hasGuestDetails = isExternal && 
+              blockedDateInfo?.guestDetails && 
+              blockedDateInfo?.guestDetails.name;
+            
+            return (
+              <Tooltip
+                title={
+                  <Box>
+                    <Typography variant="subtitle2">
+                      {isExternal ? 'הזמנה מ-Booking.com' : 'חדר חסום'}
+                    </Typography>
+                    {hasGuestDetails && (
+                      <>
+                        <Typography variant="body2">
+                          <strong>שם:</strong> {blockedDateInfo.guestDetails.name}
+                        </Typography>
+                        {blockedDateInfo.guestDetails.phone && (
+                          <Typography variant="body2">
+                            <strong>טלפון:</strong> {blockedDateInfo.guestDetails.phone}
+                          </Typography>
+                        )}
+                        {blockedDateInfo.guestDetails.email && (
+                          <Typography variant="body2">
+                            <strong>אימייל:</strong> {blockedDateInfo.guestDetails.email}
+                          </Typography>
+                        )}
+                      </>
+                    )}
+                    <Typography variant="body2">
+                      <strong>תאריכים:</strong> {format(new Date(blockedDateInfo?.startDate), 'dd/MM/yyyy')} - {format(new Date(blockedDateInfo?.endDate), 'dd/MM/yyyy')}
+                    </Typography>
+                    {blockedDateInfo?.reason && (
+                      <Typography variant="body2">
+                        <strong>סיבה:</strong> {blockedDateInfo.reason}
+                      </Typography>
+                    )}
+                  </Box>
+                }
+                arrow
+                placement="top"
+              >
+                <Box
+                  onClick={() => toggleBlockDate(room, date)}
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: isExternal 
+                      ? 'rgba(156, 39, 176, 0.15)'
+                      : 'rgba(158, 158, 158, 0.15)',
+                    border: isExternal
+                      ? '2px dashed rgb(156, 39, 176)'
+                      : '2px dashed rgb(158, 158, 158)',
+                    borderRadius: '4px',
+                    p: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      backgroundColor: isExternal
+                        ? 'rgba(156, 39, 176, 0.25)'
+                        : 'rgba(211, 47, 47, 0.1)',
+                      borderColor: isExternal
+                        ? 'rgb(156, 39, 176)'
+                        : 'rgb(211, 47, 47)',
+                    }
+                  }}
+                >
+                  {isExternal ? (
+                    <>
+                      <EventIcon sx={{ 
+                        color: hasGuestDetails 
+                          ? 'rgb(156, 39, 176)' 
+                          : 'rgb(158, 158, 158)', 
+                        mb: 0.3
+                      }} />
+                      
+                      {hasGuestDetails ? (
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            color: 'rgb(156, 39, 176)',
+                            fontWeight: 'bold',
+                            fontSize: '0.7rem',
+                            width: '100%',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {blockedDateInfo.guestDetails.name}
+                        </Typography>
+                      ) : (
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            color: 'rgb(158, 158, 158)',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          בוקינג
+                        </Typography>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <BlockIcon sx={{ color: 'rgb(158, 158, 158)', mb: 0.5 }} />
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: 'rgb(158, 158, 158)',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        חסום
+                      </Typography>
+                    </>
+                  )}
+                </Box>
+              </Tooltip>
+            );
+          })()
         ) : (
           <Box sx={{ 
             display: 'flex', 
@@ -1863,105 +2011,39 @@ const BookingsCalendarPage = () => {
     }
   };
 
-  // חסימה מהירה של תאריך
-  const handleQuickBlockDate = async (room, date) => {
-    // בדיקה אם התאריך כבר חסום
-    const isBlocked = isDateBlocked(room._id, date);
-    if (isBlocked) {
-      // מצא את החסימה הקיימת
-      const existingBlock = blockedDates.find(b => 
-        b.room && b.room._id === room._id &&
-        date >= new Date(b.startDate) &&
-        date < new Date(b.endDate)
-      );
-      
-      if (existingBlock) {
-        // הסר את החסימה הקיימת
-        if (window.confirm('האם להסיר את החסימה הקיימת לתאריך זה?')) {
-          await handleRemoveBlockedDates(existingBlock._id);
-        }
-        return;
-      }
-    }
-    
-    // חסימה מהירה ללא דיאלוג
-    try {
-      setBlockingRoom(true);
-      
-      // נציג את החסימה מיד במצב המקומי בלי לחכות לשרת
-      const tempId = `temp-${Date.now()}`;
-      const tempBlockDate = {
-        _id: tempId,
-        room: room,
-        startDate: date,
-        endDate: addDays(date, 1),
-        reason: 'חסימה מהירה',
-        createdAt: new Date()
-      };
-      
-      // מוסיף את החסימה הזמנית למצב המקומי מיד
-      setBlockedDates(prev => [...prev, tempBlockDate]);
-      
-      // יצירת תאריך סיום ברירת מחדל (יום אחד אחרי)
-      const endDate = addDays(date, 1);
-      
-      // שליחת בקשה לשרת לחסימת החדר בתאריכים הנבחרים
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/block-dates`, {
-        roomId: room._id,
-        startDate: date.toISOString(),
-        endDate: endDate.toISOString(),
-        reason: 'חסימה מהירה'
-      });
-      
-      // המרת תאריכים ממחרוזות לאובייקטי Date
-      const newBlockedDate = {
-        ...response.data.data,
-        startDate: new Date(response.data.data.startDate),
-        endDate: new Date(response.data.data.endDate)
-      };
-      
-      // מחליף את החסימה הזמנית בחסימה האמיתית עם ה-ID מהשרת
-      setBlockedDates(prev => 
-        prev
-          .filter(item => item._id !== tempId) // מסיר את הזמנית
-          .concat(newBlockedDate) // מוסיף את החדשה
-      );
-      
-      toast.success('החדר נחסם בהצלחה');
-    } catch (error) {
-      console.error('שגיאה בחסימת תאריכים:', error);
-      toast.error('שגיאה בחסימה מהירה. אנא פתח את חלון החסימה המפורט.');
-      
-      // הסר את החסימה הזמנית אם השרת דחה אותה
-      setBlockedDates(prev => prev.filter(item => !item._id.startsWith('temp-')));
-    } finally {
-      setBlockingRoom(false);
-    }
-  };
-
   // פונקציה פשוטה לחסימת תאריך או הסרת חסימה
   const toggleBlockDate = async (room, date) => {
     try {
-      // בדיקה אם התאריך כבר חסום
+      setBlockingRoom(true);
+      
+      // בדיקה אם התאריך חסום
       const isBlocked = isDateBlocked(room._id, date);
       
       if (isBlocked) {
-        // מצא את החסימה הקיימת
-        const existingBlock = blockedDates.find(b => 
-          b.room && b.room._id === room._id &&
+        // בדיקה אם זו חסימה מבוקינג
+        const blockedDateInfo = getBlockedDateInfo(room._id, date);
+        const isBookingBlock = blockedDateInfo?.externalSource === 'booking.com';
+        
+        if (isBookingBlock) {
+          // אם זו חסימה מבוקינג, נפתח דיאלוג עריכת פרטי אורח מבוקינג
+          handleOpenBookingBlockDialog(blockedDateInfo);
+          setBlockingRoom(false);
+          return;
+        }
+        
+        // אם זו לא חסימה מבוקינג, המשך כרגיל - מחיקת החסימה
+        const existingBlock = blockedDates.find(b =>
+          (typeof b.room === 'object' ? b.room._id : b.room) === room._id &&
           date >= new Date(b.startDate) &&
           date < new Date(b.endDate)
         );
         
         if (existingBlock) {
-          // הסר מיד את החסימה מהתצוגה
-          setBlockedDates(prev => prev.filter(item => item._id !== existingBlock._id));
-          
-          // שליחת בקשה לשרת להסרת החסימה
-          await axios.delete(`${process.env.REACT_APP_API_URL}/rooms/blocked-dates/${existingBlock._id}`)
-            .catch(err => console.error("שגיאה בהסרת חסימה:", err));
+          // מחיקת החסימה הקיימת
+          await handleRemoveBlockedDates(existingBlock._id);
         }
       } else {
+        // אם התאריך לא חסום, חסום אותו
         // יצירת תאריך סיום (יום אחד אחרי)
         const endDate = addDays(date, 1);
         
@@ -1986,16 +2068,252 @@ const BookingsCalendarPage = () => {
             reason: ''
           });
           
-          // לא נעשה כלום עם התשובה מהשרת - החסימה הזמנית כבר מופיעה
+          // עדכון החסימה במצב עם המידע מהשרת
+          const newBlockedDate = {
+            ...response.data.data,
+            startDate: new Date(response.data.data.startDate),
+            endDate: new Date(response.data.data.endDate)
+          };
+          
+          // מחליף את החסימה הזמנית בחסימה האמיתית
+          setBlockedDates(prev => 
+            prev
+              .filter(item => item._id !== tempBlock._id)
+              .concat(newBlockedDate)
+          );
         } catch (err) {
           console.error("שגיאה בהוספת חסימה:", err);
           // אם נכשל, נסיר את החסימה הזמנית
-          setBlockedDates(prev => prev.filter(item => item._id === tempBlock._id));
+          setBlockedDates(prev => prev.filter(item => item._id !== tempBlock._id));
+          toast.error('שגיאה בחסימת תאריך');
         }
       }
     } catch (error) {
-      console.error('שגיאה כללית בטיפול בחסימת תאריך:', error);
+      console.error('שגיאה בחסימת תאריך:', error);
+      toast.error('שגיאה בטיפול בתאריך');
+    } finally {
+      setBlockingRoom(false);
     }
+  };
+
+  // פונקציה חדשה לסנכרון יומני Booking.com
+  const handleSyncBookingCalendars = async () => {
+    try {
+      setIsSyncing(true);
+      
+      // קריאה ל-API לסנכרון כל יומני ה-iCal
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/rooms/sync-all-icals`,
+        {},
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-access-token': localStorage.getItem('token')
+          }
+        }
+      );
+      
+      if (response.data.success) {
+        // טעינה מחדש של הנתונים
+        await fetchBlockedDates();
+        
+        // הצג הודעת הצלחה
+        const syncResults = response.data.data.results || [];
+        const totalEvents = syncResults.reduce((sum, result) => sum + (result.addedEvents || 0), 0);
+        
+        toast.success(`סנכרון הושלם בהצלחה! ${totalEvents} אירועים סונכרנו`);
+      } else {
+        toast.error('שגיאה בסנכרון: ' + (response.data.data?.error || 'פרטים לא זמינים'));
+      }
+    } catch (error) {
+      console.error('שגיאה בסנכרון יומני Booking.com:', error);
+      toast.error(
+        error.response?.data?.message || 
+        'שגיאה בסנכרון יומני Booking.com. אנא נסה שוב.'
+      );
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // פונקציה לעדכון פרטי אורח בהזמנה מבוקינג
+  const handleUpdateBookingGuestData = async () => {
+    if (!selectedBookingBlock) return;
+    
+    try {
+      setUpdatingBookingBlock(true);
+      
+      // עדכון הנתונים בצד הלקוח
+      const updatedBlockedDates = blockedDates.map(block => {
+        if (block._id === selectedBookingBlock._id) {
+          return {
+            ...block,
+            guestDetails: bookingGuestData
+          };
+        }
+        return block;
+      });
+      
+      setBlockedDates(updatedBlockedDates);
+      
+      // שליחת עדכון לשרת
+      const response = await axios.put(
+        `${process.env.REACT_APP_API_URL}/rooms/blocked-dates/${selectedBookingBlock._id}/guest-details`,
+        { guestDetails: bookingGuestData },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-access-token': localStorage.getItem('token')
+          }
+        }
+      );
+      
+      toast.success('פרטי האורח עודכנו בהצלחה');
+      handleCloseBookingBlockDialog();
+      
+    } catch (error) {
+      console.error('שגיאה בעדכון פרטי אורח:', error);
+      toast.error('שגיאה בעדכון פרטי האורח');
+    } finally {
+      setUpdatingBookingBlock(false);
+    }
+  };
+  
+  // פתיחת דיאלוג עריכת פרטי הזמנה מבוקינג
+  const handleOpenBookingBlockDialog = (blockedDate) => {
+    setSelectedBookingBlock(blockedDate);
+    
+    // איתחול פרטי האורח מהמידע הקיים
+    setBookingGuestData({
+      name: blockedDate?.guestDetails?.name || '',
+      email: blockedDate?.guestDetails?.email || '',
+      phone: blockedDate?.guestDetails?.phone || '',
+      notes: blockedDate?.guestDetails?.notes || ''
+    });
+    
+    setBookingBlockDialogOpen(true);
+  };
+  
+  // סגירת דיאלוג עריכת פרטי הזמנה מבוקינג
+  const handleCloseBookingBlockDialog = () => {
+    setSelectedBookingBlock(null);
+    setBookingBlockDialogOpen(false);
+    setBookingGuestData({
+      name: '',
+      email: '',
+      phone: '',
+      notes: ''
+    });
+  };
+  
+  // עדכון שדות פרטי האורח
+  const handleBookingGuestDataChange = (e) => {
+    const { name, value } = e.target;
+    setBookingGuestData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // רינדור דיאלוג עריכת פרטי הזמנה מבוקינג
+  const renderBookingBlockEditDialog = () => {
+    const startDateFormatted = selectedBookingBlock ? 
+      format(new Date(selectedBookingBlock.startDate), 'dd/MM/yyyy') : '';
+    
+    const endDateFormatted = selectedBookingBlock ? 
+      format(new Date(selectedBookingBlock.endDate), 'dd/MM/yyyy') : '';
+    
+    return (
+      <Dialog 
+        open={bookingBlockDialogOpen} 
+        onClose={handleCloseBookingBlockDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <EventIcon color="primary" />
+            עדכון פרטי אורח מבוקינג
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mb: 2 }}>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              הזמנה זו סונכרנה מ-Booking.com. עדכון הפרטים כאן לא ישפיע על המידע בבוקינג, אלא רק במערכת המקומית.
+            </Alert>
+            <Typography variant="subtitle1" gutterBottom>
+              <strong>תאריכי שהייה:</strong> {startDateFormatted} - {endDateFormatted}
+            </Typography>
+            <Typography variant="subtitle2" color="primary" gutterBottom>
+              <strong>חדר:</strong> {selectedBookingBlock?.room?.roomNumber || ''}
+            </Typography>
+          </Box>
+          
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="שם האורח"
+                name="name"
+                value={bookingGuestData.name}
+                onChange={handleBookingGuestDataChange}
+                variant="outlined"
+                margin="normal"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="אימייל"
+                name="email"
+                value={bookingGuestData.email}
+                onChange={handleBookingGuestDataChange}
+                variant="outlined"
+                margin="normal"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="טלפון"
+                name="phone"
+                value={bookingGuestData.phone}
+                onChange={handleBookingGuestDataChange}
+                variant="outlined"
+                margin="normal"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="הערות"
+                name="notes"
+                value={bookingGuestData.notes}
+                onChange={handleBookingGuestDataChange}
+                variant="outlined"
+                margin="normal"
+                multiline
+                rows={4}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseBookingBlockDialog} disabled={updatingBookingBlock}>
+            ביטול
+          </Button>
+          <Button 
+            onClick={handleUpdateBookingGuestData} 
+            variant="contained" 
+            color="primary"
+            disabled={updatingBookingBlock}
+            startIcon={updatingBookingBlock ? <CircularProgress size={20} /> : null}
+          >
+            {updatingBookingBlock ? 'מעדכן...' : 'שמור פרטים'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
   };
 
   // רינדור כל רכיבי הלוח רק כאשר כל הנתונים טעונים
@@ -2063,6 +2381,17 @@ const BookingsCalendarPage = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <Button
+                variant="contained"
+                size="small"
+                startIcon={<RefreshIcon />}
+                onClick={handleSyncBookingCalendars}
+                disabled={isSyncing}
+                sx={{ mr: 1 }}
+              >
+                {isSyncing ? 'מסנכרן...' : 'סנכרן Booking.com'}
+              </Button>
+            
+              <Button
                 variant="outlined"
                 onClick={handleOpenFilterMenu}
                 startIcon={<FilterIcon />}
@@ -2072,6 +2401,7 @@ const BookingsCalendarPage = () => {
               >
                 סנן
               </Button>
+            
               <Menu
                 anchorEl={filterMenuAnchorEl}
                 open={Boolean(filterMenuAnchorEl)}
@@ -2200,10 +2530,12 @@ const BookingsCalendarPage = () => {
         </Paper>
       </Paper>
       
-      {/* פופאפים / דיאלוגים */}
-      {renderBookingDetailsDialog()}
+      {/* הדיאלוגים הקיימים */}
       {renderNewBookingDialog()}
+      {renderBookingDetailsDialog()}
       
+      {/* דיאלוג חדש לעריכת פרטי הזמנה מבוקינג */}
+      {renderBookingBlockEditDialog()}
     </Container>
   );
 };

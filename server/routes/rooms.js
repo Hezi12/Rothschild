@@ -4,6 +4,41 @@ const { check } = require('express-validator');
 const roomController = require('../controllers/roomController');
 const { protect, admin } = require('../middleware/auth');
 
+// --- ניתובים עבור סנכרון יומנים חיצוניים ---
+
+// @route   PUT /api/rooms/:id/ical
+// @desc    עדכון כתובת iCal לחדר
+// @access  Private/Admin
+router.put(
+  '/:id/ical',
+  [
+    protect,
+    admin,
+    [
+      check('iCalUrl', 'נא לספק כתובת iCal תקינה').isURL()
+    ]
+  ],
+  roomController.updateICalUrl
+);
+
+// @route   POST /api/rooms/:id/sync-ical
+// @desc    סנכרון ידני של יומן iCal לחדר ספציפי
+// @access  Private/Admin
+router.post(
+  '/:id/sync-ical',
+  [protect, admin],
+  roomController.syncICalForRoom
+);
+
+// @route   POST /api/rooms/sync-all-icals
+// @desc    סנכרון ידני של כל יומני ה-iCal
+// @access  Private/Admin
+router.post(
+  '/sync-all-icals',
+  [protect, admin],
+  roomController.syncAllICals
+);
+
 // --- ניתובים עבור תאריכים חסומים ---
 
 // @route   GET /api/rooms/blocked-dates
@@ -32,6 +67,11 @@ router.post(
 // @desc    הסרת חסימת תאריכים
 // @access  Private/Admin
 router.delete('/blocked-dates/:id', [protect, admin], roomController.unblockDates);
+
+// @route   PUT /api/rooms/blocked-dates/:id/guest-details
+// @desc    עדכון פרטי אורח בחסימה מבוקינג
+// @access  Private/Admin
+router.put('/blocked-dates/:id/guest-details', [protect, admin], roomController.updateBlockedDateGuestDetails);
 
 // @route   POST /api/rooms/check-availability
 // @desc    בדיקת זמינות חדר
