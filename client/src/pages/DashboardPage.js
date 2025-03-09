@@ -14,7 +14,8 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemIcon
+  ListItemIcon,
+  Chip
 } from '@mui/material';
 import { 
   Dashboard as DashboardIcon,
@@ -22,7 +23,6 @@ import {
   EventNote as BookingIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
-  Link as LinkIcon,
   Edit as EditIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
@@ -91,32 +91,6 @@ const DashboardPage = () => {
         </Typography>
       </Box>
 
-      {/* כרטיס iCal */}
-      <Card sx={{ mb: 4, border: '2px solid #f50057', boxShadow: 3 }}>
-        <CardContent sx={{ bgcolor: 'rgba(245, 0, 87, 0.05)' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <EditIcon color="secondary" sx={{ fontSize: 28, mr: 1 }} />
-            <Typography variant="h6" color="secondary">
-              עדכון יומן iCal לבוקינג.קום
-            </Typography>
-          </Box>
-          <Typography variant="body1" sx={{ mb: 2 }}>
-            בעמוד זה תוכל לערוך את קובץ ה-iCal הסטטי באופן ידני ולהורידו למחשבך. השתמש בכלי זה אם הקישור הדינמי אינו עובד.
-          </Typography>
-          <Button
-            variant="contained"
-            color="secondary"
-            size="large"
-            component={Link}
-            to="/dashboard/ical-editor"
-            startIcon={<EditIcon />}
-            fullWidth
-          >
-            פתח את עורך ה-iCal
-          </Button>
-        </CardContent>
-      </Card>
-
       {/* כרטיסי סטטיסטיקה */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={4}>
@@ -177,7 +151,7 @@ const DashboardPage = () => {
 
       {/* כפתורי ניווט מהירים */}
       <Grid container spacing={2} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={6}>
           <Button
             variant="contained"
             fullWidth
@@ -189,7 +163,7 @@ const DashboardPage = () => {
             לוח הזמנות
           </Button>
         </Grid>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={6}>
           <Button
             variant="outlined"
             fullWidth
@@ -201,20 +175,21 @@ const DashboardPage = () => {
             ניהול חדרים
           </Button>
         </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Button
-            variant="outlined"
-            fullWidth
-            size="large"
-            component={Link}
-            to="/dashboard/ical-editor"
-            startIcon={<EditIcon />}
-            color="secondary"
-          >
-            עריכת יומן iCal
-          </Button>
-        </Grid>
       </Grid>
+
+      {/* שורת כלים נוספים */}
+      <Box sx={{ mb: 4, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+        <Chip 
+          icon={<EditIcon />} 
+          label="עורך iCal" 
+          component={Link}
+          to="/dashboard/ical-editor"
+          clickable
+          color="secondary"
+          variant="outlined"
+          sx={{ fontWeight: 'bold' }}
+        />
+      </Box>
 
       {/* הזמנות אחרונות */}
       <Card>

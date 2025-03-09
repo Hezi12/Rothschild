@@ -18,6 +18,7 @@ import RoomsListPage from './pages/RoomsListPage';
 import NotFoundPage from './pages/NotFoundPage';
 import CalendarLinksPage from './pages/CalendarLinksPage';
 import IcalEditorPage from './pages/IcalEditorPage';
+import SearchResultsPage from './pages/SearchResultsPage';
 
 // רכיבים
 import Layout from './components/Layout';
@@ -67,6 +68,7 @@ function App() {
             {/* נתיבים ציבוריים */}
             <Route index element={<HomePage />} />
             <Route path="room/:id" element={<RoomPage />} />
+            <Route path="search-results" element={<SearchResultsPage />} />
             <Route path="booking" element={<BookingPage />} />
             <Route path="login" element={<LoginPage />} />
             

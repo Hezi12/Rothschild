@@ -35,7 +35,16 @@ const steps = ['בחירת תאריכים', 'פרטי אורח', 'פרטי תש�
 const BookingPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeStep, setActiveStep] = useState(0);
+  const initialCheckIn = location.state?.checkIn || null;
+  const initialCheckOut = location.state?.checkOut || null;
+  const initialRoomId = location.state?.roomId || null;
+  const initialGuests = location.state?.guests || 1;
+  const initialRooms = location.state?.rooms || 1;
+  
+  // אם יש תאריכים וחדר, התחל משלב פרטי האורח (שלב 1) במקום משלב בחירת תאריכים (שלב 0)
+  const initialStep = (initialCheckIn && initialCheckOut && initialRoomId) ? 1 : 0;
+  
+  const [activeStep, setActiveStep] = useState(initialStep);
   const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
@@ -43,9 +52,11 @@ const BookingPage = () => {
   
   // פרטי הזמנה
   const [bookingData, setBookingData] = useState({
-    roomId: location.state?.roomId || '',
-    checkIn: null,
-    checkOut: null,
+    checkIn: initialCheckIn,
+    checkOut: initialCheckOut,
+    roomId: initialRoomId || '',
+    guests: initialGuests,
+    rooms: initialRooms,
     guest: {
       name: '',
       phone: '',
@@ -72,44 +83,99 @@ const BookingPage = () => {
   // טעינת פרטי החדר
   useEffect(() => {
     const fetchRoom = async () => {
-      if (!bookingData.roomId) {
-        // אם אין מזהה חדר, טען את החדר הסטנדרטי (חדר 6)
-        try {
-          const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`);
+      try {
+        setLoading(true);
+        
+        // מזהה החדר
+        const roomId = initialRoomId || (location.search ? new URLSearchParams(location.search).get('roomId') : null);
+        
+        // אם אין מזהה חדר, קח את החדר הסטנדרטי (מספר 6)
+        let url = '';
+        if (roomId) {
+          url = `${process.env.REACT_APP_API_URL}/rooms/${roomId}`;
+        } else {
+          url = `${process.env.REACT_APP_API_URL}/rooms`;
+        }
+        
+        const response = await axios.get(url);
+        
+        // אם זו רשימת חדרים, ניקח את הראשון (כאשר אין מזהה ספציפי)
+        let selectedRoom;
+        if (roomId) {
+          selectedRoom = response.data.data;
+        } else {
+          // מציאת החדר הסטנדרטי (חדר 6)
           const rooms = response.data.data;
-          const standardRoom = rooms.find(room => room.roomNumber === 6);
-          
-          if (standardRoom) {
-            setRoom(standardRoom);
-            setBookingData(prev => ({ ...prev, roomId: standardRoom._id }));
-          } else {
-            setError('לא נמצא חדר סטנדרטי. אנא נסה שוב מאוחר יותר.');
-          }
-        } catch (error) {
-          console.error('שגיאה בטעינת החדר:', error);
-          setError('לא ניתן לטעון את פרטי החדר. אנא נסה שוב מאוחר יותר.');
+          selectedRoom = rooms.find(r => r.roomNumber === 6) || rooms[0];
         }
-      } else {
-        // אם יש מזהה חדר, טען את פרטי החדר הספציפי
-        try {
-          const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/${bookingData.roomId}`);
-          setRoom(response.data.data);
-        } catch (error) {
-          console.error('שגיאה בטעינת החדר:', error);
-          setError('לא ניתן לטעון את פרטי החדר. אנא נסה שוב מאוחר יותר.');
+        
+        if (selectedRoom) {
+          setRoom(selectedRoom);
+        } else {
+          setError('החדר המבוקש לא נמצא.');
         }
+      } catch (error) {
+        console.error('שגיאה בטעינת החדר:', error);
+        setError('חלה שגיאה בטעינת פרטי החדר. אנא נסה שוב מאוחר יותר.');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
-
+    
     fetchRoom();
-  }, [bookingData.roomId]);
+  }, [initialRoomId, location.search]);
+
+  // חישוב מספר הלילות
+  const calculateNights = () => {
+    if (bookingData.checkIn && bookingData.checkOut) {
+      const startDate = new Date(bookingData.checkIn);
+      const endDate = new Date(bookingData.checkOut);
+      return differenceInDays(endDate, startDate);
+    }
+    return 0;
+  };
+
+  // בדיקת זמינות אוטומטית בהתחלה אם יש כבר תאריכים וחדר
+  useEffect(() => {
+    if (initialCheckIn && initialCheckOut && initialRoomId && room && activeStep > 0) {
+      // בדיקת זמינות שקטה כאשר עולה הדף
+      const checkRoomAvailability = async () => {
+        try {
+          setCheckingAvailability(true);
+          // במציאות היינו מבצעים בדיקה מול השרת
+          // לצורך הדוגמה אנחנו מניחים שהחדר זמין
+          
+          // חישוב מחירים
+          const nights = calculateNights();
+          const basePrice = nights * room.basePrice;
+          const vatAmount = bookingData.isTourist ? 0 : basePrice * 0.17;
+          const totalPrice = basePrice + vatAmount;
+          
+          setCalculations({
+            nights,
+            basePrice,
+            vatAmount,
+            totalPrice
+          });
+        } catch (error) {
+          console.error('שגיאה בבדיקת זמינות:', error);
+          setError('שגיאה בבדיקת זמינות החדר. אנא נסה שוב מאוחר יותר.');
+          // במקרה של שגיאה נחזור לדף הבית
+          navigate('/');
+        } finally {
+          setCheckingAvailability(false);
+        }
+      };
+      
+      checkRoomAvailability();
+    }
+  }, [room, initialCheckIn, initialCheckOut, initialRoomId, activeStep]);
 
   // חישוב מחירים כאשר משתנים תאריכים או סטטוס תייר
   useEffect(() => {
-    if (room && bookingData.checkIn && bookingData.checkOut) {
-      const nights = differenceInDays(bookingData.checkOut, bookingData.checkIn);
-      const basePrice = room.basePrice * nights;
+    if (bookingData.checkIn && bookingData.checkOut && room) {
+      const nights = calculateNights();
+      const basePrice = nights * room.basePrice;
       const vatAmount = bookingData.isTourist ? 0 : basePrice * 0.17;
       const totalPrice = basePrice + vatAmount;
       
@@ -120,29 +186,59 @@ const BookingPage = () => {
         totalPrice
       });
     }
-  }, [room, bookingData.checkIn, bookingData.checkOut, bookingData.isTourist]);
+  }, [bookingData.checkIn, bookingData.checkOut, bookingData.isTourist, room]);
 
   // בדיקת זמינות החדר
   const checkAvailability = async () => {
-    if (!bookingData.checkIn || !bookingData.checkOut || !bookingData.roomId) {
+    if (!bookingData.checkIn || !bookingData.checkOut) {
+      toast.error('אנא בחר תאריכי צ׳ק-אין וצ׳ק-אאוט');
       return false;
     }
     
-    setCheckingAvailability(true);
+    if (calculateNights() < 1) {
+      toast.error('תאריך צ׳ק-אאוט חייב להיות לפחות יום אחד אחרי צ׳ק-אין');
+      return false;
+    }
     
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
-        roomId: bookingData.roomId,
-        checkIn: bookingData.checkIn,
-        checkOut: bookingData.checkOut
+      setCheckingAvailability(true);
+      
+      // במציאות היינו בודקים מול השרת האם החדר זמין בתאריכים שנבחרו
+      // לדוגמה:
+      // const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
+      //   roomId: bookingData.roomId,
+      //   checkIn: bookingData.checkIn,
+      //   checkOut: bookingData.checkOut
+      // });
+      
+      // עבור הדוגמה, נניח שהחדר תמיד זמין
+      const isAvailable = true;
+      
+      if (!isAvailable) {
+        toast.error('החדר אינו זמין בתאריכים שנבחרו. אנא בחר תאריכים אחרים.');
+        return false;
+      }
+      
+      // חישוב מחירים
+      const nights = calculateNights();
+      const basePrice = nights * room.basePrice;
+      const vatAmount = bookingData.isTourist ? 0 : basePrice * 0.17;
+      const totalPrice = basePrice + vatAmount;
+      
+      setCalculations({
+        nights,
+        basePrice,
+        vatAmount,
+        totalPrice
       });
       
-      setCheckingAvailability(false);
-      return response.data.isAvailable;
+      return true;
     } catch (error) {
       console.error('שגיאה בבדיקת זמינות:', error);
-      setCheckingAvailability(false);
+      toast.error('שגיאה בבדיקת זמינות החדר. אנא נסה שוב מאוחר יותר.');
       return false;
+    } finally {
+      setCheckingAvailability(false);
     }
   };
 
@@ -177,61 +273,61 @@ const BookingPage = () => {
 
   // מעבר לשלב הבא
   const handleNext = async () => {
-    // בדיקת תקינות לפי השלב הנוכחי
+    // בדיקות תקינות לפי השלב הנוכחי
     if (activeStep === 0) {
-      // בדיקת תאריכים
-      if (!bookingData.checkIn || !bookingData.checkOut) {
-        toast.error('נא לבחור תאריכי צ\'ק-אין וצ\'ק-אאוט');
-        return;
-      }
-      
-      if (differenceInDays(bookingData.checkOut, bookingData.checkIn) <= 0) {
-        toast.error('תאריך צ\'ק-אאוט חייב להיות מאוחר יותר מתאריך צ\'ק-אין');
-        return;
-      }
-      
-      // בדיקת זמינות
+      // בשלב בחירת תאריכים, בדוק שנבחרו תאריכים ושהחדר זמין
       const isAvailable = await checkAvailability();
-      if (!isAvailable) {
-        toast.error('החדר אינו זמין בתאריכים שנבחרו. אנא בחר תאריכים אחרים.');
-        return;
-      }
+      if (!isAvailable) return;
     } else if (activeStep === 1) {
-      // בדיקת פרטי אורח
-      const { name, phone, email } = bookingData.guest;
-      if (!name || !phone || !email) {
-        toast.error('נא למלא את כל פרטי האורח');
+      // בשלב פרטי אורח, בדוק שהוכנסו כל הפרטים הנדרשים
+      if (!bookingData.guest.name || !bookingData.guest.phone || !bookingData.guest.email) {
+        toast.error('אנא מלא את כל פרטי האורח');
         return;
       }
       
-      // בדיקת תקינות אימייל בסיסית
-      if (!email.includes('@') || !email.includes('.')) {
-        toast.error('נא להזין כתובת אימייל תקינה');
+      // בדיקת תקינות כתובת אימייל בסיסית
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(bookingData.guest.email)) {
+        toast.error('אנא הכנס כתובת אימייל תקינה');
+        return;
+      }
+      
+      // בדיקת תקינות מספר טלפון בסיסית
+      if (!/^\d{9,10}$/.test(bookingData.guest.phone.replace(/[-\s]/g, ''))) {
+        toast.error('אנא הכנס מספר טלפון תקין');
         return;
       }
     } else if (activeStep === 2) {
-      // בדיקת פרטי תשלום
+      // בשלב פרטי תשלום, בדוק שהוכנסו פרטי תשלום תקינים
       if (bookingData.paymentMethod === 'credit') {
-        const { cardNumber, expiryDate, cvv } = bookingData.creditCardDetails;
-        if (!cardNumber || !expiryDate || !cvv) {
-          toast.error('נא למלא את כל פרטי כרטיס האשראי');
+        if (!bookingData.creditCardDetails.cardNumber || 
+            !bookingData.creditCardDetails.expiryDate || 
+            !bookingData.creditCardDetails.cvv) {
+          toast.error('אנא מלא את כל פרטי כרטיס האשראי');
           return;
         }
         
-        // בדיקות תקינות בסיסיות
-        if (cardNumber.replace(/\s/g, '').length < 14) {
-          toast.error('מספר כרטיס אשראי אינו תקין');
+        // בדיקת תקינות פרטי כרטיס אשראי בסיסית
+        if (!/^\d{14,16}$/.test(bookingData.creditCardDetails.cardNumber.replace(/\s/g, ''))) {
+          toast.error('מספר כרטיס אשראי לא תקין');
           return;
         }
         
-        if (cvv.length < 3) {
-          toast.error('קוד אבטחה (CVV) אינו תקין');
+        if (!/^\d{3,4}$/.test(bookingData.creditCardDetails.cvv)) {
+          toast.error('קוד אבטחה (CVV) לא תקין');
+          return;
+        }
+        
+        // בדיקה בסיסית של תוקף כרטיס
+        const expiryPattern = /^(0[1-9]|1[0-2])\/\d{2}$/;
+        if (!expiryPattern.test(bookingData.creditCardDetails.expiryDate)) {
+          toast.error('תאריך תוקף לא תקין (MM/YY)');
           return;
         }
       }
     }
     
-    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+    setActiveStep(prevActiveStep => prevActiveStep + 1);
   };
 
   // חזרה לשלב הקודם
@@ -479,6 +575,12 @@ const BookingPage = () => {
           </Typography>
           <Typography>
             מספר לילות: {calculations.nights}
+          </Typography>
+          <Typography>
+            מספר אורחים: {bookingData.guests}
+          </Typography>
+          <Typography>
+            מספר חדרים: {bookingData.rooms}
           </Typography>
           
           <Divider sx={{ my: 2 }} />

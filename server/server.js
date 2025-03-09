@@ -37,10 +37,19 @@ mongoose.connect(process.env.MONGODB_URI, {
 .then(() => console.log('חיבור למסד הנתונים הצליח'))
 .catch(err => console.error('שגיאה בחיבור למסד הנתונים:', err));
 
+// Import Routes
+const roomRoutes = require('./routes/rooms');
+const bookingRoutes = require('./routes/bookings');
+const authRoutes = require('./routes/auth');
+const chatRoutes = require('./routes/chatRoutes');
+
+// Routes
+app.use('/api/rooms', roomRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/chat', chatRoutes);
+
 // נתיבי API
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/rooms', require('./routes/rooms'));
-app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/uploads', require('./routes/uploads'));
 app.use('/api/invoices', require('./routes/invoices'));
 
