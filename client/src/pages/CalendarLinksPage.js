@@ -26,7 +26,8 @@ import {
   ContentCopy as CopyIcon,
   Refresh as RefreshIcon,
   CalendarToday as CalendarIcon,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Info as InfoIcon
 } from '@mui/icons-material';
 
 const CalendarLinksPage = () => {
@@ -65,15 +66,9 @@ const CalendarLinksPage = () => {
     fetchRooms();
   }, [fetchRooms]);
 
-  // יצירת כתובת מותאמת לחדר - עכשיו משתמש בקבצים סטטיים
+  // יצירת כתובת מותאמת לחדר - משתמש בנקודת הקצה החדשה
   const getCalendarLink = (roomId) => {
-    // בדיקה אם זה חדר מספר 6 שיש לנו עבורו קובץ סטטי
-    if (roomId === '67c9bf6e2ac03c8869a0b03f') {
-      // השתמש בקובץ הסטטי מתיקיית public/ical
-      return `${baseUrl}/ical/room-6.ics`;
-    }
-    
-    // עבור חדרים אחרים, השתמש בגישה הקודמת
+    // משתמש בנקודת הקצה iCal של השרת החדש
     return `${baseUrl}/calendar/${roomId}.ics`;
   };
 
@@ -145,6 +140,12 @@ const CalendarLinksPage = () => {
           </Typography>
         </CardContent>
       </Card>
+
+      <Alert severity="info" sx={{ mb: 3 }} icon={<InfoIcon />}>
+        <Typography variant="body1">
+          <strong>הערה:</strong> המערכת כרגע משתמשת בקבצי iCal סטטיים. עדכונים בהזמנות לא ישתקפו אוטומטית בקבצים אלה.
+        </Typography>
+      </Alert>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
