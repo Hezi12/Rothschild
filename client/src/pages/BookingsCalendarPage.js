@@ -969,7 +969,7 @@ const BookingsCalendarPage = () => {
                             fontWeight: 'bold'
                           }}
                         >
-                          בוקינג
+                          הזמנה בוקינג
                         </Typography>
                       )}
                     </>
