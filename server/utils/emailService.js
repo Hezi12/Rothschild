@@ -48,7 +48,7 @@ const sendBookingConfirmation = async (booking, room) => {
             <p>• ביטול עד 3 ימים לפני ההגעה - ללא עלות</p>
             <p>• ביטול פחות מ-3 ימים לפני ההגעה - חיוב במחיר מלא</p>
             <p style="margin-top: 15px;">
-              <a href="${process.env.WEBSITE_URL || 'http://localhost:3000'}/cancel-redirect/${booking._id.toString()}" style="background-color: #f44336; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; display: inline-block;">לביטול ההזמנה</a>
+              <a href="${process.env.API_URL || 'http://localhost:5500'}/bookings/direct-cancel-request/${booking._id.toString()}" style="background-color: #f44336; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; display: inline-block;">לביטול ההזמנה</a>
             </p>
           </div>
           
