@@ -233,29 +233,39 @@ const BookingsCalendarPage = () => {
     try {
       setLoadingBookings(true);
       
-      // קבלת כל ההזמנות מהשרת
+      // קבלת כל ההזמנות
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings`);
       
       if (response.data && response.data.success) {
-        // עיבוד הנתונים שהתקבלו
         const bookingsData = response.data.data || [];
         
-        // המרת פורמט התאריכים ושדות אחרים
+        // עיבוד הנתונים שהתקבלו
         const processedBookings = bookingsData.map(booking => {
-          // פיצול שם האורח לשם פרטי ושם משפחה
-          const nameParts = booking.guest?.name ? booking.guest.name.split(' ') : ['', ''];
+          // חילוץ שם פרטי ושם משפחה מהשם המלא
+          const fullName = booking.guest?.name || '';
+          const nameParts = fullName.split(' ');
+          
+          // המרת תאריכים לאובייקטי Date
+          const checkInDate = new Date(booking.checkIn);
+          const checkOutDate = new Date(booking.checkOut);
+          
+          // בדיקה שהתאריכים תקינים
+          if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+            console.error('תאריכים לא תקינים בהזמנה:', booking);
+            // מקרה קיצון - אם התאריכים לא תקינים, נקבע להם ערכי ברירת מחדל
+            const defaultCheckIn = new Date();
+            const defaultCheckOut = addDays(new Date(), 1);
+            console.log(`הגדרת ערכי ברירת מחדל להזמנה ${booking._id}: צ'ק-אין ${defaultCheckIn.toISOString()}, צ'ק-אאוט ${defaultCheckOut.toISOString()}`);
+            booking.checkIn = defaultCheckIn.toISOString();
+            booking.checkOut = defaultCheckOut.toISOString();
+          }
+          
+          // שמירת מזהה החדר
+          console.log(`הזמנה ${booking._id}: חדר ${booking.room}/${booking.roomId}, צ'ק-אין ${booking.checkIn}, צ'ק-אאוט ${booking.checkOut}`);
           
           return {
             ...booking,
-            checkIn: booking.checkIn,
-            checkOut: booking.checkOut,
-            // המרת סטטוס תשלום לעברית
-            paymentStatus: booking.paymentStatus === 'paid' ? 'שולם' : 
-                          (booking.paymentStatus === 'pending' ? 'לא שולם' : booking.paymentStatus),
-            // המרת אמצעי תשלום לפורמט פנימי
-            paymentMethod: booking.paymentMethod === 'credit' ? 'creditCard' : 
-                          (booking.paymentMethod === 'bank_transfer' ? 'bankTransfer' : 'cash'),
-            // הוספת שדות נוספים לאורח
+            roomId: booking.room || booking.roomId, // ודא שיש מזהה חדר
             guest: {
               ...booking.guest,
               firstName: nameParts[0] || '',
@@ -267,6 +277,11 @@ const BookingsCalendarPage = () => {
         
         setBookings(processedBookings);
         console.log(`נטענו ${processedBookings.length} הזמנות`);
+        
+        // רישום מפורט של ההזמנות שנטענו
+        processedBookings.forEach(booking => {
+          console.log(`הזמנה נטענה: ${booking._id}, חדר: ${booking.roomId}, צ'ק-אין: ${booking.checkIn}, צ'ק-אאוט: ${booking.checkOut}`);
+        });
       } else {
         console.error('שגיאה בטעינת הזמנות: תשובה לא תקינה', response.data);
         toast.error('שגיאה בטעינת הזמנות');
@@ -298,17 +313,45 @@ const BookingsCalendarPage = () => {
       if (response.data && response.data.success) {
         const blockedDatesData = response.data.data || [];
         
+        console.log('נתוני חסימות גולמיים שהתקבלו:', blockedDatesData);
+        
         // עיבוד הנתונים שהתקבלו
         const processedBlockedDates = blockedDatesData.map(blockedDate => {
-          return {
-            ...blockedDate,
-            startDate: new Date(blockedDate.startDate),
-            endDate: new Date(blockedDate.endDate)
-          };
-        });
+          try {
+            // המרה לאובייקטי Date
+            const startDate = new Date(blockedDate.startDate);
+            const endDate = new Date(blockedDate.endDate);
+            
+            // בדיקה שהתאריכים תקינים
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+              console.error('תאריכי חסימה לא תקינים:', blockedDate);
+              return null; // נסנן את הרשומות הלא תקינות בהמשך
+            }
+            
+            // שמירת מזהה החדר
+            const roomId = typeof blockedDate.room === 'object' ? blockedDate.room._id : blockedDate.room;
+            
+            console.log(`חסימה ${blockedDate._id}: חדר ${roomId}, מ-${startDate.toISOString()} עד ${endDate.toISOString()}, סיבה: ${blockedDate.reason || 'לא צוינה'}`);
+            
+            return {
+              ...blockedDate,
+              startDate,
+              endDate,
+              room: roomId // ודא שיש מזהה חדר
+            };
+          } catch (error) {
+            console.error('שגיאה בעיבוד תאריך חסום:', error, blockedDate);
+            return null;
+          }
+        }).filter(blockedDate => blockedDate !== null); // סינון רשומות לא תקינות
         
         setBlockedDates(processedBlockedDates);
         console.log(`נטענו ${processedBlockedDates.length} תאריכים חסומים`);
+        
+        // רישום מפורט של החסימות שנטענו
+        processedBlockedDates.forEach(blockedDate => {
+          console.log(`חסימה נטענה: ${blockedDate._id}, חדר: ${blockedDate.room}, מ: ${blockedDate.startDate.toISOString()}, עד: ${blockedDate.endDate.toISOString()}`);
+        });
       } else {
         console.error('שגיאה בטעינת תאריכים חסומים: תשובה לא תקינה', response.data);
         toast.error('שגיאה בטעינת תאריכים חסומים');
@@ -705,7 +748,16 @@ const BookingsCalendarPage = () => {
       return false;
     }
     
-    return blockedDates.some(blockedDate => {
+    // המרת התאריך לאובייקט Date
+    const checkDate = date instanceof Date ? date : new Date(date);
+    
+    // בדיקה ברמת לוג אם יש חסימות בכלל
+    if (roomId === '67c9bf6e2ac03c8869a0b03f') { // למטרות דיבוג רק בחדר ספציפי
+      console.log(`בדיקת חסימות לחדר ${roomId} בתאריך ${checkDate.toISOString()}`);
+      console.log(`מספר חסימות כולל במערכת: ${blockedDates.length}`);
+    }
+    
+    const isBlocked = blockedDates.some(blockedDate => {
       try {
         // בדיקה שנתוני החדר קיימים
         if (!blockedDate.room) {
@@ -720,8 +772,19 @@ const BookingsCalendarPage = () => {
         const startDate = blockedDate.startDate instanceof Date ? blockedDate.startDate : new Date(blockedDate.startDate);
         const endDate = blockedDate.endDate instanceof Date ? blockedDate.endDate : new Date(blockedDate.endDate);
         
+        // בדיקה שהתאריכים תקינים
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          console.error('תאריכי חסימה לא תקינים:', blockedDate);
+          return false;
+        }
+        
         // בדיקה שהתאריך נמצא בטווח החסימה
-        const isDateInRange = date >= startDate && date < endDate;
+        const isDateInRange = checkDate >= startDate && checkDate < endDate;
+        
+        if (roomId === '67c9bf6e2ac03c8869a0b03f' && isSameRoom) {
+          console.log(`חסימה: ${blockedDate._id}, חדר: ${roomIdToCompare}, התאמת חדר: ${isSameRoom}`);
+          console.log(`התחלה: ${startDate.toISOString()}, סיום: ${endDate.toISOString()}, בטווח: ${isDateInRange}`);
+        }
         
         return isSameRoom && isDateInRange;
       } catch (err) {
@@ -729,8 +792,10 @@ const BookingsCalendarPage = () => {
         return false;
       }
     });
+    
+    return isBlocked;
   };
-
+  
   // פונקציה שמחזירה את פרטי החסימה של תאריך מסוים
   const getBlockedDateInfo = (roomId, date) => {
     if (!blockedDates || blockedDates.length === 0) {
@@ -899,18 +964,42 @@ const BookingsCalendarPage = () => {
     // בודק אם יש הזמנה בתאריך ובחדר הזה
     const bookingsForCell = bookings.filter(booking => {
       try {
-        return (
-          booking.roomId === room._id &&
-          isWithinInterval(date, {
-            start: parseISO(booking.checkIn),
-            end: subDays(parseISO(booking.checkOut), 1)
-          })
-        );
+        // ודא שיש למשתנה booking נתונים תקינים
+        if (!booking || !booking.roomId || !booking.checkIn || !booking.checkOut) {
+          console.log('הזמנה עם נתונים חסרים:', booking);
+          return false;
+        }
+      
+        // המר את התאריכים למחרוזות נכונות למקרה שהן לא בפורמט הנכון
+        const checkInDate = booking.checkIn instanceof Date ? booking.checkIn : new Date(booking.checkIn);
+        const checkOutDate = booking.checkOut instanceof Date ? booking.checkOut : new Date(booking.checkOut);
+        
+        // ודא שהתאריכים תקינים
+        if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+          console.error('תאריכים לא תקינים בהזמנה:', booking);
+          return false;
+        }
+        
+        console.log(`בדיקת הזמנה ${booking._id} לחדר ${booking.roomId} מול חדר ${room._id} בתאריך ${date.toISOString()}`);
+        console.log(`צ'ק-אין: ${checkInDate.toISOString()}, צ'ק-אאוט: ${checkOutDate.toISOString()}`);
+        
+        const isSameRoomId = booking.roomId === room._id;
+        
+        // בדיקה אם התאריך נמצא בין צ'ק-אין לצ'ק-אאוט (לא כולל צ'ק-אאוט)
+        const isDateInRange = date >= checkInDate && date < checkOutDate;
+        
+        console.log(`השוואת חדרים: ${isSameRoomId}, טווח תאריכים: ${isDateInRange}`);
+        
+        return isSameRoomId && isDateInRange;
       } catch (error) {
         console.error('שגיאה בבדיקת תאריכי הזמנה:', error);
         return false;
       }
     });
+    
+    if (bookingsForCell.length > 0) {
+      console.log(`נמצאו ${bookingsForCell.length} הזמנות לחדר ${room._id} בתאריך ${date.toISOString()}`);
+    }
     
     const booking = bookingsForCell.length > 0 ? bookingsForCell[0] : null;
 
