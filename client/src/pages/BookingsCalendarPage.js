@@ -3232,7 +3232,8 @@ const BookingsCalendarPage = () => {
         `${process.env.REACT_APP_API_URL}/bookings/all`,
         { 
           data: { password: deletePassword },
-          withCredentials: true 
+          // השינוי המשמעותי פה - הסרת withCredentials כדי למנוע שגיאת CORS
+          // withCredentials: true 
         }
       );
       

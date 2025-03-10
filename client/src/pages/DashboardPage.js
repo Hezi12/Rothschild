@@ -239,6 +239,16 @@ const DashboardPage = () => {
           variant="outlined"
           sx={{ fontWeight: 'bold' }}
         />
+        <Chip 
+          icon={<CalendarIcon />} 
+          label="ניהול הזמנות (חדש)" 
+          component={Link}
+          to="/dashboard/bookings-new"
+          clickable
+          color="success"
+          variant="outlined"
+          sx={{ fontWeight: 'bold' }}
+        />
       </Box>
 
       {/* הזמנות אחרונות */}
