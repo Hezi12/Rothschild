@@ -101,7 +101,9 @@ const DashboardPage = () => {
         `${process.env.REACT_APP_API_URL}/bookings/all`,
         { 
           data: { password: deletePassword },
-          withCredentials: false 
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
         }
       );
       

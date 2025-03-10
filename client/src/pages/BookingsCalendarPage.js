@@ -3192,7 +3192,11 @@ const BookingsCalendarPage = () => {
     try {
       const response = await axios.delete(
         `${process.env.REACT_APP_API_URL}/rooms/blocked-dates/all`,
-        { withCredentials: false }
+        { 
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
       );
       console.log('תוצאת מחיקת חסימות:', response.data);
       
@@ -3229,15 +3233,21 @@ const BookingsCalendarPage = () => {
         `${process.env.REACT_APP_API_URL}/bookings/all`,
         { 
           data: { password: deletePassword },
-          // הסרת withCredentials למניעת שגיאת CORS
-          withCredentials: false 
+          // העברת ה-token בכותרת במקום withCredentials
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
         }
       );
       
       // מחיקת כל החסימות
       const blocksResponse = await axios.delete(
         `${process.env.REACT_APP_API_URL}/rooms/blocked-dates/all`,
-        { withCredentials: false }
+        { 
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
       );
       
       const bookingsDeleted = bookingsResponse.data.success ? bookingsResponse.data.count : 0;
