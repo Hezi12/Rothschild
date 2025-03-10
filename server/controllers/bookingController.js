@@ -185,10 +185,15 @@ exports.createBooking = async (req, res) => {
     });
     
     if (overlappingBlockedDates.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'החדר אינו זמין בתאריכים המבוקשים - קיימת חסימה'
-      });
+      console.log(`נמצאו ${overlappingBlockedDates.length} חסימות חופפות לתאריכים המבוקשים`);
+      
+      // נמחק את החסימות הקיימות (אסטרטגיה של override)
+      for (const blockedDate of overlappingBlockedDates) {
+        console.log(`מוחק חסימה: ${blockedDate._id}, סיבה: ${blockedDate.reason}, מקור: ${blockedDate.externalSource || 'לא מוגדר'}`);
+        await BlockedDate.findByIdAndDelete(blockedDate._id);
+      }
+      
+      console.log(`נמחקו ${overlappingBlockedDates.length} חסימות כדי לאפשר את ההזמנה החדשה`);
     }
     
     // חישוב מחיר כולל

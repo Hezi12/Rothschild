@@ -3,6 +3,7 @@ const router = express.Router();
 const { check } = require('express-validator');
 const roomController = require('../controllers/roomController');
 const { protect, admin } = require('../middleware/auth');
+const Room = require('../models/Room');
 
 // --- ניתובים עבור סנכרון יומנים חיצוניים ---
 
@@ -235,5 +236,44 @@ router.put(
 // @desc    מחיקת חדר
 // @access  Private/Admin
 router.delete('/:id', [protect, admin], roomController.deleteRoom);
+
+// @route   DELETE /api/rooms/:id/blocked-dates
+// @desc    מחיקת כל החסימות של חדר ספציפי
+// @access  Private/Admin
+router.delete('/:id/blocked-dates', [protect, admin], async (req, res) => {
+  try {
+    const roomId = req.params.id;
+    
+    // בדיקה האם החדר קיים
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: 'החדר לא נמצא'
+      });
+    }
+    
+    // מחיקת כל החסימות של החדר
+    const BlockedDate = require('../models/BlockedDate');
+    const deleteResult = await BlockedDate.deleteMany({ room: roomId });
+    
+    res.json({
+      success: true,
+      message: `נמחקו ${deleteResult.deletedCount} חסימות מהחדר`,
+      deletedCount: deleteResult.deletedCount,
+      room: {
+        id: room._id,
+        roomNumber: room.roomNumber
+      }
+    });
+  } catch (error) {
+    console.error('שגיאה במחיקת החסימות של החדר:', error);
+    res.status(500).json({
+      success: false,
+      message: 'שגיאת שרת',
+      error: error.message
+    });
+  }
+});
 
 module.exports = router; 

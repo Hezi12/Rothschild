@@ -240,7 +240,7 @@ exports.checkAvailability = async (req, res) => {
         });
       }
       
-      // בדיקה אם יש הזמנות חופפות
+      // בדיקה אם יש הזמנות חופפות - זו הבדיקה החשובה ביותר
       const overlappingBookings = await Booking.find({
         room: roomId,
         $or: [
@@ -262,6 +262,20 @@ exports.checkAvailability = async (req, res) => {
         ]
       });
       
+      // אם יש הזמנות חופפות, החדר לא זמין בוודאות
+      if (overlappingBookings.length > 0) {
+        return res.json({
+          success: true,
+          isAvailable: false,
+          reason: 'קיימת הזמנה בתאריכים אלה',
+          room: {
+            id: room._id,
+            roomNumber: room.roomNumber,
+            basePrice: room.basePrice
+          }
+        });
+      }
+      
       // בדיקה אם יש תאריכים חסומים חופפים
       const overlappingBlockedDates = await BlockedDate.find({
         room: roomId,
@@ -281,11 +295,38 @@ exports.checkAvailability = async (req, res) => {
         ]
       });
       
-      const isAvailable = overlappingBookings.length === 0 && overlappingBlockedDates.length === 0;
+      // בשלב זה נדע שהחדר זמין מבחינת הזמנות אבל ייתכן שיש חסימות אחרות
+      // במקרה שיש חסימות מסנכרון חיצוני, נחזיר שהחדר זמין אבל עם אזהרה
+      const isExternalBlock = overlappingBlockedDates.some(
+        block => block.externalSource === 'booking.com' || block.externalSource === 'ical'
+      );
+      
+      if (isExternalBlock) {
+        console.log('החדר חסום אבל מקור החסימה הוא חיצוני - מאפשר הזמנה עם אזהרה');
+        return res.json({
+          success: true,
+          isAvailable: true,
+          warning: 'ייתכן שהחדר מוזמן במערכת חיצונית - יש לוודא זמינות',
+          room: {
+            id: room._id,
+            roomNumber: room.roomNumber,
+            basePrice: room.basePrice
+          }
+        });
+      }
+      
+      // בדיקה אם יש חסימה מקומית (לא מסנכרון)
+      const isLocalBlock = overlappingBlockedDates.some(
+        block => !block.externalSource || block.externalSource === ''
+      );
+      
+      // מחזירים את סטטוס הזמינות
+      const isAvailable = overlappingBlockedDates.length === 0 || !isLocalBlock;
       
       return res.json({
         success: true,
         isAvailable,
+        warning: isAvailable && overlappingBlockedDates.length > 0 ? 'חסימות התעלמנו מחסימות מסוימות' : null,
         room: {
           id: room._id,
           roomNumber: room.roomNumber,
@@ -296,6 +337,7 @@ exports.checkAvailability = async (req, res) => {
       // אם לא סופק מזהה חדר, בדוק את כל החדרים הזמינים
       const allRooms = await Room.find({ isActive: true });
       const availableRooms = [];
+      const partiallyAvailableRooms = []; // חדרים עם חסימות חיצוניות
 
       // בדיקה עבור כל חדר
       for (const room of allRooms) {
@@ -322,6 +364,11 @@ exports.checkAvailability = async (req, res) => {
             }
           ]
         });
+        
+        // אם יש הזמנות חופפות, החדר לא זמין בוודאות
+        if (overlappingBookings.length > 0) {
+          continue;
+        }
 
         // בדיקה אם יש תאריכים חסומים חופפים
         const overlappingBlockedDates = await BlockedDate.find({
@@ -342,16 +389,39 @@ exports.checkAvailability = async (req, res) => {
           ]
         });
         
-        // אם אין הזמנות או תאריכים חסומים, הוסף לרשימת החדרים הזמינים
-        if (overlappingBookings.length === 0 && overlappingBlockedDates.length === 0) {
-          availableRooms.push(room);
+        // אם ההחסימה היא חיצונית
+        const hasExternalBlock = overlappingBlockedDates.some(
+          block => block.externalSource === 'booking.com' || block.externalSource === 'ical'
+        );
+        
+        // בדיקה אם ההחסימה היא מקומית
+        const hasLocalBlock = overlappingBlockedDates.some(
+          block => !block.externalSource || block.externalSource === ''
+        );
+        
+        // אם אין הזמנות ואין חסימות מקומיות, החדר זמין
+        if (overlappingBlockedDates.length === 0 || !hasLocalBlock) {
+          // אם יש חסימות חיצוניות, הוסף אותו לרשימת החדרים הזמינים חלקית
+          if (hasExternalBlock) {
+            partiallyAvailableRooms.push({
+              ...room._doc,
+              warning: 'ייתכן שהחדר מוזמן במערכת חיצונית - יש לוודא זמינות'
+            });
+          } else {
+            // אם אין שום חסימה, הוסף לרשימת החדרים הזמינים
+            availableRooms.push(room);
+          }
         }
       }
       
+      // מיזוג החדרים הזמינים והחדרים הזמינים חלקית
+      const mergedAvailableRooms = [...availableRooms, ...partiallyAvailableRooms];
+      
       return res.json({
         success: true,
-        count: availableRooms.length,
-        data: availableRooms
+        count: mergedAvailableRooms.length,
+        data: mergedAvailableRooms,
+        partialAvailability: partiallyAvailableRooms.length > 0
       });
     }
   } catch (error) {
