@@ -24,7 +24,8 @@ import {
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
   Edit as EditIcon,
-  Collections as GalleryIcon
+  Collections as GalleryIcon,
+  Image
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -189,28 +190,41 @@ const DashboardPage = () => {
         </Grid>
       </Grid>
 
-      {/* כפתורי ניווט מהירים */}
-      <Grid container spacing={2} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6}>
+      {/* כפתורים ראשיים */}
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} md={6}>
           <Button
-            variant="contained"
+            component={Link}
+            to="/dashboard/bookings-new"
             fullWidth
+            variant="contained"
+            color="success"
             size="large"
+            sx={{ fontWeight: 'bold', mb: 2 }}
+          >
+            ניהול הזמנות - גרסה חדשה ומשופרת
+          </Button>
+          <Button
             component={Link}
             to="/dashboard/bookings"
-            startIcon={<CalendarIcon />}
+            fullWidth
+            variant="contained"
+            color="primary"
+            size="large"
+            sx={{ fontWeight: 'bold' }}
           >
-            לוח הזמנות
+            ניהול הזמנות
           </Button>
         </Grid>
-        <Grid item xs={12} sm={6}>
+        <Grid item xs={12} md={6}>
           <Button
-            variant="outlined"
-            fullWidth
-            size="large"
             component={Link}
             to="/dashboard/rooms"
-            startIcon={<HotelIcon />}
+            fullWidth
+            variant="contained"
+            color="primary"
+            size="large"
+            sx={{ fontWeight: 'bold' }}
           >
             ניהול חדרים
           </Button>
@@ -236,16 +250,6 @@ const DashboardPage = () => {
           to="/dashboard/ical-editor"
           clickable
           color="secondary"
-          variant="outlined"
-          sx={{ fontWeight: 'bold' }}
-        />
-        <Chip 
-          icon={<CalendarIcon />} 
-          label="ניהול הזמנות (חדש)" 
-          component={Link}
-          to="/dashboard/bookings-new"
-          clickable
-          color="success"
           variant="outlined"
           sx={{ fontWeight: 'bold' }}
         />
@@ -340,6 +344,31 @@ const DashboardPage = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* כלים נוספים */}
+      <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
+        כלים נוספים
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
+        <Chip 
+          icon={<Image />} 
+          label="גלריה כללית" 
+          component={Link}
+          to="/dashboard/gallery"
+          clickable
+          color="primary"
+          variant="outlined"
+        />
+        <Chip 
+          icon={<CalendarIcon />} 
+          label="עורך iCal" 
+          component={Link}
+          to="/dashboard/ical-editor"
+          clickable
+          color="primary"
+          variant="outlined"
+        />
+      </Box>
     </Box>
   );
 };
