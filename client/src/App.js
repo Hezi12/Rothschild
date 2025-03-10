@@ -24,6 +24,7 @@ import CancellationRequestPage from './pages/CancellationRequestPage';
 import CancellationRedirectPage from './pages/CancellationRedirectPage';
 import GalleryManagementPage from './pages/GalleryManagementPage';
 import BookingCalendarNew from './pages/BookingCalendarNew';
+import BookingsNewPage from './pages/BookingsNewPage';
 
 // רכיבים
 import Layout from './components/Layout';
@@ -87,16 +88,9 @@ function App() {
                 <DashboardPage />
               </ProtectedRoute>
             } />
-            <Route path="dashboard/bookings" element={
-              <ProtectedRoute>
-                <BookingsCalendarPage />
-              </ProtectedRoute>
-            } />
-            <Route path="dashboard/bookings-new" element={
-              <ProtectedRoute>
-                <BookingCalendarNew />
-              </ProtectedRoute>
-            } />
+            <Route path="/dashboard/bookings" element={<ProtectedRoute><BookingsCalendarPage /></ProtectedRoute>} />
+            <Route path="/dashboard/bookings-calendar" element={<ProtectedRoute><BookingCalendarNew /></ProtectedRoute>} />
+            <Route path="/dashboard/bookings-new" element={<ProtectedRoute><BookingsNewPage /></ProtectedRoute>} />
             <Route path="dashboard/rooms" element={
               <ProtectedRoute>
                 <RoomsListPage />

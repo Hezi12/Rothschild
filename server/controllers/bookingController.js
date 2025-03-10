@@ -1,540 +1,627 @@
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
-const BlockedDate = require('../models/BlockedDate');
+const mongoose = require('mongoose');
+const { startOfDay, endOfDay, parseISO, format, addHours } = require('date-fns');
 const { validationResult } = require('express-validator');
 const { sendBookingConfirmation } = require('../utils/emailService');
 
-// @desc    קבלת כל ההזמנות
-// @route   GET /api/bookings
-// @access  Private/Admin
-exports.getBookings = async (req, res) => {
+/**
+ * בקר חדש ומשופר להזמנות, ללא תלות במודל תאריכים חסומים
+ */
+
+// פונקציה ליצירת מספר הזמנה חדש
+const generateBookingNumber = async () => {
   try {
-    // אפשרות לסינון לפי תאריכים
-    const { startDate, endDate, status } = req.query;
-    let query = {};
+    const currentYear = new Date().getFullYear();
+    const yearPrefix = currentYear.toString().substring(2);
     
-    // סינון לפי תאריכים
-    if (startDate && endDate) {
-      query = {
-        $or: [
-          // צ'ק-אין בטווח התאריכים
-          { 
-            checkIn: { 
-              $gte: new Date(startDate), 
-              $lte: new Date(endDate) 
-            } 
-          },
-          // צ'ק-אאוט בטווח התאריכים
-          { 
-            checkOut: { 
-              $gte: new Date(startDate), 
-              $lte: new Date(endDate) 
-            } 
-          },
-          // טווח התאריכים מכיל את תקופת ההזמנה
-          { 
-            checkIn: { $lte: new Date(startDate) },
-            checkOut: { $gte: new Date(endDate) }
-          }
-        ]
-      };
+    // מציאת המספר הגבוה ביותר השנה
+    const highestBooking = await Booking.findOne(
+      { bookingNumber: { $regex: `^${yearPrefix}` } },
+      { bookingNumber: 1 }
+    ).sort({ bookingNumber: -1 });
+    
+    // אם לא נמצאו הזמנות השנה - יצירת מספר התחלתי
+    if (!highestBooking) {
+      return `${yearPrefix}1001`;
     }
     
-    // סינון לפי סטטוס תשלום
-    if (status) {
-      query.paymentStatus = status;
-    }
-    
-    const bookings = await Booking.find(query)
-      .populate('room', 'roomNumber type basePrice')
-      .sort({ checkIn: 1 });
-    
-    res.json({
-      success: true,
-      count: bookings.length,
-      data: bookings
-    });
+    // הפרדה בין תחילית השנה למספר הסידורי
+    const currentNumber = parseInt(highestBooking.bookingNumber.substring(2));
+    return `${yearPrefix}${currentNumber + 1}`;
   } catch (error) {
-    console.error('שגיאה בקבלת הזמנות:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'שגיאת שרת' 
-    });
+    console.error('שגיאה ביצירת מספר הזמנה:', error);
+    // במקרה של שגיאה - שימוש במספר חד-ערכי מבוסס זמן
+    return `${new Date().getTime().toString().substring(0, 10)}`;
   }
 };
 
-// @desc    קבלת הזמנה לפי מזהה
-// @route   GET /api/bookings/:id
-// @access  Private/Admin
-exports.getBooking = async (req, res) => {
-  try {
-    const booking = await Booking.findById(req.params.id)
-      .populate('room', 'roomNumber type basePrice images');
-    
-    if (!booking) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'ההזמנה לא נמצאה' 
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: booking
-    });
-  } catch (error) {
-    console.error('שגיאה בקבלת הזמנה:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'שגיאת שרת' 
-    });
-  }
-};
-
-// @desc    יצירת הזמנה חדשה
-// @route   POST /api/bookings
-// @access  Public
-exports.createBooking = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ success: false, errors: errors.array() });
-  }
-
-  const { 
-    roomId, 
-    guest, 
-    checkIn, 
-    checkOut, 
-    isTourist, 
-    paymentMethod, 
-    creditCardDetails,
-    notes 
-  } = req.body;
-
-  try {
-    // בדיקה אם החדר קיים
-    const room = await Room.findById(roomId);
-    
-    if (!room) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'החדר לא נמצא' 
-      });
-    }
-    
-    // המרת תאריכים לאובייקטי Date
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
-    
-    // חישוב מספר הלילות
-    const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
-    
-    if (nights <= 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'תאריכי צ\'ק-אין וצ\'ק-אאוט אינם תקינים' 
-      });
-    }
-    
-    // בדיקה אם החדר זמין בתאריכים המבוקשים
-    const overlappingBookings = await Booking.find({
-      room: roomId,
-      $or: [
-        // צ'ק-אין בתוך תקופת הזמנה קיימת
-        { 
-          checkIn: { $lte: checkInDate },
-          checkOut: { $gt: checkInDate }
-        },
-        // צ'ק-אאוט בתוך תקופת הזמנה קיימת
-        { 
-          checkIn: { $lt: checkOutDate },
-          checkOut: { $gte: checkOutDate }
-        },
-        // תקופת ההזמנה מכילה הזמנה קיימת
-        { 
-          checkIn: { $gte: checkInDate },
-          checkOut: { $lte: checkOutDate }
-        }
-      ]
-    });
-    
-    if (overlappingBookings.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'החדר אינו זמין בתאריכים המבוקשים' 
-      });
-    }
-    
-    // בדיקה אם יש חסימות בתאריכים
-    const overlappingBlockedDates = await BlockedDate.find({
-      room: roomId,
-      $or: [
-        { 
-          startDate: { $lte: checkInDate },
-          endDate: { $gt: checkInDate }
-        },
-        { 
-          startDate: { $lt: checkOutDate },
-          endDate: { $gte: checkOutDate }
-        },
-        { 
-          startDate: { $gte: checkInDate },
-          endDate: { $lte: checkOutDate }
-        }
-      ]
-    });
-    
-    if (overlappingBlockedDates.length > 0) {
-      console.log(`נמצאו ${overlappingBlockedDates.length} חסימות חופפות לתאריכים המבוקשים`);
-      
-      // נמחק את החסימות הקיימות (אסטרטגיה של override)
-      for (const blockedDate of overlappingBlockedDates) {
-        console.log(`מוחק חסימה: ${blockedDate._id}, סיבה: ${blockedDate.reason}, מקור: ${blockedDate.externalSource || 'לא מוגדר'}`);
-        await BlockedDate.findByIdAndDelete(blockedDate._id);
+// פונקציה לבדיקת זמינות חדר בתאריכים מבוקשים
+const checkRoomAvailability = async (roomId, checkInDate, checkOutDate, excludeBookingId = null) => {
+  // המרת תאריכים למבנה אחיד
+  const startDate = startOfDay(new Date(checkInDate));
+  const endDate = startOfDay(new Date(checkOutDate));
+  
+  // בניית שאילתת חיפוש
+  const query = {
+    room: roomId,
+    status: { $ne: 'canceled' },
+    $or: [
+      { // צ'ק-אין בתוך ההזמנה הקיימת
+        checkIn: { $lte: endDate },
+        checkOut: { $gt: startDate }
       }
-      
-      console.log(`נמחקו ${overlappingBlockedDates.length} חסימות כדי לאפשר את ההזמנה החדשה`);
+    ]
+  };
+  
+  // אם יש מזהה הזמנה לא לכלול, נוסיף לשאילתה
+  if (excludeBookingId) {
+    query._id = { $ne: excludeBookingId };
+  }
+  
+  // חיפוש הזמנות חופפות
+  const conflictingBookings = await Booking.find(query).populate('room', 'roomNumber type');
+  
+  return {
+    isAvailable: conflictingBookings.length === 0,
+    conflictingBookings
+  };
+};
+
+// יצירת הזמנה חדשה 
+exports.createBooking = async (req, res) => {
+  try {
+    const {
+      roomId,
+      checkIn,
+      checkOut,
+      nights,
+      basePrice,
+      totalPrice,
+      isTourist,
+      guest,
+      creditCard,
+      notes,
+      source
+    } = req.body;
+    
+    if (!roomId || !checkIn || !checkOut || !guest || !guest.name) {
+      return res.status(400).json({
+        success: false,
+        message: 'חסרים שדות חובה'
+      });
     }
     
-    // חישוב מחיר כולל
-    let totalPrice = room.basePrice * nights;
+    const checkInDate = startOfDay(new Date(checkIn));
+    const checkOutDate = startOfDay(new Date(checkOut));
     
-    // הוספת מע"מ אם הלקוח אינו תייר
-    if (!isTourist) {
-      totalPrice = totalPrice * 1.17; // 17% מע"מ
+    // בדיקת זמינות החדר
+    const { isAvailable, conflictingBookings } = await checkRoomAvailability(roomId, checkInDate, checkOutDate);
+    
+    if (!isAvailable) {
+      return res.status(400).json({
+        success: false,
+        message: 'החדר אינו זמין בתאריכים המבוקשים',
+        conflicts: conflictingBookings.map(booking => ({
+          bookingNumber: booking.bookingNumber,
+          room: booking.room?.roomNumber,
+          checkIn: format(booking.checkIn, 'yyyy-MM-dd'),
+          checkOut: format(booking.checkOut, 'yyyy-MM-dd'),
+          guestName: booking.guest.name
+        }))
+      });
     }
+    
+    // בדיקת קיום החדר
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: 'החדר המבוקש לא נמצא'
+      });
+    }
+    
+    // יצירת מספר הזמנה ייחודי
+    const bookingNumber = await generateBookingNumber();
+    
+    // חישוב מחיר אם לא סופק
+    const calculatedTotalPrice = totalPrice || (basePrice || room.basePrice) * nights;
     
     // יצירת הזמנה חדשה
     const booking = new Booking({
+      bookingNumber,
       room: roomId,
-      guest,
       checkIn: checkInDate,
       checkOut: checkOutDate,
       nights,
-      totalPrice,
-      isTourist,
-      paymentMethod,
-      creditCardDetails,
+      basePrice: basePrice || room.basePrice,
+      totalPrice: calculatedTotalPrice,
+      isTourist: isTourist || false,
+      guest,
+      creditCard,
       notes,
-      createdBy: req.user ? req.user.id : null
+      status: 'confirmed',
+      paymentStatus: 'pending',
+      source: source || 'direct'
     });
     
-    // שמירת ההזמנה במסד הנתונים
     await booking.save();
-    
-    // יצירת חסימה עבור התאריכים של ההזמנה
-    const newBlockedDate = new BlockedDate({
-      room: roomId,
-      startDate: checkInDate,
-      endDate: checkOutDate,
-      reason: `הזמנה #${booking.bookingNumber} - ${guest.name}`,
-      createdBy: req.user ? req.user.id : null,
-      externalReference: `booking:${booking._id}`
-    });
-    
-    await newBlockedDate.save();
-    
-    // שליחת אימייל אישור
-    try {
-      await sendBookingConfirmation(booking, room);
-      console.log('אימייל אישור הזמנה נשלח ללקוח');
-    } catch (emailError) {
-      console.error('שגיאה בשליחת אימייל אישור:', emailError);
-      // ממשיכים למרות שגיאה בשליחת האימייל
-    }
-    
-    // מילוי פרטי החדר בתשובה
-    const bookingWithRoom = await Booking.findById(booking._id).populate('room', 'roomNumber type basePrice');
     
     res.status(201).json({
       success: true,
       message: 'ההזמנה נוצרה בהצלחה',
-      _id: booking._id,
-      bookingNumber: booking.bookingNumber,
-      data: bookingWithRoom // החזרת כל פרטי ההזמנה כולל החדר
+      booking: {
+        ...booking.toObject(),
+        room: {
+          _id: room._id,
+          roomNumber: room.roomNumber,
+          type: room.type,
+          basePrice: room.basePrice
+        }
+      }
     });
   } catch (error) {
     console.error('שגיאה ביצירת הזמנה:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'שגיאת שרת' 
+    res.status(500).json({
+      success: false,
+      message: 'אירעה שגיאה ביצירת ההזמנה',
+      error: error.message
     });
   }
 };
 
-// @desc    עדכון הזמנה
-// @route   PUT /api/bookings/:id
-// @access  Private/Admin
-exports.updateBooking = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ success: false, errors: errors.array() });
-  }
-
-  const { 
-    roomId, 
-    guest, 
-    checkIn, 
-    checkOut, 
-    isTourist, 
-    paymentStatus,
-    paymentMethod, 
-    creditCardDetails,
-    notes 
-  } = req.body;
-
+// קבלת כל ההזמנות
+exports.getBookings = async (req, res) => {
   try {
-    let booking = await Booking.findById(req.params.id);
+    // פרמטרים לסינון וחיפוש
+    let { 
+      startDate, endDate, roomId, status, 
+      guestName, paymentStatus, sortBy = 'checkIn', 
+      limit = 100, page = 1, minNights, maxNights,
+      sortOrder = 'asc'
+    } = req.query;
+    
+    // בניית שאילתת חיפוש
+    const query = {};
+    
+    // סינון לפי תאריכים
+    if (startDate || endDate) {
+      query.$or = [];
+      
+      if (startDate) {
+        const start = startOfDay(new Date(startDate));
+        if (endDate) {
+          const end = endOfDay(new Date(endDate));
+          // הזמנות שמתחילות או מסתיימות בטווח, או שמכילות את הטווח
+          query.$or.push(
+            { checkIn: { $gte: start, $lte: end } },
+            { checkOut: { $gt: start, $lte: end } },
+            { 
+              checkIn: { $lte: start },
+              checkOut: { $gte: end }
+            }
+          );
+        } else {
+          query.$or.push(
+            { checkIn: { $gte: start } },
+            { checkOut: { $gte: start } }
+          );
+        }
+      } else if (endDate) {
+        const end = endOfDay(new Date(endDate));
+        query.$or.push({ checkIn: { $lte: end } });
+      }
+    }
+    
+    // סינון לפי חדר
+    if (roomId) {
+      query.room = roomId;
+    }
+    
+    // סינון לפי סטטוס
+    if (status) {
+      query.status = status;
+    }
+    
+    // סינון לפי שם אורח
+    if (guestName) {
+      query['guest.name'] = { $regex: guestName, $options: 'i' };
+    }
+    
+    // סינון לפי סטטוס תשלום
+    if (paymentStatus) {
+      query.paymentStatus = paymentStatus;
+    }
+    
+    // סינון לפי מספר לילות
+    if (minNights || maxNights) {
+      query.nights = {};
+      if (minNights) query.nights.$gte = parseInt(minNights);
+      if (maxNights) query.nights.$lte = parseInt(maxNights);
+    }
+    
+    // יצירת מיון
+    const sort = {};
+    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    
+    // חישוב פרמטרים לעימוד
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // ביצוע השאילתה עם יחס
+    const bookings = await Booking.find(query)
+      .populate('room', 'roomNumber type basePrice')
+      .sort(sort)
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    // ספירת סך הכל תוצאות עבור עימוד
+    const total = await Booking.countDocuments(query);
+    
+    res.json({
+      success: true,
+      count: bookings.length,
+      total,
+      pages: Math.ceil(total / parseInt(limit)),
+      currentPage: parseInt(page),
+      data: bookings
+    });
+  } catch (error) {
+    console.error('שגיאה בקבלת ההזמנות:', error);
+    res.status(500).json({
+      success: false,
+      message: 'אירעה שגיאה בקבלת ההזמנות',
+      error: error.message
+    });
+  }
+};
+
+// קבלת הזמנה לפי מזהה
+exports.getBookingById = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id)
+      .populate('room', 'roomNumber type basePrice');
     
     if (!booking) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'ההזמנה לא נמצאה' 
+      return res.status(404).json({
+        success: false,
+        message: 'ההזמנה לא נמצאה'
       });
     }
-    
-    // אם יש שינוי בחדר, בדוק אם החדר החדש קיים
-    let room = booking.room;
-    if (roomId && roomId !== booking.room.toString()) {
-      room = await Room.findById(roomId);
-      
-      if (!room) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'החדר לא נמצא' 
-        });
-      }
-    } else {
-      room = await Room.findById(booking.room);
-    }
-    
-    // אם יש שינוי בתאריכים, בדוק זמינות
-    let checkInDate = booking.checkIn;
-    let checkOutDate = booking.checkOut;
-    let nights = booking.nights;
-    
-    if ((checkIn && new Date(checkIn).getTime() !== booking.checkIn.getTime()) || 
-        (checkOut && new Date(checkOut).getTime() !== booking.checkOut.getTime()) ||
-        (roomId && roomId !== booking.room.toString())) {
-      
-      checkInDate = checkIn ? new Date(checkIn) : booking.checkIn;
-      checkOutDate = checkOut ? new Date(checkOut) : booking.checkOut;
-      
-      // חישוב מספר הלילות
-      nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
-      
-      if (nights <= 0) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'תאריכי צ\'ק-אין וצ\'ק-אאוט אינם תקינים' 
-        });
-      }
-      
-      // בדיקה אם החדר זמין בתאריכים החדשים (מלבד ההזמנה הנוכחית)
-      const overlappingBookings = await Booking.find({
-        _id: { $ne: req.params.id },
-        room: roomId || booking.room,
-        $or: [
-          { 
-            checkIn: { $lte: checkInDate },
-            checkOut: { $gt: checkInDate }
-          },
-          { 
-            checkIn: { $lt: checkOutDate },
-            checkOut: { $gte: checkOutDate }
-          },
-          { 
-            checkIn: { $gte: checkInDate },
-            checkOut: { $lte: checkOutDate }
-          }
-        ]
-      });
-      
-      if (overlappingBookings.length > 0) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'החדר אינו זמין בתאריכים המבוקשים' 
-        });
-      }
-
-      // בדיקה אם יש חסימות בתאריכים (שלא קשורות להזמנה הנוכחית)
-      const overlappingBlockedDates = await BlockedDate.find({
-        room: roomId || booking.room,
-        externalReference: { $ne: `booking:${booking._id}` },
-        $or: [
-          { 
-            startDate: { $lte: checkInDate },
-            endDate: { $gt: checkInDate }
-          },
-          { 
-            startDate: { $lt: checkOutDate },
-            endDate: { $gte: checkOutDate }
-          },
-          { 
-            startDate: { $gte: checkInDate },
-            endDate: { $lte: checkOutDate }
-          }
-        ]
-      });
-
-      if (overlappingBlockedDates.length > 0) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'החדר אינו זמין בתאריכים המבוקשים - קיימת חסימה'
-        });
-      }
-      
-      // עדכון החסימה המשויכת להזמנה
-      // קודם מחיקת החסימה הקיימת
-      await BlockedDate.deleteMany({
-        externalReference: `booking:${booking._id}`
-      });
-      
-      // יצירת חסימה חדשה
-      const newBlockedDate = new BlockedDate({
-        room: roomId || booking.room,
-        startDate: checkInDate,
-        endDate: checkOutDate,
-        reason: `הזמנה #${booking.bookingNumber} - ${guest?.name || booking.guest.name}`,
-        createdBy: req.user ? req.user.id : null,
-        externalReference: `booking:${booking._id}`
-      });
-      
-      await newBlockedDate.save();
-    }
-    
-    // חישוב מחיר כולל אם יש שינוי בתאריכים או בסטטוס תייר
-    let totalPrice = booking.totalPrice;
-    
-    if (nights !== booking.nights || 
-        (isTourist !== undefined && isTourist !== booking.isTourist)) {
-      
-      // חישוב מחיר בסיסי
-      totalPrice = room.basePrice * nights;
-      
-      // הוספת מע"מ אם הלקוח אינו תייר
-      if (isTourist !== undefined ? !isTourist : !booking.isTourist) {
-        totalPrice = totalPrice * 1.17; // 17% מע"מ
-      }
-    }
-    
-    // עדכון פרטי ההזמנה
-    booking.room = roomId || booking.room;
-    
-    if (guest) {
-      booking.guest.name = guest.name || booking.guest.name;
-      booking.guest.phone = guest.phone || booking.guest.phone;
-      booking.guest.email = guest.email || booking.guest.email;
-    }
-    
-    booking.checkIn = checkInDate;
-    booking.checkOut = checkOutDate;
-    booking.nights = nights;
-    booking.totalPrice = totalPrice;
-    
-    if (isTourist !== undefined) {
-      booking.isTourist = isTourist;
-    }
-    
-    if (paymentStatus) {
-      booking.paymentStatus = paymentStatus;
-    }
-    
-    if (paymentMethod) {
-      booking.paymentMethod = paymentMethod;
-    }
-    
-    if (creditCardDetails) {
-      booking.creditCardDetails = {
-        ...booking.creditCardDetails,
-        ...creditCardDetails
-      };
-    }
-    
-    if (notes !== undefined) {
-      booking.notes = notes;
-    }
-    
-    // שמירת השינויים
-    await booking.save();
     
     res.json({
       success: true,
       data: booking
     });
   } catch (error) {
-    console.error('שגיאה בעדכון הזמנה:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'שגיאת שרת' 
+    console.error('שגיאה בקבלת ההזמנה:', error);
+    res.status(500).json({
+      success: false,
+      message: 'אירעה שגיאה בקבלת ההזמנה',
+      error: error.message
     });
   }
 };
 
-// @desc    מחיקת הזמנה
-// @route   DELETE /api/bookings/:id
-// @access  Private/Admin
-exports.deleteBooking = async (req, res) => {
+// עדכון הזמנה
+exports.updateBooking = async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.id);
+    const bookingId = req.params.id;
+    const updateData = { ...req.body };
     
+    // בדיקת קיום ההזמנה
+    const booking = await Booking.findById(bookingId);
     if (!booking) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'ההזמנה לא נמצאה' 
+      return res.status(404).json({
+        success: false,
+        message: 'ההזמנה לא נמצאה'
       });
     }
     
-    // מחיקת החסימות המקושרות להזמנה
-    const deleteBlockedDatesResult = await BlockedDate.deleteMany({
-      externalReference: `booking:${booking._id}`
-    });
+    // אם יש עדכון תאריכים, צריך לבדוק זמינות
+    if ((updateData.checkIn && updateData.checkIn !== booking.checkIn.toISOString()) || 
+        (updateData.checkOut && updateData.checkOut !== booking.checkOut.toISOString()) ||
+        (updateData.roomId && updateData.roomId !== booking.room.toString())) {
+      
+      const roomId = updateData.roomId || booking.room;
+      const checkInDate = updateData.checkIn ? new Date(updateData.checkIn) : booking.checkIn;
+      const checkOutDate = updateData.checkOut ? new Date(updateData.checkOut) : booking.checkOut;
+      
+      // בדיקת זמינות החדר
+      const { isAvailable, conflictingBookings } = await checkRoomAvailability(
+        roomId, checkInDate, checkOutDate, bookingId
+      );
+      
+      if (!isAvailable) {
+        return res.status(400).json({
+          success: false,
+          message: 'החדר אינו זמין בתאריכים המבוקשים',
+          conflicts: conflictingBookings.map(booking => ({
+            bookingNumber: booking.bookingNumber,
+            room: booking.room?.roomNumber,
+            checkIn: format(booking.checkIn, 'yyyy-MM-dd'),
+            checkOut: format(booking.checkOut, 'yyyy-MM-dd'),
+            guestName: booking.guest.name
+          }))
+        });
+      }
+      
+      // עדכון מספר לילות אם השתנו התאריכים
+      if (updateData.checkIn || updateData.checkOut) {
+        const start = updateData.checkIn ? new Date(updateData.checkIn) : booking.checkIn;
+        const end = updateData.checkOut ? new Date(updateData.checkOut) : booking.checkOut;
+        
+        // חישוב הפרש הימים
+        const diffTime = Math.abs(end - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        updateData.nights = diffDays;
+        
+        // עדכון מחיר אם צריך
+        if (diffDays !== booking.nights) {
+          const basePrice = updateData.basePrice || booking.basePrice;
+          updateData.totalPrice = basePrice * diffDays;
+        }
+      }
+      
+      // אם השתנה החדר
+      if (updateData.roomId) {
+        updateData.room = updateData.roomId;
+        delete updateData.roomId;
+      }
+    }
     
-    console.log(`נמחקו ${deleteBlockedDatesResult.deletedCount} חסימות הקשורות להזמנה ${booking._id}`);
+    // עדכון חותמת הזמן
+    updateData.updatedAt = new Date();
     
-    // למקרה שאין חסימות עם מזהה חיצוני, ננסה גם למחוק לפי תאריכים
-    const deleteByDateResult = await BlockedDate.deleteMany({
-      room: booking.room,
-      startDate: booking.checkIn,
-      endDate: booking.checkOut
-    });
-    
-    console.log(`נמחקו ${deleteByDateResult.deletedCount} חסימות נוספות על פי תאריכים`);
-    
-    // מחיקת ההזמנה עצמה
-    await Booking.findByIdAndDelete(req.params.id);
+    // ביצוע העדכון
+    const updatedBooking = await Booking.findByIdAndUpdate(
+      bookingId,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('room', 'roomNumber type basePrice');
     
     res.json({
       success: true,
-      message: `ההזמנה נמחקה בהצלחה והתאריכים שוחררו (${deleteBlockedDatesResult.deletedCount + deleteByDateResult.deletedCount} חסימות נמחקו)`
+      message: 'ההזמנה עודכנה בהצלחה',
+      data: updatedBooking
     });
   } catch (error) {
-    console.error('שגיאה במחיקת הזמנה:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'שגיאת שרת' 
+    console.error('שגיאה בעדכון ההזמנה:', error);
+    res.status(500).json({
+      success: false,
+      message: 'אירעה שגיאה בעדכון ההזמנה',
+      error: error.message
     });
   }
 };
 
-// @desc    קבלת כל ההזמנות לחדר מסוים
-// @route   GET /api/bookings/room/:roomId
-// @access  Private/Admin
-exports.getRoomBookings = async (req, res) => {
+// מחיקת הזמנה (ביטול)
+exports.deleteBooking = async (req, res) => {
   try {
-    const bookings = await Booking.find({ room: req.params.roomId })
-      .sort({ checkIn: 1 });
+    const bookingId = req.params.id;
+    
+    // בדיקת קיום ההזמנה
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'ההזמנה לא נמצאה'
+      });
+    }
+    
+    // במקום למחוק, משנים את הסטטוס ל"מבוטל"
+    booking.status = 'canceled';
+    booking.updatedAt = new Date();
+    
+    await booking.save();
     
     res.json({
       success: true,
-      count: bookings.length,
-      data: bookings
+      message: 'ההזמנה בוטלה בהצלחה'
     });
   } catch (error) {
-    console.error('שגיאה בקבלת הזמנות לחדר:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'שגיאת שרת' 
+    console.error('שגיאה בביטול ההזמנה:', error);
+    res.status(500).json({
+      success: false,
+      message: 'אירעה שגיאה בביטול ההזמנה',
+      error: error.message
+    });
+  }
+};
+
+// עדכון סטטוס תשלום
+exports.updatePaymentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { paymentStatus, paidAmount, paymentMethod } = req.body;
+    
+    if (!paymentStatus) {
+      return res.status(400).json({
+        success: false,
+        message: 'חסר סטטוס תשלום'
+      });
+    }
+    
+    // בדיקת קיום ההזמנה
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'ההזמנה לא נמצאה'
+      });
+    }
+    
+    // עדכון סטטוס תשלום
+    booking.paymentStatus = paymentStatus;
+    
+    // עדכון סכום ששולם אם סופק
+    if (paidAmount !== undefined) {
+      booking.paidAmount = paidAmount;
+    }
+    
+    // עדכון אמצעי תשלום אם סופק
+    if (paymentMethod) {
+      booking.paymentMethod = paymentMethod;
+    }
+    
+    booking.updatedAt = new Date();
+    
+    await booking.save();
+    
+    res.json({
+      success: true,
+      message: 'סטטוס התשלום עודכן בהצלחה',
+      data: booking
+    });
+  } catch (error) {
+    console.error('שגיאה בעדכון סטטוס תשלום:', error);
+    res.status(500).json({
+      success: false,
+      message: 'אירעה שגיאה בעדכון סטטוס התשלום',
+      error: error.message
+    });
+  }
+};
+
+// בדיקת זמינות חדר
+exports.checkAvailability = async (req, res) => {
+  try {
+    const { roomId, checkIn, checkOut } = req.query;
+    
+    if (!roomId || !checkIn || !checkOut) {
+      return res.status(400).json({
+        success: false,
+        message: 'חסרים פרמטרים לבדיקת זמינות'
+      });
+    }
+    
+    // בדיקת זמינות החדר
+    const { isAvailable, conflictingBookings } = await checkRoomAvailability(
+      roomId, new Date(checkIn), new Date(checkOut)
+    );
+    
+    res.json({
+      success: true,
+      isAvailable,
+      conflicts: isAvailable ? [] : conflictingBookings.map(booking => ({
+        bookingNumber: booking.bookingNumber,
+        room: booking.room?.roomNumber,
+        checkIn: format(booking.checkIn, 'yyyy-MM-dd'),
+        checkOut: format(booking.checkOut, 'yyyy-MM-dd'),
+        guestName: booking.guest.name
+      }))
+    });
+  } catch (error) {
+    console.error('שגיאה בבדיקת זמינות:', error);
+    res.status(500).json({
+      success: false,
+      message: 'אירעה שגיאה בבדיקת זמינות',
+      error: error.message
+    });
+  }
+};
+
+// מחיקת כל ההזמנות (לשימוש אדמין בלבד)
+exports.deleteAllBookings = async (req, res) => {
+  try {
+    const { password } = req.body;
+    
+    // בדיקת סיסמה
+    if (!password || password !== process.env.SUPER_ADMIN_PASSWORD) {
+      return res.status(401).json({
+        success: false,
+        message: 'סיסמה שגויה או חסרה'
+      });
+    }
+    
+    // מחיקת כל ההזמנות
+    const result = await Booking.deleteMany({});
+    
+    res.json({
+      success: true,
+      message: `${result.deletedCount} הזמנות נמחקו בהצלחה`,
+      count: result.deletedCount
+    });
+  } catch (error) {
+    console.error('שגיאה במחיקת כל ההזמנות:', error);
+    res.status(500).json({
+      success: false,
+      message: 'אירעה שגיאה במחיקת כל ההזמנות',
+      error: error.message
+    });
+  }
+};
+
+// קבלת סטטיסטיקות הזמנות
+exports.getBookingsStats = async (req, res) => {
+  try {
+    // שליפת נתונים סטטיסטיים
+    const totalBookings = await Booking.countDocuments({ status: { $ne: 'canceled' } });
+    const pendingPayments = await Booking.countDocuments({ paymentStatus: 'pending', status: 'confirmed' });
+    const upcomingBookings = await Booking.countDocuments({ 
+      checkIn: { $gte: startOfDay(new Date()) },
+      status: 'confirmed' 
+    });
+    
+    // סטטיסטיקה לפי סטטוס
+    const bookingsByStatus = await Booking.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+    
+    // סטטיסטיקה לפי סטטוס תשלום
+    const bookingsByPaymentStatus = await Booking.aggregate([
+      { $group: { _id: '$paymentStatus', count: { $sum: 1 } } }
+    ]);
+    
+    // סטטיסטיקה לפי חודשים - השנה הנוכחית
+    const currentYear = new Date().getFullYear();
+    const startOfYear = new Date(currentYear, 0, 1);
+    const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59);
+    
+    const bookingsByMonth = await Booking.aggregate([
+      { 
+        $match: { 
+          checkIn: { $gte: startOfYear, $lte: endOfYear },
+          status: { $ne: 'canceled' }
+        } 
+      },
+      {
+        $group: {
+          _id: { $month: '$checkIn' },
+          count: { $sum: 1 },
+          revenue: { $sum: '$totalPrice' }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        totalBookings,
+        pendingPayments,
+        upcomingBookings,
+        bookingsByStatus: bookingsByStatus.reduce((acc, curr) => {
+          acc[curr._id] = curr.count;
+          return acc;
+        }, {}),
+        bookingsByPaymentStatus: bookingsByPaymentStatus.reduce((acc, curr) => {
+          acc[curr._id] = curr.count;
+          return acc;
+        }, {}),
+        bookingsByMonth: bookingsByMonth.map(item => ({
+          month: item._id,
+          count: item.count,
+          revenue: item.revenue
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('שגיאה בקבלת סטטיסטיקות הזמנות:', error);
+    res.status(500).json({
+      success: false,
+      message: 'אירעה שגיאה בקבלת סטטיסטיקות הזמנות',
+      error: error.message
     });
   }
 }; 
