@@ -765,8 +765,16 @@ const BookingsCalendarPage = () => {
         }
         
         // השוואת מזהה החדר (תלוי במבנה הנתונים - לפעמים זה אובייקט ולפעמים רק מזהה)
-        const roomIdToCompare = typeof blockedDate.room === 'object' ? blockedDate.room._id : blockedDate.room;
-        const isSameRoom = roomIdToCompare === roomId;
+        let roomIdToCompare;
+        if (typeof blockedDate.room === 'object' && blockedDate.room !== null && blockedDate.room._id) {
+          roomIdToCompare = blockedDate.room._id.toString();
+        } else if (blockedDate.room) {
+          roomIdToCompare = blockedDate.room.toString();
+        } else {
+          return false; // אין חדר לחסימה
+        }
+        
+        const isSameRoom = roomIdToCompare === roomId.toString();
         
         // ודאות שהתאריכים הם אובייקטי Date
         const startDate = blockedDate.startDate instanceof Date ? blockedDate.startDate : new Date(blockedDate.startDate);
@@ -983,7 +991,21 @@ const BookingsCalendarPage = () => {
         console.log(`בדיקת הזמנה ${booking._id} לחדר ${booking.roomId} מול חדר ${room._id} בתאריך ${date.toISOString()}`);
         console.log(`צ'ק-אין: ${checkInDate.toISOString()}, צ'ק-אאוט: ${checkOutDate.toISOString()}`);
         
-        const isSameRoomId = booking.roomId === room._id;
+        // תיקון קריטי: בדוק אם booking.room הוא אובייקט או מחרוזת
+        let bookingRoomId;
+        if (booking.roomId) {
+          bookingRoomId = booking.roomId;
+        } else if (booking.room) {
+          // אם room הוא אובייקט עם _id
+          if (typeof booking.room === 'object' && booking.room !== null && booking.room._id) {
+            bookingRoomId = booking.room._id;
+          } else {
+            // אם room הוא מזהה חדר (מחרוזת או ObjectId)
+            bookingRoomId = booking.room.toString();
+          }
+        }
+        
+        const isSameRoomId = bookingRoomId === room._id.toString();
         
         // בדיקה אם התאריך נמצא בין צ'ק-אין לצ'ק-אאוט (לא כולל צ'ק-אאוט)
         const isDateInRange = date >= checkInDate && date < checkOutDate;
