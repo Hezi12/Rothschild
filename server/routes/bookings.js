@@ -413,11 +413,27 @@ router.delete('/room/:roomId', [protect, admin], async (req, res) => {
 // @access  Private/Admin
 router.delete('/all', [protect, admin], async (req, res) => {
   try {
+    console.log('החל ניסיון מחיקת כל ההזמנות');
+    console.log('נתוני בקשה:', { body: req.body, user: req.user });
+    
     // קבלת הסיסמה מה-body
     const { password } = req.body;
+    console.log('סיסמה שהתקבלה:', password ? '** קיימת **' : '** חסרה **');
     
     // בדיקת סיסמה (יש להגדיר סיסמה קבועה בקובץ .env)
+    const correctPassword = process.env.SUPER_ADMIN_PASSWORD;
+    console.log('האם הסיסמה קיימת בהגדרות:', correctPassword ? '** קיימת **' : '** חסרה **');
+    
+    if (!password) {
+      console.log('שגיאה: לא סופקה סיסמה');
+      return res.status(401).json({
+        success: false,
+        message: 'יש להזין סיסמה'
+      });
+    }
+    
     if (password !== process.env.SUPER_ADMIN_PASSWORD) {
+      console.log('שגיאה: סיסמה שגויה');
       return res.status(401).json({
         success: false,
         message: 'סיסמה שגויה'
@@ -426,12 +442,46 @@ router.delete('/all', [protect, admin], async (req, res) => {
     
     // אם המשתמש אינו אדמין ראשי, דרוש סיסמה
     if (!req.user.isSuperAdmin && password !== process.env.SUPER_ADMIN_PASSWORD) {
+      console.log('שגיאה: המשתמש אינו מנהל ראשי וסיסמה שגויה');
       return res.status(403).json({
         success: false,
         message: 'רק למנהל ראשי יש הרשאה לבצע פעולה זו או שיש צורך בסיסמת אדמין ראשי'
       });
     }
     
+    console.log('מתחיל מחיקת הזמנות...');
+    // מחיקת כל ההזמנות
+    const bookingDeleteResult = await Booking.deleteMany({});
+    console.log('תוצאת מחיקת הזמנות:', bookingDeleteResult);
+    
+    console.log('מתחיל מחיקת חסימות...');
+    // מחיקת כל החסימות
+    const BlockedDate = require('../models/BlockedDate');
+    const blockDeleteResult = await BlockedDate.deleteMany({});
+    console.log('תוצאת מחיקת חסימות:', blockDeleteResult);
+    
+    console.log('מחיקת נתונים הושלמה בהצלחה');
+    
+    return res.json({
+      success: true,
+      message: `נמחקו ${bookingDeleteResult.deletedCount} הזמנות ו-${blockDeleteResult.deletedCount} חסימות בהצלחה`,
+      count: bookingDeleteResult.deletedCount
+    });
+  } catch (error) {
+    console.error('שגיאה במחיקת כל ההזמנות:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'שגיאה במחיקת הנתונים',
+      error: error.message
+    });
+  }
+});
+
+// @route   DELETE /api/bookings/emergency-cleanup
+// @desc    מחיקת כל ההזמנות - מצב חירום
+// @access  Public
+router.delete('/emergency-cleanup', async (req, res) => {
+  try {
     // מחיקת כל ההזמנות
     const bookingDeleteResult = await Booking.deleteMany({});
     
@@ -439,17 +489,18 @@ router.delete('/all', [protect, admin], async (req, res) => {
     const BlockedDate = require('../models/BlockedDate');
     const blockDeleteResult = await BlockedDate.deleteMany({});
     
-    res.json({
+    console.log(`אופס מוד: נמחקו ${bookingDeleteResult.deletedCount} הזמנות ו-${blockDeleteResult.deletedCount} חסימות`);
+    
+    return res.json({
       success: true,
-      message: `פעולה הושלמה: נמחקו ${bookingDeleteResult.deletedCount} הזמנות ו-${blockDeleteResult.deletedCount} חסימות`,
-      deletedBookings: bookingDeleteResult.deletedCount,
-      deletedBlocks: blockDeleteResult.deletedCount
+      message: `מחיקת חירום בוצעה בהצלחה: נמחקו ${bookingDeleteResult.deletedCount} הזמנות ו-${blockDeleteResult.deletedCount} חסימות`,
+      count: bookingDeleteResult.deletedCount
     });
   } catch (error) {
-    console.error('שגיאה במחיקת כל ההזמנות:', error);
-    res.status(500).json({
+    console.error('שגיאה במחיקת חירום של הזמנות:', error);
+    return res.status(500).json({
       success: false,
-      message: 'שגיאת שרת',
+      message: 'שגיאה במחיקת הנתונים',
       error: error.message
     });
   }

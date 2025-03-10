@@ -122,6 +122,37 @@ const DashboardPage = () => {
     }
   };
 
+  // פונקציית מחיקת חירום - לשימוש במקרי קצה בלבד
+  const handleEmergencyCleanup = async () => {
+    if (!window.confirm('אזהרה חמורה! פעולה זו תמחק את כל ההזמנות והחסימות ללא אפשרות שחזור. האם אתה בטוח?')) {
+      return;
+    }
+    if (!window.confirm('אזהרה נוספת: זוהי פעולת חירום! כל הנתונים ימחקו לצמיתות. האם להמשיך?')) {
+      return;
+    }
+    
+    try {
+      setDeletingAll(true);
+      
+      const response = await axios.delete(
+        `${process.env.REACT_APP_API_URL}/bookings/emergency-cleanup`
+      );
+      
+      if (response.data.success) {
+        toast.success(response.data.message);
+        setShowDeleteAllModal(false);
+        setDeletePassword('');
+        // רענון הדף
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('שגיאה במחיקת חירום:', error);
+      toast.error(error.response?.data?.message || 'אירעה שגיאה במחיקת הנתונים');
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ mb: 4 }}>
@@ -346,6 +377,25 @@ const DashboardPage = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* כפתור חירום למחיקת כל הנתונים */}
+      <Box sx={{ mt: 4, textAlign: 'center', p: 2, border: '2px dashed red', borderRadius: 2 }}>
+        <Typography variant="h6" color="error" gutterBottom>
+          אזור חירום - לשימוש במקרי קצה בלבד
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="error" 
+          onClick={handleEmergencyCleanup}
+          disabled={deletingAll}
+          sx={{ mt: 1 }}
+        >
+          מחיקת חירום - כל ההזמנות והחסימות
+        </Button>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+          לשימוש רק כשכל השאר נכשל
+        </Typography>
+      </Box>
 
       {/* כלים נוספים */}
       <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
