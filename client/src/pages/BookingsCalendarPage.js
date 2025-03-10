@@ -233,71 +233,98 @@ const BookingsCalendarPage = () => {
     try {
       setLoadingBookings(true);
       
-      // נקבל את כל ההזמנות בטווח התאריכים
-      const formattedStartDate = startDate.toISOString();
-      const formattedEndDate = endDate.toISOString();
+      // קבלת כל ההזמנות מהשרת
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings`);
       
-      const url = `${process.env.REACT_APP_API_URL}/bookings?startDate=${formattedStartDate}&endDate=${formattedEndDate}`;
-      const response = await axios.get(url);
-      
-      if (response.data && response.data.data) {
-        // המרת תאריכים לאובייקטי Date לטיפול עקבי
-        const formattedBookings = response.data.data.map(booking => {
+      if (response.data && response.data.success) {
+        // עיבוד הנתונים שהתקבלו
+        const bookingsData = response.data.data || [];
+        
+        // המרת פורמט התאריכים ושדות אחרים
+        const processedBookings = bookingsData.map(booking => {
           // פיצול שם האורח לשם פרטי ושם משפחה
-          let guestWithFirstLast = booking.guest || { name: '', phone: '', email: '' };
-          
-          if (guestWithFirstLast.name) {
-            const nameParts = guestWithFirstLast.name.split(' ');
-            guestWithFirstLast = {
-              ...guestWithFirstLast,
-              firstName: nameParts[0] || '',
-              lastName: nameParts.slice(1).join(' ') || ''
-            };
-          } else {
-            guestWithFirstLast = {
-              ...guestWithFirstLast,
-              firstName: 'אורח',
-              lastName: 'ללא שם'
-            };
-          }
+          const nameParts = booking.guest?.name ? booking.guest.name.split(' ') : ['', ''];
           
           return {
             ...booking,
             checkIn: booking.checkIn,
             checkOut: booking.checkOut,
-            room: booking.room || { _id: null, roomNumber: 'לא ידוע' },
-            guest: guestWithFirstLast
+            // המרת סטטוס תשלום לעברית
+            paymentStatus: booking.paymentStatus === 'paid' ? 'שולם' : 
+                          (booking.paymentStatus === 'pending' ? 'לא שולם' : booking.paymentStatus),
+            // המרת אמצעי תשלום לפורמט פנימי
+            paymentMethod: booking.paymentMethod === 'credit' ? 'creditCard' : 
+                          (booking.paymentMethod === 'bank_transfer' ? 'bankTransfer' : 'cash'),
+            // הוספת שדות נוספים לאורח
+            guest: {
+              ...booking.guest,
+              firstName: nameParts[0] || '',
+              lastName: nameParts.slice(1).join(' ') || '',
+              idNumber: booking.guest?.idNumber || ''
+            }
           };
         });
         
-        setBookings(formattedBookings);
+        setBookings(processedBookings);
+        console.log(`נטענו ${processedBookings.length} הזמנות`);
+      } else {
+        console.error('שגיאה בטעינת הזמנות: תשובה לא תקינה', response.data);
+        toast.error('שגיאה בטעינת הזמנות');
       }
     } catch (error) {
       console.error('שגיאה בטעינת הזמנות:', error);
-      toast.error('שגיאה בטעינת הזמנות');
+      
+      // הצגת פרטי השגיאה המלאים
+      console.log('פרטי השגיאה המלאים:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.response?.data?.message,
+        fullData: error.response?.data
+      });
+      
+      toast.error('שגיאה בטעינת הזמנות מהשרת');
     } finally {
       setLoadingBookings(false);
     }
   };
   
   const fetchBlockedDates = async () => {
-      setLoadingBlockedDates(true);
     try {
-      const startDateStr = format(startDate, 'yyyy-MM-dd');
-      const endDateStr = format(endDate, 'yyyy-MM-dd');
+      setLoadingBlockedDates(true);
       
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/blocked-dates`, {
-        params: {
-          startDate: startDateStr,
-          endDate: endDateStr
-        }
-      });
+      // קבלת כל התאריכים החסומים
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/blocked-dates`);
       
-      setBlockedDates(response.data.data);
+      if (response.data && response.data.success) {
+        const blockedDatesData = response.data.data || [];
+        
+        // עיבוד הנתונים שהתקבלו
+        const processedBlockedDates = blockedDatesData.map(blockedDate => {
+          return {
+            ...blockedDate,
+            startDate: new Date(blockedDate.startDate),
+            endDate: new Date(blockedDate.endDate)
+          };
+        });
+        
+        setBlockedDates(processedBlockedDates);
+        console.log(`נטענו ${processedBlockedDates.length} תאריכים חסומים`);
+      } else {
+        console.error('שגיאה בטעינת תאריכים חסומים: תשובה לא תקינה', response.data);
+        toast.error('שגיאה בטעינת תאריכים חסומים');
+      }
     } catch (error) {
       console.error('שגיאה בטעינת תאריכים חסומים:', error);
-      setError('אירעה שגיאה בטעינת תאריכים חסומים');
-      toast.error('לא ניתן לטעון תאריכים חסומים');
+      
+      // הצגת פרטי השגיאה המלאים
+      console.log('פרטי השגיאה המלאים:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.response?.data?.message,
+        fullData: error.response?.data
+      });
+      
+      toast.error('שגיאה בטעינת תאריכים חסומים מהשרת');
     } finally {
       setLoadingBlockedDates(false);
     }
@@ -1864,29 +1891,77 @@ const BookingsCalendarPage = () => {
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingData);
       
       // הוספת ההזמנה החדשה למערך ההזמנות המקומי
-      const booking = response.data.data;
-      const nameParts = booking.guest.name.split(' ');
-      
-      const newBookingWithDetails = {
-        ...booking,
-        room: selectedRoom, // שימוש באובייקט החדר המלא במקום רק ה-ID
-        checkIn: selectedDates.start.toISOString(),
-        checkOut: selectedDates.end.toISOString(),
-        paymentStatus: booking.paymentStatus === 'paid' ? 'שולם' : 'לא שולם',
-        paymentMethod: booking.paymentMethod === 'credit' ? 'creditCard' : 
-                        (booking.paymentMethod === 'bank_transfer' ? 'bankTransfer' : 'cash'),
-        guest: {
-          ...booking.guest,
-          firstName: nameParts[0] || '',
-          lastName: nameParts.slice(1).join(' ') || '',
-          idNumber: newBooking.guest.idNumber || ''
+      // בדיקה שקיבלנו נתונים תקינים בתשובה
+      if (response.data && response.data.success) {
+        // למקרה שהתשובה היא רק מזהה ההזמנה ומספר ההזמנה, ולא ההזמנה המלאה
+        if (!response.data.data && response.data._id) {
+          // נשתמש בנתונים ששלחנו + המזהה שקיבלנו
+          const newBookingWithDetails = {
+            _id: response.data._id,
+            bookingNumber: response.data.bookingNumber,
+            room: selectedRoom,
+            checkIn: selectedDates.start.toISOString(),
+            checkOut: selectedDates.end.toISOString(),
+            nights: newBooking.nights,
+            totalPrice: newBooking.totalPrice,
+            paymentStatus: newBooking.paymentStatus === 'שולם' ? 'paid' : 'pending',
+            paymentMethod: newBooking.paymentMethod,
+            guest: {
+              name: `${newBooking.guest.firstName} ${newBooking.guest.lastName}`,
+              phone: newBooking.guest.phone,
+              email: newBooking.guest.email || '',
+              firstName: newBooking.guest.firstName,
+              lastName: newBooking.guest.lastName,
+              idNumber: newBooking.guest.idNumber || ''
+            },
+            notes: newBooking.notes || ''
+          };
+          
+          setBookings(prev => [...prev, newBookingWithDetails]);
+        } else if (response.data.data) {
+          // אם קיבלנו את פרטי ההזמנה המלאים
+          const booking = response.data.data;
+          let guestFirstName = '';
+          let guestLastName = '';
+          
+          // בדיקה שיש שם אורח ושניתן לפצל אותו
+          if (booking.guest && booking.guest.name) {
+            const nameParts = booking.guest.name.split(' ');
+            guestFirstName = nameParts[0] || '';
+            guestLastName = nameParts.slice(1).join(' ') || '';
+          }
+          
+          const newBookingWithDetails = {
+            ...booking,
+            room: selectedRoom, // שימוש באובייקט החדר המלא במקום רק ה-ID
+            checkIn: selectedDates.start.toISOString(),
+            checkOut: selectedDates.end.toISOString(),
+            paymentStatus: booking.paymentStatus === 'paid' ? 'שולם' : 'לא שולם',
+            paymentMethod: booking.paymentMethod === 'credit' ? 'creditCard' : 
+                           (booking.paymentMethod === 'bank_transfer' ? 'bankTransfer' : 'cash'),
+            guest: {
+              ...booking.guest,
+              firstName: guestFirstName,
+              lastName: guestLastName,
+              idNumber: newBooking.guest.idNumber || ''
+            }
+          };
+          
+          setBookings(prev => [...prev, newBookingWithDetails]);
         }
-      };
-      
-      setBookings(prev => [...prev, newBookingWithDetails]);
-      
-      toast.success('ההזמנה נוצרה בהצלחה');
-      setBookingDialogOpen(false);
+        
+        toast.success('ההזמנה נוצרה בהצלחה');
+        setBookingDialogOpen(false);
+        
+        // רענון נתונים מהשרת לאחר יצירת ההזמנה
+        setTimeout(() => {
+          fetchBookings();
+          fetchBlockedDates();
+        }, 1000);
+      } else {
+        // אם התשובה אינה מכילה success: true
+        toast.error('שגיאה ביצירת הזמנה. התשובה מהשרת אינה תקינה.');
+      }
     } catch (error) {
       console.error('שגיאה ביצירת הזמנה:', error);
       console.log('פרטי השגיאה המלאים:', {
@@ -3059,6 +3134,15 @@ const BookingsCalendarPage = () => {
         >
           {loading ? <CircularProgress size={24} /> : 'נטרול סנכרון + מחיקת כל החסימות'}
         </Button>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={handleFullRefresh}
+          startIcon={<RefreshIcon />}
+          disabled={loading}
+        >
+          {loading ? <CircularProgress size={24} /> : 'רענון מלא של הנתונים'}
+        </Button>
       </Box>
     );
   };
@@ -3082,14 +3166,60 @@ const BookingsCalendarPage = () => {
       const result = await axios.delete(url);
       console.log('תוצאת ניטרול סנכרונים:', result.data);
       
-      toast.success(`הסנכרון נוטרל בהצלחה! נמחקו ${result.data.deletedBlockedDates} חסימות ו-${result.data.updatedRooms} חדרים עודכנו`);
-      
-      // רענון הנתונים
-      fetchBlockedDates();
-      fetchRooms();
+      if (result.data && result.data.success) {
+        toast.success(`הסנכרון נוטרל בהצלחה! נמחקו ${result.data.deletedBlockedDates} חסימות ו-${result.data.updatedRooms} חדרים עודכנו`);
+        
+        // רענון הנתונים
+        fetchBlockedDates();
+        fetchRooms();
+      } else {
+        toast.warning('הפעולה הושלמה אך התשובה מהשרת לא הייתה ברורה. מומלץ לרענן את הדף.');
+      }
     } catch (error) {
       console.error('שגיאה בניטרול הסנכרונים:', error);
-      toast.error('שגיאה בניטרול הסנכרונים מבוקינג');
+      
+      // הצגת פרטי השגיאה המלאים
+      console.log('פרטי השגיאה המלאים:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.response?.data?.message,
+        error: error.response?.data?.error,
+        fullData: error.response?.data
+      });
+      
+      // הודעת שגיאה מפורטת יותר
+      if (error.response && error.response.data && error.response.data.message) {
+        toast.error(`שגיאה בניטרול הסנכרונים: ${error.response.data.message}`);
+      } else {
+        toast.error('שגיאה בניטרול הסנכרונים מבוקינג. נסה שוב מאוחר יותר.');
+      }
+      
+      // במקרה של שגיאה, ננסה לרענן את הנתונים בכל זאת
+      fetchBlockedDates();
+      fetchRooms();
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // פונקציה לרענון מלא של הנתונים
+  const handleFullRefresh = async () => {
+    try {
+      setLoading(true);
+      toast.info('מרענן את כל הנתונים...');
+      
+      // רענון כל הנתונים
+      await Promise.all([
+        fetchRooms(),
+        fetchBookings(),
+        fetchBlockedDates(),
+        fetchDynamicPrices()
+      ]);
+      
+      toast.success('כל הנתונים רועננו בהצלחה');
+    } catch (error) {
+      console.error('שגיאה ברענון הנתונים:', error);
+      toast.error('שגיאה ברענון הנתונים');
     } finally {
       setLoading(false);
     }

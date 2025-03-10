@@ -238,11 +238,15 @@ exports.createBooking = async (req, res) => {
       // ממשיכים למרות שגיאה בשליחת האימייל
     }
     
+    // מילוי פרטי החדר בתשובה
+    const bookingWithRoom = await Booking.findById(booking._id).populate('room', 'roomNumber type basePrice');
+    
     res.status(201).json({
       success: true,
       message: 'ההזמנה נוצרה בהצלחה',
       _id: booking._id,
-      bookingNumber: booking.bookingNumber
+      bookingNumber: booking.bookingNumber,
+      data: bookingWithRoom // החזרת כל פרטי ההזמנה כולל החדר
     });
   } catch (error) {
     console.error('שגיאה ביצירת הזמנה:', error);

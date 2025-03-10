@@ -49,22 +49,34 @@ router.delete('/disable-all-ical-sync', [protect, admin], async (req, res) => {
     const Room = require('../models/Room');
     
     // מחיקת כל החסימות שקשורות למקורות חיצוניים
-    let deleteBlockedDatesResult = await BlockedDate.deleteMany({
-      externalSource: { $in: ['booking.com', 'ical'] }
-    });
+    let deleteBlockedDatesResult;
+    try {
+      deleteBlockedDatesResult = await BlockedDate.deleteMany({
+        externalSource: { $in: ['booking.com', 'ical'] }
+      });
+    } catch (deleteError) {
+      console.error('שגיאה במחיקת חסימות חיצוניות:', deleteError);
+      deleteBlockedDatesResult = { deletedCount: 0 };
+    }
     
     // אם עדיין יש בעיות, מאפשר גם למחוק את כל החסימות שאינן קשורות להזמנות מקומיות
     const forceDeleteAll = req.query.forceDeleteAll === 'true';
     
     if (forceDeleteAll) {
       // מחיקת כל החסימות שאינן קשורות להזמנות (שלא מתחילות ב-booking:)
-      const deleteNonBookingBlockedDatesResult = await BlockedDate.deleteMany({
-        $or: [
-          { externalReference: { $exists: false } },
-          { externalReference: '' },
-          { externalReference: { $not: /^booking:/ } }
-        ]
-      });
+      let deleteNonBookingBlockedDatesResult;
+      try {
+        deleteNonBookingBlockedDatesResult = await BlockedDate.deleteMany({
+          $or: [
+            { externalReference: { $exists: false } },
+            { externalReference: '' },
+            { externalReference: { $not: /^booking:/ } }
+          ]
+        });
+      } catch (deleteError) {
+        console.error('שגיאה במחיקת חסימות נוספות:', deleteError);
+        deleteNonBookingBlockedDatesResult = { deletedCount: 0 };
+      }
       
       // עדכון המונה של החסימות שנמחקו
       deleteBlockedDatesResult.deletedCount += deleteNonBookingBlockedDatesResult.deletedCount;
@@ -73,15 +85,21 @@ router.delete('/disable-all-ical-sync', [protect, admin], async (req, res) => {
     }
     
     // מנקה את שדות ה-iCalUrl ומועד הסנכרון האחרון בכל החדרים
-    const updateRoomsResult = await Room.updateMany(
-      {}, // כל החדרים
-      { 
-        $set: { 
-          iCalUrl: '', 
-          lastSyncedAt: null 
-        } 
-      }
-    );
+    let updateRoomsResult;
+    try {
+      updateRoomsResult = await Room.updateMany(
+        {}, // כל החדרים
+        { 
+          $set: { 
+            iCalUrl: '', 
+            lastSyncedAt: null 
+          } 
+        }
+      );
+    } catch (updateError) {
+      console.error('שגיאה בעדכון החדרים:', updateError);
+      updateRoomsResult = { modifiedCount: 0 };
+    }
     
     res.json({
       success: true,
