@@ -378,4 +378,81 @@ router.get('/direct-cancel-request/:id', async (req, res) => {
   }
 });
 
+// @route   DELETE /api/bookings/room/:roomId
+// @desc    מחיקת כל ההזמנות של חדר ספציפי
+// @access  Private/Admin
+router.delete('/room/:roomId', [protect, admin], async (req, res) => {
+  try {
+    const roomId = req.params.roomId;
+    
+    // מחיקת כל ההזמנות של החדר
+    const deleteResult = await Booking.deleteMany({ room: roomId });
+    
+    // מחיקת כל החסימות של החדר
+    const BlockedDate = require('../models/BlockedDate');
+    const blocksDeleteResult = await BlockedDate.deleteMany({ room: roomId });
+    
+    res.json({
+      success: true,
+      message: `נמחקו ${deleteResult.deletedCount} הזמנות ו-${blocksDeleteResult.deletedCount} חסימות מהחדר`,
+      deletedBookings: deleteResult.deletedCount,
+      deletedBlocks: blocksDeleteResult.deletedCount
+    });
+  } catch (error) {
+    console.error('שגיאה במחיקת ההזמנות של החדר:', error);
+    res.status(500).json({
+      success: false,
+      message: 'שגיאת שרת',
+      error: error.message
+    });
+  }
+});
+
+// @route   DELETE /api/bookings/all
+// @desc    מחיקת כל ההזמנות במערכת
+// @access  Private/Admin
+router.delete('/all', [protect, admin], async (req, res) => {
+  try {
+    // קבלת הסיסמה מה-body
+    const { password } = req.body;
+    
+    // בדיקת סיסמה (יש להגדיר סיסמה קבועה בקובץ .env)
+    if (password !== process.env.SUPER_ADMIN_PASSWORD) {
+      return res.status(401).json({
+        success: false,
+        message: 'סיסמה שגויה'
+      });
+    }
+    
+    // אם המשתמש אינו אדמין ראשי, דרוש סיסמה
+    if (!req.user.isSuperAdmin && password !== process.env.SUPER_ADMIN_PASSWORD) {
+      return res.status(403).json({
+        success: false,
+        message: 'רק למנהל ראשי יש הרשאה לבצע פעולה זו או שיש צורך בסיסמת אדמין ראשי'
+      });
+    }
+    
+    // מחיקת כל ההזמנות
+    const bookingDeleteResult = await Booking.deleteMany({});
+    
+    // מחיקת כל החסימות
+    const BlockedDate = require('../models/BlockedDate');
+    const blockDeleteResult = await BlockedDate.deleteMany({});
+    
+    res.json({
+      success: true,
+      message: `פעולה הושלמה: נמחקו ${bookingDeleteResult.deletedCount} הזמנות ו-${blockDeleteResult.deletedCount} חסימות`,
+      deletedBookings: bookingDeleteResult.deletedCount,
+      deletedBlocks: blockDeleteResult.deletedCount
+    });
+  } catch (error) {
+    console.error('שגיאה במחיקת כל ההזמנות:', error);
+    res.status(500).json({
+      success: false,
+      message: 'שגיאת שרת',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router; 

@@ -28,6 +28,8 @@ import {
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
+import { Modal } from 'react-bootstrap';
+import { Form } from 'react-bootstrap';
 
 const DashboardPage = () => {
   const { user } = useContext(AuthContext);
@@ -38,6 +40,9 @@ const DashboardPage = () => {
   });
   const [recentBookings, setRecentBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deletingAll, setDeletingAll] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -80,6 +85,38 @@ const DashboardPage = () => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('he-IL');
+  };
+
+  // פונקציה למחיקת כל ההזמנות במערכת
+  const handleDeleteAllBookings = async () => {
+    if (!deletePassword) {
+      toast.error('יש להזין סיסמה');
+      return;
+    }
+    
+    try {
+      setDeletingAll(true);
+      const response = await axios.delete(
+        `${process.env.REACT_APP_API_URL}/bookings/all`,
+        { 
+          data: { password: deletePassword },
+          withCredentials: true 
+        }
+      );
+      
+      if (response.data.success) {
+        toast.success(response.data.message);
+        setShowDeleteAllModal(false);
+        setDeletePassword('');
+        // רענון הדף
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('שגיאה במחיקת כל ההזמנות:', error);
+      toast.error(error.response?.data?.message || 'אירעה שגיאה במחיקת ההזמנות');
+    } finally {
+      setDeletingAll(false);
+    }
   };
 
   return (
@@ -245,6 +282,54 @@ const DashboardPage = () => {
           </Button>
         </CardActions>
       </Card>
+
+      {/* כפתור מחיקת כל ההזמנות */}
+      <div className="card mt-4 border-danger">
+        <div className="card-header bg-danger text-white">
+          <h3>פעולות מערכת מסוכנות</h3>
+        </div>
+        <div className="card-body">
+          <p className="text-danger fw-bold">אזהרה: הפעולות הבאות הן בלתי הפיכות ויכולות לגרום לאובדן נתונים!</p>
+          <Button 
+            variant="outline-danger" 
+            className="mt-2"
+            onClick={() => setShowDeleteAllModal(true)}
+          >
+            מחק את כל ההזמנות והחסימות במערכת
+          </Button>
+        </div>
+      </div>
+      
+      {/* מודאל אישור מחיקת כל ההזמנות */}
+      <Modal show={showDeleteAllModal} onHide={() => setShowDeleteAllModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title className="text-danger">אזהרה חמורה!</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="fw-bold text-danger">פעולה זו תמחק את כל ההזמנות והחסימות במערכת ללא אפשרות שחזור!</p>
+          <p>אם אתה בטוח שברצונך להמשיך, הזן את סיסמת האדמין הראשי:</p>
+          <Form.Group>
+            <Form.Control
+              type="password"
+              placeholder="סיסמת אדמין ראשי"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowDeleteAllModal(false)}>
+            ביטול
+          </Button>
+          <Button 
+            variant="danger" 
+            onClick={handleDeleteAllBookings}
+            disabled={deletingAll}
+          >
+            {deletingAll ? 'מוחק...' : 'מחק את כל ההזמנות והחסימות'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Box>
   );
 };

@@ -82,6 +82,30 @@ const RoomDetailsPage = () => {
     }
   };
 
+  // פונקציה למחיקת כל ההזמנות של החדר
+  const deleteAllBookings = async () => {
+    if (window.confirm('אזהרה חמורה: פעולה זו תמחק את כל ההזמנות והחסימות של חדר זה ללא אפשרות שחזור! האם אתה בטוח שברצונך להמשיך?')) {
+      try {
+        setLoading(true);
+        const response = await axios.delete(
+          `${process.env.REACT_APP_API_URL}/bookings/room/${id}`,
+          { withCredentials: true }
+        );
+        
+        if (response.data.success) {
+          toast.success(response.data.message);
+          // רענון נתוני החדר
+          fetchRoom();
+        }
+      } catch (error) {
+        console.error('שגיאה במחיקת ההזמנות:', error);
+        toast.error(error.response?.data?.message || 'אירעה שגיאה במחיקת ההזמנות');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   return (
     <div className="container py-4">
       {loading ? (
@@ -99,12 +123,21 @@ const RoomDetailsPage = () => {
               {userInfo && userInfo.isAdmin && (
                 <div className="admin-actions mb-4">
                   <h2>פעולות מנהל</h2>
-                  <div className="d-flex gap-2">
+                  <div className="d-flex gap-2 flex-wrap">
                     <Button variant="danger" onClick={deleteRoom} disabled={loading}>
                       מחק חדר
                     </Button>
                     <Button variant="warning" onClick={deleteAllBlockedDates} disabled={loading}>
                       מחק כל החסימות של חדר זה
+                    </Button>
+                    <Button 
+                      variant="danger" 
+                      className="mt-2" 
+                      onClick={deleteAllBookings} 
+                      disabled={loading}
+                      style={{ backgroundColor: '#dc0000', borderColor: '#dc0000' }}
+                    >
+                      <strong>מחק את כל ההזמנות והחסימות של חדר זה</strong>
                     </Button>
                   </div>
                 </div>

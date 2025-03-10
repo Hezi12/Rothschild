@@ -22,6 +22,14 @@ const UserSchema = new mongoose.Schema({
     enum: ['admin', 'staff'],
     default: 'admin'
   },
+  isAdmin: {
+    type: Boolean,
+    default: false
+  },
+  isSuperAdmin: {
+    type: Boolean,
+    default: false
+  },
   createdAt: {
     type: Date,
     default: Date.now
