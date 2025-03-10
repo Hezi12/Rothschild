@@ -101,7 +101,7 @@ const DashboardPage = () => {
         `${process.env.REACT_APP_API_URL}/bookings/all`,
         { 
           data: { password: deletePassword },
-          withCredentials: true 
+          withCredentials: false 
         }
       );
       
