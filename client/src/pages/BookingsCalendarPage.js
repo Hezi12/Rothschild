@@ -313,67 +313,74 @@ const BookingsCalendarPage = () => {
     try {
       setLoadingBlockedDates(true);
       
-      // קבלת כל התאריכים החסומים
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/blocked-dates`);
-      
-      if (response.data && response.data.success) {
-        const blockedDatesData = response.data.data || [];
+      try {
+        // קבלת כל התאריכים החסומים
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/blocked-dates`);
         
-        console.log('נתוני חסימות גולמיים שהתקבלו:', blockedDatesData);
-        
-        // עיבוד הנתונים שהתקבלו
-        const processedBlockedDates = blockedDatesData.map(blockedDate => {
-          try {
-            // המרה לאובייקטי Date
-            const startDate = new Date(blockedDate.startDate);
-            const endDate = new Date(blockedDate.endDate);
-            
-            // בדיקה שהתאריכים תקינים
-            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-              console.error('תאריכי חסימה לא תקינים:', blockedDate);
-              return null; // נסנן את הרשומות הלא תקינות בהמשך
+        if (response.data && response.data.success) {
+          const blockedDatesData = response.data.data || [];
+          
+          console.log('נתוני חסימות גולמיים שהתקבלו:', blockedDatesData);
+          
+          // עיבוד הנתונים שהתקבלו
+          const processedBlockedDates = blockedDatesData.map(blockedDate => {
+            try {
+              // המרה לאובייקטי Date
+              const startDate = new Date(blockedDate.startDate);
+              const endDate = new Date(blockedDate.endDate);
+              
+              // בדיקה שהתאריכים תקינים
+              if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                console.error('תאריכי חסימה לא תקינים:', blockedDate);
+                return null; // נסנן את הרשומות הלא תקינות בהמשך
+              }
+              
+              // שמירת מזהה החדר
+              const roomId = typeof blockedDate.room === 'object' ? blockedDate.room._id : blockedDate.room;
+              
+              console.log(`חסימה ${blockedDate._id}: חדר ${roomId}, מ-${startDate.toISOString()} עד ${endDate.toISOString()}, סיבה: ${blockedDate.reason || 'לא צוינה'}`);
+              
+              return {
+                ...blockedDate,
+                startDate,
+                endDate,
+                room: roomId // ודא שיש מזהה חדר
+              };
+            } catch (error) {
+              console.error('שגיאה בעיבוד תאריך חסום:', error, blockedDate);
+              return null;
             }
-            
-            // שמירת מזהה החדר
-            const roomId = typeof blockedDate.room === 'object' ? blockedDate.room._id : blockedDate.room;
-            
-            console.log(`חסימה ${blockedDate._id}: חדר ${roomId}, מ-${startDate.toISOString()} עד ${endDate.toISOString()}, סיבה: ${blockedDate.reason || 'לא צוינה'}`);
-            
-            return {
-              ...blockedDate,
-              startDate,
-              endDate,
-              room: roomId // ודא שיש מזהה חדר
-            };
-          } catch (error) {
-            console.error('שגיאה בעיבוד תאריך חסום:', error, blockedDate);
-            return null;
-          }
-        }).filter(blockedDate => blockedDate !== null); // סינון רשומות לא תקינות
-        
-        setBlockedDates(processedBlockedDates);
-        console.log(`נטענו ${processedBlockedDates.length} תאריכים חסומים`);
-        
-        // רישום מפורט של החסימות שנטענו
-        processedBlockedDates.forEach(blockedDate => {
-          console.log(`חסימה נטענה: ${blockedDate._id}, חדר: ${blockedDate.room}, מ: ${blockedDate.startDate.toISOString()}, עד: ${blockedDate.endDate.toISOString()}`);
+          }).filter(blockedDate => blockedDate !== null); // סינון רשומות לא תקינות
+          
+          setBlockedDates(processedBlockedDates);
+          console.log(`נטענו ${processedBlockedDates.length} תאריכים חסומים`);
+          
+          // רישום מפורט של החסימות שנטענו
+          processedBlockedDates.forEach(blockedDate => {
+            console.log(`חסימה נטענה: ${blockedDate._id}, חדר: ${blockedDate.room}, מ: ${blockedDate.startDate.toISOString()}, עד: ${blockedDate.endDate.toISOString()}`);
+          });
+        } else {
+          console.warn('שגיאה בטעינת תאריכים חסומים: תשובה לא תקינה', response.data);
+          setBlockedDates([]); // אתחול למערך ריק במקרה של תשובה לא תקינה
+        }
+      } catch (apiError) {
+        // במקרה של שגיאת תקשורת או שגיאת שרת, נמשיך בלי תאריכים חסומים
+        console.warn('לא ניתן לטעון תאריכים חסומים. ממשיכים עם מערך ריק:', apiError);
+        console.log('פרטי השגיאה המלאים:', {
+          status: apiError.response?.status,
+          statusText: apiError.response?.statusText,
+          message: apiError.response?.data?.message,
+          fullData: apiError.response?.data
         });
-      } else {
-        console.error('שגיאה בטעינת תאריכים חסומים: תשובה לא תקינה', response.data);
-        toast.error('שגיאה בטעינת תאריכים חסומים');
+        
+        setBlockedDates([]); // אתחול למערך ריק
+        
+        // לא מציגים הודעת שגיאה למשתמש - פשוט ממשיכים בלי תאריכים חסומים
+        console.log('ממשיכים עם מערך תאריכים חסומים ריק');
       }
     } catch (error) {
-      console.error('שגיאה בטעינת תאריכים חסומים:', error);
-      
-      // הצגת פרטי השגיאה המלאים
-      console.log('פרטי השגיאה המלאים:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        message: error.response?.data?.message,
-        fullData: error.response?.data
-      });
-      
-      toast.error('שגיאה בטעינת תאריכים חסומים מהשרת');
+      console.error('שגיאה חמורה בטעינת תאריכים חסומים:', error);
+      setBlockedDates([]); // אתחול למערך ריק במקרה של שגיאה
     } finally {
       setLoadingBlockedDates(false);
     }

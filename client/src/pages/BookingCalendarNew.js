@@ -346,13 +346,24 @@ const BookingCalendarNew = () => {
   // טעינת תאריכים חסומים
   const fetchBlockedDates = useCallback(async () => {
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/blocked-dates`);
-      if (response.data.success) {
-        setBlockedDates(response.data.data);
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/blocked-dates`);
+        if (response.data.success) {
+          setBlockedDates(response.data.data);
+          console.log(`נטענו ${response.data.data.length} תאריכים חסומים`);
+        } else {
+          console.warn('תשובה לא תקינה בטעינת תאריכים חסומים:', response.data);
+          setBlockedDates([]); // אתחול למערך ריק במקרה של תשובה לא תקינה
+        }
+      } catch (apiError) {
+        // במקרה של שגיאת תקשורת או שגיאת שרת, נמשיך בלי תאריכים חסומים
+        console.warn('לא ניתן לטעון תאריכים חסומים. ממשיכים עם מערך ריק:', apiError);
+        setBlockedDates([]); // אתחול למערך ריק
+        // לא מציגים הודעת שגיאה למשתמש - פשוט ממשיכים בלי תאריכים חסומים
       }
     } catch (error) {
-      console.error('שגיאה בטעינת תאריכים חסומים:', error);
-      toast.error('שגיאה בטעינת תאריכים חסומים');
+      console.error('שגיאה חמורה בטעינת תאריכים חסומים:', error);
+      setBlockedDates([]); // אתחול למערך ריק במקרה של שגיאה
     }
   }, []);
   
