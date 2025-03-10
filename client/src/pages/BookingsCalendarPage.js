@@ -2866,6 +2866,17 @@ const BookingsCalendarPage = () => {
     );
   };
 
+  // הצגת הודעת אזהרה בטעינת הדף
+  useEffect(() => {
+    toast.warning(
+      <div style={{ textAlign: 'center', direction: 'rtl' }}>
+        <h4>דף מיושן</h4>
+        <p>דף זה יוסר בקרוב. אנא השתמש בדף "ניהול הזמנות (חדש)" מהתפריט.</p>
+      </div>,
+      { autoClose: false }
+    );
+  }, []);
+
   // רינדור כל רכיבי הלוח רק כאשר כל הנתונים טעונים
   if (loading && !dataInitialized) {
     return (

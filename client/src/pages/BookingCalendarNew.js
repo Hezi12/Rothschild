@@ -394,6 +394,17 @@ const BookingCalendarNew = () => {
     calculateDatesToShow();
   }, [currentDate, calculateDatesToShow]);
   
+  // הצגת הודעת אזהרה בטעינת הדף
+  useEffect(() => {
+    toast.warning(
+      <div style={{ textAlign: 'center', direction: 'rtl' }}>
+        <h4>דף מיושן</h4>
+        <p>דף זה יוסר בקרוב. אנא השתמש בדף "ניהול הזמנות (חדש)" מהתפריט.</p>
+      </div>,
+      { autoClose: false }
+    );
+  }, []);
+  
   // ניווט לחודש הבא
   const handleNextMonth = () => {
     setCurrentDate(prevDate => addMonths(prevDate, 1));
