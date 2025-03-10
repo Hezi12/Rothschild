@@ -390,13 +390,33 @@ const BookingCalendarNew = () => {
   const handleOpenNewBookingDialog = (room, date) => {
     setSelectedRoom(room);
     setSelectedDate(date);
+    
+    // חישוב תאריך צ'ק-אאוט (יום אחד לאחר צ'ק-אין)
+    const checkInDate = date;
+    const checkOutDate = addDays(date, 1);
+    
+    // חישוב מספר לילות (ברירת מחדל: לילה אחד)
+    const nights = 1;
+    
+    // חישוב סך הכל לתשלום
+    const totalPrice = room.basePrice * nights;
+    
     setNewBooking({
-      ...newBooking,
       room: room._id,
-      checkIn: format(date, 'yyyy-MM-dd'),
-      checkOut: format(addDays(date, 1), 'yyyy-MM-dd'),
-      totalPrice: room.basePrice
+      checkIn: format(checkInDate, 'yyyy-MM-dd'),
+      checkOut: format(checkOutDate, 'yyyy-MM-dd'),
+      nights: nights,
+      totalPrice: totalPrice,
+      guest: {
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: ''
+      },
+      paymentStatus: 'unpaid',
+      notes: ''
     });
+    
     setNewBookingDialog(true);
   };
   
@@ -436,63 +456,60 @@ const BookingCalendarNew = () => {
     }
   };
   
-  // שינוי תאריך צ׳ק-אין
+  // שינוי תאריך צ'ק-אין
   const handleCheckInDateChange = (e) => {
-    const checkInDate = new Date(e.target.value);
-    const checkOutDate = new Date(newBooking.checkOut);
+    const newCheckIn = e.target.value;
+    const checkInDate = new Date(newCheckIn);
     
-    // חישוב מספר לילות ועדכון מחיר
-    const diffTime = Math.abs(checkOutDate - checkInDate);
-    const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // חישוב מחדש של מספר הלילות והמחיר הכולל
+    let checkOutDate = new Date(newBooking.checkOut);
+    const room = rooms.find(r => r._id === newBooking.room);
     
-    // מניעת ערכים שליליים
-    if (nights <= 0 || checkInDate >= checkOutDate) {
-      const newCheckOut = addDays(checkInDate, 1);
+    if (!isNaN(checkOutDate.getTime()) && !isNaN(checkInDate.getTime()) && room) {
+      const oneDay = 24 * 60 * 60 * 1000; // מילישניות ביום
+      const nights = Math.ceil(Math.max(1, (checkOutDate - checkInDate) / oneDay));
+      const totalPrice = room.basePrice * nights;
+      
       setNewBooking(prev => ({
         ...prev,
-        checkIn: e.target.value,
-        checkOut: format(newCheckOut, 'yyyy-MM-dd'),
-        nights: 1,
-        totalPrice: rooms.find(r => r._id === prev.room)?.basePrice || 0
+        checkIn: newCheckIn,
+        nights: nights,
+        totalPrice: totalPrice
       }));
     } else {
-      const room = rooms.find(r => r._id === newBooking.room);
-      const basePrice = room?.basePrice || 0;
+      // אם אין תאריך צ'ק-אאוט תקין או אין חדר
       setNewBooking(prev => ({
         ...prev,
-        checkIn: e.target.value,
-        nights,
-        totalPrice: basePrice * nights
+        checkIn: newCheckIn
       }));
     }
   };
   
-  // שינוי תאריך צ׳ק-אאוט
+  // שינוי תאריך צ'ק-אאוט
   const handleCheckOutDateChange = (e) => {
-    const checkInDate = new Date(newBooking.checkIn);
-    const checkOutDate = new Date(e.target.value);
+    const newCheckOut = e.target.value;
+    const checkOutDate = new Date(newCheckOut);
     
-    // חישוב מספר לילות ועדכון מחיר
-    const diffTime = Math.abs(checkOutDate - checkInDate);
-    const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // חישוב מחדש של מספר הלילות והמחיר הכולל
+    let checkInDate = new Date(newBooking.checkIn);
+    const room = rooms.find(r => r._id === newBooking.room);
     
-    // מניעת ערכים שליליים
-    if (nights <= 0 || checkOutDate <= checkInDate) {
-      const newCheckOut = addDays(checkInDate, 1);
+    if (!isNaN(checkInDate.getTime()) && !isNaN(checkOutDate.getTime()) && room) {
+      const oneDay = 24 * 60 * 60 * 1000; // מילישניות ביום
+      const nights = Math.ceil(Math.max(1, (checkOutDate - checkInDate) / oneDay));
+      const totalPrice = room.basePrice * nights;
+      
       setNewBooking(prev => ({
         ...prev,
-        checkOut: format(newCheckOut, 'yyyy-MM-dd'),
-        nights: 1,
-        totalPrice: rooms.find(r => r._id === prev.room)?.basePrice || 0
+        checkOut: newCheckOut,
+        nights: nights,
+        totalPrice: totalPrice
       }));
     } else {
-      const room = rooms.find(r => r._id === newBooking.room);
-      const basePrice = room?.basePrice || 0;
+      // אם אין תאריך צ'ק-אין תקין או אין חדר
       setNewBooking(prev => ({
         ...prev,
-        checkOut: e.target.value,
-        nights,
-        totalPrice: basePrice * nights
+        checkOut: newCheckOut
       }));
     }
   };
@@ -507,9 +524,27 @@ const BookingCalendarNew = () => {
     }
     
     try {
+      // הכנת האובייקט בפורמט שהשרת מצפה לקבל
+      const bookingData = {
+        roomId: room, // השרת מצפה ל-roomId ולא ל-room
+        checkIn: checkIn,
+        checkOut: checkOut,
+        nights: newBooking.nights,
+        isTourist: false, // ברירת מחדל - לא תייר
+        paymentMethod: newBooking.paymentStatus === 'paid' ? 'credit' : 'cash',
+        guest: {
+          name: `${guest.firstName} ${guest.lastName}`, // השרת מצפה לשדה name מלא
+          email: guest.email,
+          phone: guest.phone
+        },
+        notes: newBooking.notes || ''
+      };
+      
+      console.log('שולח נתוני הזמנה לשרת:', bookingData);
+      
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/bookings`,
-        newBooking
+        bookingData
       );
       
       if (response.data.success) {
