@@ -286,9 +286,18 @@ const BookingCalendarNew = () => {
       firstName: '',
       lastName: '',
       email: '',
-      phone: ''
+      phone: '',
+      address: ''
     },
-    paymentStatus: 'unpaid'
+    paymentMethod: 'cash',
+    paymentStatus: 'pending',
+    isTourist: false,
+    creditCardDetails: {
+      cardNumber: '',
+      expiryDate: '',
+      cvv: ''
+    },
+    notes: ''
   });
   
   // יצירת טווח תאריכים להצגה
@@ -411,9 +420,17 @@ const BookingCalendarNew = () => {
         firstName: '',
         lastName: '',
         email: '',
-        phone: ''
+        phone: '',
+        address: ''
       },
-      paymentStatus: 'unpaid',
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      isTourist: false,
+      creditCardDetails: {
+        cardNumber: '',
+        expiryDate: '',
+        cvv: ''
+      },
       notes: ''
     });
     
@@ -518,7 +535,7 @@ const BookingCalendarNew = () => {
   const handleSaveNewBooking = async () => {
     // וידוא שכל השדות הנדרשים מלאים
     const { room, checkIn, checkOut, guest } = newBooking;
-    if (!room || !checkIn || !checkOut || !guest.firstName || !guest.lastName || !guest.email || !guest.phone) {
+    if (!room || !checkIn || !checkOut || !guest.firstName || !guest.lastName || !guest.phone) {
       toast.error('יש למלא את כל השדות החובה');
       return;
     }
@@ -527,18 +544,32 @@ const BookingCalendarNew = () => {
       // הכנת האובייקט בפורמט שהשרת מצפה לקבל
       const bookingData = {
         roomId: room, // השרת מצפה ל-roomId ולא ל-room
-        checkIn: checkIn,
-        checkOut: checkOut,
-        nights: newBooking.nights,
-        isTourist: false, // ברירת מחדל - לא תייר
-        paymentMethod: newBooking.paymentStatus === 'paid' ? 'credit' : 'cash',
+        checkIn: format(new Date(checkIn), 'yyyy-MM-dd'),
+        checkOut: format(new Date(checkOut), 'yyyy-MM-dd'),
+        nights: newBooking.nights || 1,
+        isTourist: newBooking.isTourist || false,
+        paymentMethod: newBooking.paymentMethod || 'cash',
+        paymentStatus: newBooking.paymentStatus || 'pending',
+        totalPrice: newBooking.totalPrice || 0,
         guest: {
-          name: `${guest.firstName} ${guest.lastName}`, // השרת מצפה לשדה name מלא
-          email: guest.email,
-          phone: guest.phone
+          firstName: guest.firstName,
+          lastName: guest.lastName,
+          name: `${guest.firstName} ${guest.lastName}`,
+          email: guest.email || '',
+          phone: guest.phone,
+          address: guest.address || ''
         },
         notes: newBooking.notes || ''
       };
+      
+      // הוספת פרטי כרטיס אשראי אם הם קיימים
+      if (newBooking.paymentMethod === 'credit' && newBooking.creditCardDetails) {
+        bookingData.creditCardDetails = {
+          cardNumber: newBooking.creditCardDetails?.cardNumber || '',
+          expiryDate: newBooking.creditCardDetails?.expiryDate || '',
+          cvv: newBooking.creditCardDetails?.cvv || ''
+        };
+      }
       
       console.log('שולח נתוני הזמנה לשרת:', bookingData);
       
