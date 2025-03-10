@@ -13,6 +13,7 @@ require('./models/Booking');
 require('./models/User');
 require('./models/BlockedDate');
 require('./models/Gallery');
+require('./models/DynamicPrice');
 
 // יצירת אפליקציית Express
 const app = express();
@@ -44,6 +45,7 @@ const bookingRoutes = require('./routes/bookings');
 const authRoutes = require('./routes/auth');
 const chatRoutes = require('./routes/chatRoutes');
 const galleryRoutes = require('./routes/gallery');
+const priceRoutes = require('./routes/prices');
 
 // Routes
 app.use('/api/rooms', roomRoutes);
@@ -51,6 +53,7 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/gallery', galleryRoutes);
+app.use('/api/prices', priceRoutes);
 
 // נתיבי API
 app.use('/api/uploads', require('./routes/uploads'));
