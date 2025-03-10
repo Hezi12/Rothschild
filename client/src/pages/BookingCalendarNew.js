@@ -21,7 +21,8 @@ import {
   CircularProgress,
   Grid,
   Tooltip,
-  useMediaQuery
+  useMediaQuery,
+  Container
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
@@ -34,7 +35,9 @@ import {
   Info as InfoIcon,
   Done as DoneIcon,
   Warning as WarningIcon,
-  Cancel as CancelIcon
+  Cancel as CancelIcon,
+  ArrowForward as ArrowForwardIcon,
+  ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 
 // קומפוננטה משנית - תצוגת חדר בלוח
@@ -541,6 +544,30 @@ const BookingCalendarNew = () => {
     }
     
     try {
+      // לוגים לדיבאג - בדיקת כל ההזמנות והחסימות הקיימות
+      console.log('=== בדיקת דיבאג לפני יצירת הזמנה חדשה ===');
+      console.log(`מנסה ליצור הזמנה לחדר: ${room} בתאריכים:`, {
+        checkIn: checkIn,
+        checkOut: checkOut
+      });
+      
+      console.log('הזמנות קיימות במערכת:', bookings.length);
+      bookings.forEach(booking => {
+        console.log(`הזמנה: ${booking._id}, חדר: ${booking.room._id || booking.room}, תאריכים:`, {
+          checkIn: booking.checkIn,
+          checkOut: booking.checkOut
+        });
+      });
+      
+      console.log('חסימות קיימות במערכת:', blockedDates.length);
+      blockedDates.forEach(block => {
+        console.log(`חסימה: ${block._id}, חדר: ${block.room._id || block.room}, תאריכים:`, {
+          startDate: block.startDate,
+          endDate: block.endDate,
+          reason: block.reason
+        });
+      });
+      
       // הכנת האובייקט בפורמט שהשרת מצפה לקבל
       const bookingData = {
         roomId: room, // השרת מצפה ל-roomId ולא ל-room
@@ -871,95 +898,138 @@ const BookingCalendarNew = () => {
     );
   };
   
+  // פונקציה חדשה לאיפוס מלא של המערכת
+  const handleForceReset = async () => {
+    // אזהרה כפולה למניעת מחיקה בטעות
+    if (!window.confirm('האם אתה בטוח שברצונך למחוק את כל ההזמנות וכל החסימות מהמערכת? פעולה זו אינה הפיכה!')) {
+      return;
+    }
+    if (!window.confirm('אזהרה נוספת: פעולה זו תמחק את כל היסטוריית ההזמנות והחסימות ללא אפשרות שחזור. האם אתה בטוח?')) {
+      return;
+    }
+
+    // בקשת סיסמת מנהל לאבטחה נוספת
+    const deletePassword = prompt('הזן סיסמת מנהל למחיקת כל הנתונים:');
+    if (!deletePassword) {
+      toast.error('יש להזין סיסמה');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // מחיקת כל ההזמנות
+      const bookingsResponse = await axios.delete(
+        `${process.env.REACT_APP_API_URL}/bookings/all`,
+        { data: { password: deletePassword } }
+      );
+      
+      // מחיקת כל החסימות
+      const blocksResponse = await axios.delete(
+        `${process.env.REACT_APP_API_URL}/rooms/blocked-dates/all`
+      );
+      
+      const bookingsDeleted = bookingsResponse.data.success ? bookingsResponse.data.count : 0;
+      const blocksDeleted = blocksResponse.data.deletedCount || 0;
+      
+      toast.success(`נמחקו בהצלחה: ${bookingsDeleted} הזמנות ו-${blocksDeleted} חסימות`);
+      
+      // רענון הנתונים
+      await refreshData();
+    } catch (error) {
+      console.error('שגיאה באיפוס המערכת:', error);
+      toast.error(error.response?.data?.message || 'אירעה שגיאה באיפוס המערכת');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   // רינדור הלוח
   return (
-    <Box sx={{ p: 2 }}>
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h5">ניהול הזמנות</Typography>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Button
-              startIcon={<TodayIcon />}
-              onClick={goToToday}
-              variant="outlined"
-              size="small"
-            >
-              היום
-            </Button>
-            
-            <Typography variant="h6" sx={{ mx: 2 }}>
+    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+      <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
+        <Typography variant="h4" gutterBottom>
+          ניהול הזמנות - גרסה חדשה
+        </Typography>
+        
+        {/* חלק הראש עם החודש הנוכחי וכפתורי ניווט */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box>
+            <Typography variant="h5" component="div">
               {format(currentDate, 'MMMM yyyy', { locale: he })}
             </Typography>
-            
-            <Box>
-              <IconButton onClick={handlePrevMonth}>
-                <ChevronRight />
-              </IconButton>
-              <IconButton onClick={handleNextMonth}>
-                <ChevronLeft />
-              </IconButton>
-            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button variant="outlined" onClick={goToToday} startIcon={<TodayIcon />}>
+              היום
+            </Button>
+            <Button variant="outlined" onClick={handlePrevMonth} startIcon={<ArrowForwardIcon />}>
+              חודש קודם
+            </Button>
+            <Button variant="outlined" onClick={handleNextMonth} startIcon={<ArrowBackIcon />}>
+              חודש הבא
+            </Button>
           </Box>
         </Box>
         
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => {
-              if (rooms.length > 0) {
-                handleOpenNewBookingDialog(rooms[0], new Date());
-              }
-            }}
-          >
-            הזמנה חדשה
-          </Button>
-        </Box>
-        
+        {/* תצוגת הלוח */}
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
             <CircularProgress />
           </Box>
         ) : (
           <Box sx={{ overflowX: 'auto' }}>
-            {/* כותרות תאריכים */}
-            <DayHeaders dates={dates} />
-            
-            {/* שורות חדרים */}
-            {rooms.map(room => (
-              <Box 
-                key={room._id}
-                sx={{ 
-                  display: 'flex', 
-                  borderBottom: '1px solid #e0e0e0',
-                  '&:last-child': { borderBottom: 'none' },
-                  minHeight: '100px'
-                }}
-              >
-                <RoomCell room={room} />
-                
-                {dates.map(date => (
-                  <DayCell
-                    key={`${room._id}-${date.toString()}`}
-                    date={date}
-                    room={room}
-                    bookings={bookings}
-                    blockedDates={blockedDates}
-                    onCellClick={handleCellClick}
-                    onOpenDetails={handleOpenBookingDetails}
-                  />
-                ))}
+            <Box sx={{ display: 'grid', gridTemplateColumns: `180px repeat(${dates.length}, 100px)`, gap: 1 }}>
+              {/* כותרת ריקה עבור טור החדרים */}
+              <Box sx={{ border: '1px solid rgba(0,0,0,0.1)', p: 1, bgcolor: 'background.paper', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                חדרים / תאריכים
               </Box>
-            ))}
+              
+              {/* כותרות תאריכים */}
+              <DayHeaders dates={dates} />
+              
+              {/* שורות החדרים */}
+              {rooms.map(room => (
+                <React.Fragment key={room._id}>
+                  {/* תא חדר */}
+                  <RoomCell room={room} />
+                  
+                  {/* תאים לכל תאריך */}
+                  {dates.map(date => (
+                    <DayCell
+                      key={date.toISOString()}
+                      date={date}
+                      room={room}
+                      bookings={bookings}
+                      blockedDates={blockedDates}
+                      onCellClick={handleCellClick}
+                      onOpenDetails={handleOpenBookingDetails}
+                    />
+                  ))}
+                </React.Fragment>
+              ))}
+            </Box>
           </Box>
         )}
+        
+        {/* כפתור איפוס המערכת */}
+        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleForceReset}
+            startIcon={<DeleteIcon />}
+            sx={{ fontWeight: 'bold' }}
+          >
+            איפוס מלא של המערכת - מחיקת כל ההזמנות והחסימות
+          </Button>
+        </Box>
       </Paper>
       
-      {/* דיאלוגים */}
+      {/* הדיאלוגים */}
       {renderNewBookingDialog()}
       {renderBookingDetailsDialog()}
-    </Box>
+    </Container>
   );
 };
 

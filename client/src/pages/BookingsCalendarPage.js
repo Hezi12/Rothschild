@@ -757,9 +757,13 @@ const BookingsCalendarPage = () => {
     // המרת התאריך לאובייקט Date
     const checkDate = date instanceof Date ? date : new Date(date);
     
+    // איפוס רכיב השעה לצורך השוואה מדויקת - פתרון בעיית אזורי זמן
+    const checkDateNoTime = new Date(checkDate);
+    checkDateNoTime.setHours(0, 0, 0, 0);
+    
     // בדיקה ברמת לוג אם יש חסימות בכלל
     if (roomId === '67c9bf6e2ac03c8869a0b03f') { // למטרות דיבוג רק בחדר ספציפי
-      console.log(`בדיקת חסימות לחדר ${roomId} בתאריך ${checkDate.toISOString()}`);
+      console.log(`בדיקת חסימות לחדר ${roomId} בתאריך ${checkDateNoTime.toLocaleDateString()}`);
       console.log(`מספר חסימות כולל במערכת: ${blockedDates.length}`);
     }
     
@@ -786,18 +790,24 @@ const BookingsCalendarPage = () => {
         const startDate = blockedDate.startDate instanceof Date ? blockedDate.startDate : new Date(blockedDate.startDate);
         const endDate = blockedDate.endDate instanceof Date ? blockedDate.endDate : new Date(blockedDate.endDate);
         
+        // איפוס רכיב השעה לצורך השוואה מדויקת - פתרון בעיית אזורי זמן
+        const startDateNoTime = new Date(startDate);
+        startDateNoTime.setHours(0, 0, 0, 0);
+        const endDateNoTime = new Date(endDate);
+        endDateNoTime.setHours(0, 0, 0, 0);
+        
         // בדיקה שהתאריכים תקינים
-        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        if (isNaN(startDateNoTime.getTime()) || isNaN(endDateNoTime.getTime())) {
           console.error('תאריכי חסימה לא תקינים:', blockedDate);
           return false;
         }
         
-        // בדיקה שהתאריך נמצא בטווח החסימה
-        const isDateInRange = checkDate >= startDate && checkDate < endDate;
+        // בדיקה שהתאריך נמצא בטווח החסימה - עם השוואה ללא רכיב השעה
+        const isDateInRange = checkDateNoTime >= startDateNoTime && checkDateNoTime < endDateNoTime;
         
         if (roomId === '67c9bf6e2ac03c8869a0b03f' && isSameRoom) {
           console.log(`חסימה: ${blockedDate._id}, חדר: ${roomIdToCompare}, התאמת חדר: ${isSameRoom}`);
-          console.log(`התחלה: ${startDate.toISOString()}, סיום: ${endDate.toISOString()}, בטווח: ${isDateInRange}`);
+          console.log(`התחלה: ${startDateNoTime.toLocaleDateString()}, סיום: ${endDateNoTime.toLocaleDateString()}, בטווח: ${isDateInRange}`);
         }
         
         return isSameRoom && isDateInRange;
@@ -979,7 +989,7 @@ const BookingsCalendarPage = () => {
     const bookingsForCell = bookings.filter(booking => {
       try {
         // ודא שיש למשתנה booking נתונים תקינים
-        if (!booking || !booking.roomId || !booking.checkIn || !booking.checkOut) {
+        if (!booking || (!booking.roomId && !booking.room) || !booking.checkIn || !booking.checkOut) {
           console.log('הזמנה עם נתונים חסרים:', booking);
           return false;
         }
@@ -994,8 +1004,19 @@ const BookingsCalendarPage = () => {
           return false;
         }
         
-        console.log(`בדיקת הזמנה ${booking._id} לחדר ${booking.roomId} מול חדר ${room._id} בתאריך ${date.toISOString()}`);
-        console.log(`צ'ק-אין: ${checkInDate.toISOString()}, צ'ק-אאוט: ${checkOutDate.toISOString()}`);
+        // איפוס שעות לצורך השוואה מדויקת - פתרון בעיית אזורי זמן
+        const checkInDateNoTime = new Date(checkInDate);
+        checkInDateNoTime.setHours(0, 0, 0, 0);
+        
+        const checkOutDateNoTime = new Date(checkOutDate);
+        checkOutDateNoTime.setHours(0, 0, 0, 0);
+        
+        // התאריך לבדיקה גם ללא רכיב השעה
+        const dateNoTime = new Date(date);
+        dateNoTime.setHours(0, 0, 0, 0);
+        
+        console.log(`בדיקת הזמנה ${booking._id} לחדר ${booking.room ? (booking.room._id || booking.room) : booking.roomId} מול חדר ${room._id} בתאריך ${dateNoTime.toLocaleDateString()}`);
+        console.log(`צ'ק-אין: ${checkInDateNoTime.toLocaleDateString()}, צ'ק-אאוט: ${checkOutDateNoTime.toLocaleDateString()}`);
         
         // תיקון קריטי: בדוק אם booking.room הוא אובייקט או מחרוזת
         let bookingRoomId;
@@ -1014,7 +1035,8 @@ const BookingsCalendarPage = () => {
         const isSameRoomId = bookingRoomId === room._id.toString();
         
         // בדיקה אם התאריך נמצא בין צ'ק-אין לצ'ק-אאוט (לא כולל צ'ק-אאוט)
-        const isDateInRange = date >= checkInDate && date < checkOutDate;
+        // השוואה ללא רכיב השעה - פתרון לבעיית אזורי זמן
+        const isDateInRange = dateNoTime >= checkInDateNoTime && dateNoTime < checkOutDateNoTime;
         
         console.log(`השוואת חדרים: ${isSameRoomId}, טווח תאריכים: ${isDateInRange}`);
         
