@@ -61,7 +61,8 @@ import {
   Refresh as RefreshIcon,
   PriceChange as PriceChangeIcon,
   Save as SaveIcon,
-  AttachMoney as MoneyIcon
+  AttachMoney as MoneyIcon,
+  SyncDisabled as SyncDisabledIcon
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { format, addDays, startOfWeek, endOfWeek, addWeeks, subWeeks, isSameDay, isWithinInterval, parseISO, isToday, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, subDays } from 'date-fns';
@@ -1038,12 +1039,14 @@ const BookingsCalendarPage = () => {
     if (isToday(date)) {
       cellBackgroundColor = alpha(theme.palette.info.light, 0.1);
     }
-    if (dateIsBlocked) {
-      cellBackgroundColor = '#ffcccc';
-    }
+    
+    // שינוי בסדר העדיפויות - קודם נבדוק אם יש הזמנה, ואז רק אם אין הזמנה נבדוק אם יש חסימה
     if (booking) {
-      // צבע לפי סטטוס התשלום
+      // צבע לפי סטטוס התשלום - הזמנה מקבלת עדיפות עליונה
       cellBackgroundColor = getStatusColor(booking.paymentStatus);
+    } else if (dateIsBlocked) {
+      // חסימה מקבלת עדיפות רק אם אין הזמנה
+      cellBackgroundColor = '#ffcccc';
     }
     
     return (
@@ -3206,6 +3209,50 @@ const BookingsCalendarPage = () => {
     }
   };
 
+  // פונקציה למחיקת כל ההזמנות וכל החסימות ביחד
+  const deleteAllBookingsAndBlocks = async () => {
+    // אזהרה כפולה למניעת מחיקה בטעות
+    if (!window.confirm('האם אתה בטוח שברצונך למחוק את כל ההזמנות וכל החסימות מהמערכת? פעולה זו אינה הפיכה!')) {
+      return;
+    }
+    if (!window.confirm('אזהרה נוספת: פעולה זו תמחק את כל היסטוריית ההזמנות והחסימות ללא אפשרות שחזור. האם אתה בטוח?')) {
+      return;
+    }
+
+    // בקשת סיסמת מנהל לאבטחה נוספת
+    const deletePassword = prompt('הזן סיסמת מנהל למחיקת כל הנתונים:');
+    if (!deletePassword) {
+      toast.error('יש להזין סיסמה');
+      return;
+    }
+
+    try {
+      // מחיקת כל ההזמנות
+      const bookingsResponse = await axios.delete(
+        `${process.env.REACT_APP_API_URL}/bookings/all`,
+        { 
+          data: { password: deletePassword },
+          withCredentials: true 
+        }
+      );
+      
+      // מחיקת כל החסימות
+      const blocksResponse = await axios.delete(`${process.env.REACT_APP_API_URL}/rooms/blocked-dates/all`);
+      
+      const bookingsDeleted = bookingsResponse.data.success ? bookingsResponse.data.count : 0;
+      const blocksDeleted = blocksResponse.data.deletedCount || 0;
+      
+      toast.success(`נמחקו בהצלחה: ${bookingsDeleted} הזמנות ו-${blocksDeleted} חסימות`);
+      
+      // רענון הנתונים
+      fetchBlockedDates();
+      fetchBookings();
+    } catch (error) {
+      console.error('שגיאה במחיקת נתונים:', error);
+      toast.error(error.response?.data?.message || 'אירעה שגיאה במחיקת הנתונים');
+    }
+  };
+
   // עדכון הכפתורים לתצוגה
   const renderDebugButtons = () => {
     return (
@@ -3216,10 +3263,10 @@ const BookingsCalendarPage = () => {
           onClick={checkAllBlockedDates}
           startIcon={<InfoIcon />}
         >
-          בדיקת חסימות
+          בדיקת כל החסימות
         </Button>
         <Button 
-          variant="outlined" 
+          variant="contained" 
           color="error" 
           onClick={deleteAllBlockedDates}
           startIcon={<DeleteIcon />}
@@ -3229,9 +3276,17 @@ const BookingsCalendarPage = () => {
         <Button 
           variant="contained" 
           color="error" 
-          onClick={() => disableAllICalSync(false)}
-          startIcon={<BlockIcon />}
-          disabled={loading}
+          onClick={deleteAllBookingsAndBlocks}
+          startIcon={<DeleteIcon />}
+          sx={{ fontWeight: 'bold', backgroundColor: '#d32f2f' }}
+        >
+          מחיקת כל ההזמנות והחסימות
+        </Button>
+        <Button 
+          variant="contained" 
+          color="error" 
+          onClick={() => disableAllICalSync()}
+          startIcon={<SyncDisabledIcon />}
         >
           {loading ? <CircularProgress size={24} /> : 'נטרול סנכרון Booking.com'}
         </Button>
