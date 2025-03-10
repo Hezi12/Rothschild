@@ -18,7 +18,15 @@ import {
   useTheme,
   useMediaQuery,
   alpha,
-  IconButton
+  IconButton,
+  Badge,
+  Drawer,
+  Stack,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Avatar
 } from '@mui/material';
 import { 
   Check as CheckIcon,
@@ -31,7 +39,13 @@ import {
   AcUnit as AcIcon,
   LocalParking as ParkingIcon,
   Info as InfoIcon,
-  Hotel as HotelIcon
+  Hotel as HotelIcon,
+  ShoppingCart as CartIcon,
+  ArrowForward as ArrowForwardIcon,
+  ArrowBack as ArrowBackIcon,
+  Tv as TvIcon,
+  Kitchen as KitchenIcon,
+  Bathtub as BathtubIcon
 } from '@mui/icons-material';
 
 const SearchResultsPage = () => {
@@ -40,6 +54,7 @@ const SearchResultsPage = () => {
   const [roomsList, setRoomsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedRooms, setSelectedRooms] = useState([]);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
@@ -105,21 +120,69 @@ const SearchResultsPage = () => {
     });
   };
 
+  // טיפול בבחירת חדרים
+  const handleSelectRoom = (room) => {
+    setSelectedRooms(prev => {
+      // בדיקה אם החדר כבר קיים ברשימה
+      const isSelected = prev.some(selectedRoom => selectedRoom._id === room._id);
+      
+      if (isSelected) {
+        // אם החדר כבר נבחר, הסר אותו מהרשימה
+        return prev.filter(selectedRoom => selectedRoom._id !== room._id);
+      } else {
+        // אם החדר לא נבחר, הוסף אותו לרשימה
+        return [...prev, room];
+      }
+    });
+  };
+
+  // המשך לדף ההזמנה עם כל החדרים שנבחרו
+  const handleContinueBooking = () => {
+    if (selectedRooms.length === 0) return;
+    
+    // אם נבחר רק חדר אחד, עבור ישירות לדף ההזמנה עם החדר הזה
+    if (selectedRooms.length === 1) {
+      handleBookRoom(selectedRooms[0]._id);
+      return;
+    }
+    
+    // אם נבחרו יותר מחדר אחד, עבור לדף הזמנה מרובת חדרים
+    navigate('/booking', { 
+      state: { 
+        selectedRooms: selectedRooms.map(room => room._id),
+        checkIn,
+        checkOut,
+        guests,
+        rooms: selectedRooms.length
+      } 
+    });
+  };
+
+  // מיפוי של האייקונים לפי סוג האמנטי
+  const amenityIcons = {
+    'מיזוג אוויר': <AcIcon fontSize="small" />,
+    'אינטרנט אלחוטי': <WifiIcon fontSize="small" />,
+    'wifi': <WifiIcon fontSize="small" />,
+    'חניה': <ParkingIcon fontSize="small" />,
+    'parking': <ParkingIcon fontSize="small" />,
+    'מיטה זוגית': <KingBedIcon fontSize="small" />,
+    'טלוויזיה': <TvIcon fontSize="small" />,
+    'מקרר': <KitchenIcon fontSize="small" />,
+    'מקלחת': <BathtubIcon fontSize="small" />,
+    'שירותים': <BathtubIcon fontSize="small" />
+  };
+
   // פונקציה עזר להצגת אייקון מתאים לכל אמנטי
   const getAmenityIcon = (amenity) => {
-    switch (amenity.toLowerCase()) {
-      case 'wifi':
-      case 'אינטרנט אלחוטי':
-        return <WifiIcon fontSize="small" />;
-      case 'חניה':
-      case 'parking':
-        return <ParkingIcon fontSize="small" />;
-      case 'מיזוג אוויר':
-      case 'air condition':
-        return <AcIcon fontSize="small" />;
-      default:
-        return <SquareIcon fontSize="small" />;
-    }
+    return amenityIcons[amenity] || <SquareIcon fontSize="small" />;
+  };
+  
+  // פונקציה לחישוב תאריך הביטול
+  const calculateCancellationDate = () => {
+    if (!checkIn) return '';
+    const cancellationDate = new Date(checkIn);
+    cancellationDate.setDate(cancellationDate.getDate() - 3);
+    return formatDate(cancellationDate);
   };
   
   return (
@@ -129,6 +192,283 @@ const SearchResultsPage = () => {
       maxWidth: '1300px',
       mx: 'auto'
     }}>
+      {/* פרטי החיפוש והחדרים שנבחרו */}
+      <Paper 
+        elevation={2}
+        sx={{ 
+          p: { xs: 2, sm: 2.5 }, 
+          mb: 3, 
+          maxWidth: '850px', 
+          mx: 'auto',
+          borderRadius: 2,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.15)}`,
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        {/* כותרת האריח */}
+        <Box 
+          sx={{ 
+            bgcolor: alpha(theme.palette.primary.main, 0.07),
+            mx: -2.5,
+            mt: -2.5,
+            mb: 2,
+            p: 1.5,
+            px: 2.5,
+            borderBottom: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+          }}
+        >
+          <Typography
+            variant="subtitle1"
+            fontWeight="bold"
+            sx={{ 
+              color: theme.palette.primary.dark,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1
+            }}
+          >
+            <CalendarIcon fontSize="small" />
+            פרטי החיפוש והבחירה שלך
+          </Typography>
+        </Box>
+        
+        <Grid container spacing={2} alignItems="flex-start">
+          <Grid item xs={12} sm={6}>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              height: '100%',
+              justifyContent: 'space-between',
+              pr: { xs: 0, sm: 2 },
+              borderRight: { xs: 'none', sm: `1px solid ${alpha(theme.palette.divider, 0.7)}` }
+            }}>
+              <Box>
+                <Typography 
+                  variant="subtitle2" 
+                  color="primary"
+                  fontWeight="bold"
+                  sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 0.7 }}
+                >
+                  <CalendarIcon fontSize="small" />
+                  תאריכי שהייה ({calculateNights()} לילות):
+                </Typography>
+                
+                <Box sx={{ 
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  mb: 1.5,
+                  mx: 1
+                }}>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" fontSize="0.75rem">
+                      צ'ק אין:
+                    </Typography>
+                    <Typography variant="body1" fontWeight="medium" fontSize="0.95rem">
+                      {formatDate(checkIn)}
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    color: 'text.secondary',
+                    px: 1.5
+                  }}>
+                    <BackIcon fontSize="small" />
+                  </Box>
+                  
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" fontSize="0.75rem" align="right">
+                      צ'ק אאוט:
+                    </Typography>
+                    <Typography variant="body1" fontWeight="medium" fontSize="0.95rem" align="right">
+                      {formatDate(checkOut)}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+              
+              <Box sx={{ mt: 2 }}>
+                <Button 
+                  variant="outlined" 
+                  size="small" 
+                  startIcon={<BackIcon fontSize="small" />}
+                  onClick={() => navigate('/')}
+                  sx={{ 
+                    borderRadius: '50px',
+                    px: 2,
+                    py: 0.6,
+                    fontSize: '0.8rem',
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.05)
+                    }
+                  }}
+                >
+                  שנה חיפוש
+                </Button>
+              </Box>
+            </Box>
+          </Grid>
+          
+          <Grid item xs={12} sm={6}>
+            <Box>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                mb: 1
+              }}>
+                <Typography 
+                  variant="subtitle2" 
+                  color="primary"
+                  fontWeight="bold"
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.7 }}
+                >
+                  <CartIcon fontSize="small" />
+                  חדרים נבחרים:
+                </Typography>
+                
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 0.5, 
+                  fontSize: '0.85rem',
+                  color: theme.palette.text.secondary
+                }}>
+                  <PersonIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
+                  {guests} {guests === 1 ? 'אורח' : 'אורחים'} 
+                  {roomsCount > 1 && <> • {roomsCount} חדרים</>}
+                </Box>
+              </Box>
+              
+              {/* אזור הצגת החדרים הנבחרים */}
+              <Box>
+                {selectedRooms.length === 0 ? (
+                  <Box 
+                    sx={{ 
+                      p: 1.5, 
+                      textAlign: 'center', 
+                      bgcolor: alpha(theme.palette.background.default, 0.5),
+                      borderRadius: 1,
+                      border: `1px dashed ${alpha(theme.palette.primary.main, 0.2)}`,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      minHeight: '90px'
+                    }}
+                  >
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary"
+                      sx={{ mb: 0.5, fontSize: '0.85rem' }}
+                    >
+                      טרם נבחרו חדרים
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary"
+                      sx={{ fontSize: '0.75rem', maxWidth: '220px' }}
+                    >
+                      לחץ על כפתור "בחר" בחדרים שברצונך להזמין
+                    </Typography>
+                  </Box>
+                ) : (
+                  <>
+                    <Box sx={{ 
+                      maxHeight: '120px', 
+                      overflowY: 'auto',
+                      mb: 1.5,
+                      pr: 1
+                    }}>
+                      <List dense disablePadding>
+                        {selectedRooms.map((room) => (
+                          <ListItem 
+                            key={room._id} 
+                            disablePadding
+                            sx={{ 
+                              mb: 0.7, 
+                              bgcolor: alpha(theme.palette.primary.light, 0.08),
+                              borderRadius: 1,
+                              py: 0.7,
+                              border: `1px solid ${alpha(theme.palette.primary.light, 0.2)}`
+                            }}
+                          >
+                            <ListItemAvatar sx={{ minWidth: '45px' }}>
+                              <Avatar 
+                                src={room.images && room.images[0]?.url} 
+                                alt={room.name}
+                                variant="rounded"
+                                sx={{ width: 32, height: 32, ml: 1.5 }}
+                              >
+                                <HotelIcon fontSize="small" />
+                              </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText 
+                              primary={room.name} 
+                              primaryTypographyProps={{ fontSize: '0.85rem', fontWeight: 'medium' }}
+                              secondary={
+                                <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.3 }}>
+                                  <Typography component="span" sx={{ fontSize: '0.8rem', color: theme.palette.primary.main, fontWeight: 'bold' }}>
+                                    ₪{room.basePrice}
+                                  </Typography>
+                                  <Box component="span" sx={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    color: 'text.primary',
+                                    fontWeight: 'medium',
+                                    fontSize: '0.75rem'
+                                  }}>
+                                    {Array.from({ length: room.maxGuests || guests }).map((_, index) => (
+                                      <PersonIcon key={index} sx={{ fontSize: '0.85rem', color: theme.palette.primary.main }} />
+                                    ))}
+                                    <span style={{ marginRight: '2px' }}>{room.maxGuests || guests}</span>
+                                  </Box>
+                                </Box>
+                              }
+                            />
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleSelectRoom(room)}
+                              sx={{ mr: 0.5 }}
+                            >
+                              <BackIcon fontSize="small" />
+                            </IconButton>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                    
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        size="medium"
+                        onClick={handleContinueBooking}
+                        endIcon={<ArrowBackIcon />}
+                        sx={{ 
+                          borderRadius: '50px',
+                          px: 2.5, 
+                          py: 0.6,
+                          fontSize: '0.85rem',
+                          fontWeight: 'bold',
+                          boxShadow: 1
+                        }}
+                      >
+                        המשך להזמנה {selectedRooms.length > 0 && `(${selectedRooms.length})`}
+                      </Button>
+                    </Box>
+                  </>
+                )}
+              </Box>
+            </Box>
+          </Grid>
+        </Grid>
+      </Paper>
+      
+      {/* כותרת החדרים הזמינים */}
       <Typography 
         variant="h5" 
         component="h1" 
@@ -146,76 +486,6 @@ const SearchResultsPage = () => {
       >
         חדרים זמינים
       </Typography>
-      
-      {/* פרטי החיפוש */}
-      <Paper 
-        elevation={1}
-        sx={{ 
-          p: { xs: 2, sm: 2.5 }, 
-          mb: 3, 
-          maxWidth: '850px', 
-          mx: 'auto',
-          borderRadius: 2,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
-        }}
-      >
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <CalendarIcon color="primary" sx={{ mr: 1, fontSize: '1.1rem' }} />
-              <Typography variant="subtitle1" fontWeight="medium" fontSize="0.95rem">
-                תאריכי שהייה:
-              </Typography>
-            </Box>
-            <Box sx={{ 
-              pl: 3.5,
-              ml: 0.5
-            }}>
-              <Typography variant="body2" sx={{ mb: 0.5, fontSize: '0.85rem' }}>
-                <b>צ'ק אין:</b> {formatDate(checkIn)}
-              </Typography>
-              <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                <b>צ'ק אאוט:</b> {formatDate(checkOut)}
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ 
-              textAlign: { xs: 'left', sm: 'right' },
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: { xs: 'flex-start', sm: 'flex-end' }
-            }}>
-              <Typography variant="subtitle1" fontWeight="medium" fontSize="0.95rem" sx={{ mb: 1 }}>
-                <b>{calculateNights()}</b> לילות
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1.2, display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.85rem' }}>
-                <PersonIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
-                {guests} {guests === 1 ? 'אורח' : 'אורחים'} 
-                {roomsCount > 1 && <> • {roomsCount} חדרים</>}
-              </Typography>
-              <Button 
-                variant="outlined" 
-                size="small" 
-                startIcon={<BackIcon fontSize="small" />}
-                onClick={() => navigate('/')}
-                sx={{ 
-                  borderRadius: '50px',
-                  px: 1.5,
-                  py: 0.5,
-                  fontSize: '0.75rem',
-                  '&:hover': {
-                    backgroundColor: alpha(theme.palette.primary.main, 0.05)
-                  }
-                }}
-              >
-                שנה חיפוש
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
       
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -259,23 +529,45 @@ const SearchResultsPage = () => {
                   display: 'flex',
                   flexDirection: 'column',
                   transition: 'transform 0.3s, box-shadow 0.3s',
+                  position: 'relative',
+                  border: selectedRooms.some(r => r._id === room._id) 
+                    ? `2px solid ${theme.palette.primary.main}` 
+                    : '2px solid transparent',
                   '&:hover': {
                     transform: 'translateY(-4px)',
                     boxShadow: '0 8px 20px rgba(0,0,0,0.1)'
                   }
                 }}
               >
+                {/* סימון לחדרים שנבחרו */}
+                {selectedRooms.some(r => r._id === room._id) && (
+                  <Chip
+                    icon={<CheckIcon />}
+                    label="נבחר"
+                    color="primary"
+                    size="small"
+                    sx={{ 
+                      position: 'absolute', 
+                      top: 10, 
+                      right: 10, 
+                      zIndex: 10,
+                      fontWeight: 'bold',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                    }}
+                  />
+                )}
+                
                 {room.images && room.images.length > 0 ? (
                   <CardMedia
                     component="img"
-                    height={200}
+                    height={180}
                     image={room.images[0].url}
                     alt={`תמונה של ${room.name}`}
                     sx={{ objectFit: 'cover' }}
                   />
                 ) : (
                   <Box sx={{ 
-                    height: 200, 
+                    height: 180, 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center',
@@ -285,49 +577,65 @@ const SearchResultsPage = () => {
                   </Box>
                 )}
                 
-                <CardContent sx={{ flexGrow: 1, pb: 0 }}>
+                <CardContent sx={{ 
+                  flexGrow: 1, 
+                  pb: 0,
+                  px: 1.7,
+                  pt: 1.7
+                }}>
                   <Typography 
                     variant="h6" 
                     component="h2" 
                     gutterBottom
                     sx={{ 
                       fontWeight: 'bold',
-                      fontSize: '1.1rem',
+                      fontSize: '1rem',
                       borderBottom: `2px solid ${theme.palette.primary.main}`,
-                      pb: 1,
+                      pb: 0.5,
+                      mb: 1.2,
                       display: 'inline-block'
                     }}
                   >
                     {room.name}
                   </Typography>
                   
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-                    {room.amenities && room.amenities.slice(0, 4).map((amenity, index) => (
-                      <Chip
-                        key={index}
-                        icon={getAmenityIcon(amenity)}
-                        label={amenity}
-                        size="small"
-                        sx={{ 
-                          fontSize: '0.75rem', 
-                          height: '24px',
-                          bgcolor: alpha(theme.palette.primary.main, 0.1),
-                          '& .MuiChip-label': { px: 1 }
-                        }}
-                      />
-                    ))}
+                  <Box sx={{ display: 'flex', gap: 0.7, flexWrap: 'wrap', mb: 1.2 }}>
+                    {room.amenities && room.amenities.slice(0, 4).map((amenity, index) => {
+                      // המרת מיזוג אוויר למיטה זוגית בתצוגה בלבד אם צריך
+                      const displayText = amenity === "מיזוג אוויר" ? "מיטה זוגית" : amenity;
+                      const displayIcon = amenity === "מיזוג אוויר" 
+                        ? amenityIcons["מיטה זוגית"] 
+                        : getAmenityIcon(amenity);
+                      
+                      return (
+                        <Chip
+                          key={index}
+                          icon={displayIcon}
+                          label={displayText}
+                          size="small"
+                          sx={{ 
+                            fontSize: '0.7rem', 
+                            height: '22px',
+                            bgcolor: alpha(theme.palette.primary.main, 0.1),
+                            '& .MuiChip-label': { px: 1 }
+                          }}
+                        />
+                      );
+                    })}
                   </Box>
                   
                   <Typography 
                     variant="body2" 
                     color="text.secondary" 
                     sx={{ 
-                      mb: 2,
+                      mb: 1.5,
                       display: '-webkit-box',
                       overflow: 'hidden',
                       WebkitBoxOrient: 'vertical',
-                      WebkitLineClamp: 3,
-                      minHeight: '3.6em'
+                      WebkitLineClamp: 2,
+                      minHeight: '2.4em',
+                      fontSize: '0.8rem',
+                      lineHeight: 1.2
                     }}
                   >
                     {room.description}
@@ -335,8 +643,8 @@ const SearchResultsPage = () => {
                   
                   {/* מדיניות ביטול בקצרה */}
                   <Box sx={{ 
-                    mb: 2, 
-                    p: 1, 
+                    mb: 1.5, 
+                    p: 0.8, 
                     bgcolor: alpha(theme.palette.info.main, 0.08),
                     borderRadius: 1,
                     border: `1px dashed ${alpha(theme.palette.info.main, 0.3)}`
@@ -346,12 +654,12 @@ const SearchResultsPage = () => {
                       sx={{ 
                         display: 'flex', 
                         alignItems: 'center', 
-                        fontSize: '0.75rem',
+                        fontSize: '0.7rem',
                         color: theme.palette.info.dark
                       }}
                     >
-                      <InfoIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.9rem' }} />
-                      <b>מדיניות ביטול:</b> ביטול חינם עד 3 ימים לפני ההגעה
+                      <InfoIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.8rem' }} />
+                      <b>מדיניות ביטול: </b> ביטול חינם עד {calculateCancellationDate()}
                     </Typography>
                   </Box>
                   
@@ -360,35 +668,78 @@ const SearchResultsPage = () => {
                       <Typography 
                         variant="body2" 
                         color="text.secondary"
-                        sx={{ fontSize: '0.8rem' }}
+                        sx={{ fontSize: '0.75rem' }}
                       >
                         מחיר ללילה:
                       </Typography>
-                      <Typography 
-                        variant="h6" 
-                        sx={{ 
-                          fontWeight: 'bold',
-                          color: theme.palette.primary.main 
-                        }}
-                      >
-                        ₪{room.basePrice}
-                      </Typography>
+                      <Box sx={{ mt: 0.3 }}>
+                        <Typography 
+                          variant="h6" 
+                          sx={{ 
+                            fontWeight: 'bold',
+                            color: theme.palette.primary.main,
+                            fontSize: '1.1rem'
+                          }}
+                        >
+                          ₪{room.basePrice}
+                        </Typography>
+                      </Box>
                     </Grid>
-                    <Grid item xs={6} sx={{ textAlign: 'right' }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Grid item xs={6}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.7 }}>
                         <Button
-                          variant="contained"
+                          variant="outlined"
                           size="small"
-                          onClick={() => handleBookRoom(room._id)}
+                          onClick={() => navigate(`/room/${room._id}`, {
+                            state: {
+                              checkIn,
+                              checkOut,
+                              guests
+                            }
+                          })}
                           sx={{ 
                             borderRadius: '50px',
                             px: 2,
-                            fontWeight: 'bold',
-                            boxShadow: 2
+                            py: 0.4,
+                            fontSize: '0.75rem',
+                            fontWeight: 'medium',
+                            flexGrow: 1,
+                            minWidth: 0
                           }}
                         >
-                          הזמן עכשיו
+                          פרטים
                         </Button>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          color={selectedRooms.some(r => r._id === room._id) ? "success" : "primary"}
+                          onClick={() => handleSelectRoom(room)}
+                          sx={{ 
+                            borderRadius: '50px',
+                            px: 1.5,
+                            py: 0.4,
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold',
+                            flexGrow: 1,
+                            minWidth: 0
+                          }}
+                        >
+                          {selectedRooms.some(r => r._id === room._id) ? "נבחר ✓" : "בחר"}
+                        </Button>
+                      </Box>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'flex-end', 
+                        mt: 0.7,
+                        color: 'text.primary', 
+                        fontWeight: 'medium',
+                        fontSize: '0.75rem'
+                      }}>
+                        {Array.from({ length: room.maxGuests || guests }).map((_, index) => (
+                          <PersonIcon key={index} sx={{ fontSize: '0.85rem', color: theme.palette.primary.main }} />
+                        ))}
+                        <span style={{ marginRight: '3px' }}>{room.maxGuests || guests} אורחים</span>
                       </Box>
                     </Grid>
                   </Grid>
