@@ -139,7 +139,7 @@ const BookingsCalendarPage = () => {
   const [blockDuration, setBlockDuration] = useState(1); // מספר ימים לחסימה
   
   // הגדרות חדשות לשיפור התצוגה
-  const [viewMode, setViewMode] = useState('week'); // 'week' או 'month'
+  const [viewMode, setViewMode] = useState('month');
   const [daysToShow, setDaysToShow] = useState(14); // ברירת מחדל - שבועיים
   const [legendOpen, setLegendOpen] = useState(false);
   const [filterMenuAnchorEl, setFilterMenuAnchorEl] = useState(null);
@@ -474,45 +474,28 @@ const BookingsCalendarPage = () => {
   
   // פונקציות ניווט בתאריכים - משופרות 
   const handleChangeViewMode = (event, newMode) => {
-    if (newMode !== null) {
-      setViewMode(newMode);
+    // הערה: השארנו את הפונקציה למקרה שנצטרך אותה בעתיד, אבל נעדכן אותה למצב מוגבל
+    if (newMode !== null && newMode === 'month') {
+      setViewMode('month');
     }
   };
   
-  // מעבר לתקופה הבאה (שבוע או חודש)
+  // מעבר לתקופה הבאה (רק חודש)
   const handleNextPeriod = () => {
-    if (viewMode === 'week') {
-      // כאשר משתמשים ב-setCurrentDate, חשוב לוודא שמשתנים startDate ו-endDate יתעדכנו ב-useEffect
-      const newDate = addDays(currentDate, 7);
-      setCurrentDate(newDate);
-      setStartDate(newDate);
-      setEndDate(addDays(newDate, daysToShow - 1));
-      // רענון הנתונים בתצוגה החדשה
-      refreshData();
-    } else {
-      const newDate = addMonths(currentDate, 1);
-      setCurrentDate(newDate);
-      // רענון הנתונים בתצוגה החדשה
-      refreshData();
-    }
+    // תמיד במצב חודש
+    const newDate = addMonths(currentDate, 1);
+    setCurrentDate(newDate);
+    // רענון הנתונים בתצוגה החדשה
+    refreshData();
   };
   
-  // מעבר לתקופה הקודמת
+  // מעבר לתקופה הקודמת (רק חודש)
   const handlePrevPeriod = () => {
-    if (viewMode === 'week') {
-      // כאשר משתמשים ב-setCurrentDate, חשוב לוודא שמשתנים startDate ו-endDate יתעדכנו ב-useEffect
-      const newDate = subDays(currentDate, 7);
-      setCurrentDate(newDate);
-      setStartDate(newDate);
-      setEndDate(addDays(newDate, daysToShow - 1));
-      // רענון הנתונים בתצוגה החדשה
-      refreshData();
-    } else {
-      const newDate = subMonths(currentDate, 1);
-      setCurrentDate(newDate);
-      // רענון הנתונים בתצוגה החדשה
-      refreshData();
-    }
+    // תמיד במצב חודש
+    const newDate = subMonths(currentDate, 1);
+    setCurrentDate(newDate);
+    // רענון הנתונים בתצוגה החדשה
+    refreshData();
   };
   
   // חזרה ליום הנוכחי
@@ -1906,6 +1889,14 @@ const BookingsCalendarPage = () => {
       setBookingDialogOpen(false);
     } catch (error) {
       console.error('שגיאה ביצירת הזמנה:', error);
+      console.log('פרטי השגיאה המלאים:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.response?.data?.message,
+        errors: error.response?.data?.errors,
+        fullData: error.response?.data
+      });
+      
       if (error.response && error.response.data && error.response.data.message) {
         toast.error(`שגיאה: ${error.response.data.message}`);
       } else {
@@ -2991,6 +2982,119 @@ const BookingsCalendarPage = () => {
     );
   };
   
+  // פונקציה חדשה לבדיקת כל החסימות
+  const checkAllBlockedDates = async () => {
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/blocked-dates`);
+      console.log('כל החסימות במערכת:', response.data);
+      
+      // הצגת החסימות בחלון התראה
+      const blockedDatesInfo = response.data.data.map(block => {
+        return `חדר: ${block.room}, מ-${new Date(block.startDate).toLocaleDateString()} עד ${new Date(block.endDate).toLocaleDateString()}, סיבה: ${block.reason}, מזהה חיצוני: ${block.externalReference || 'אין'}`;
+      }).join('\n');
+      
+      alert(`חסימות במערכת:\n${blockedDatesInfo}`);
+    } catch (error) {
+      console.error('שגיאה בקבלת חסימות:', error);
+      toast.error('שגיאה בקבלת נתוני חסימות');
+    }
+  };
+
+  // פונקציה למחיקת כל החסימות
+  const deleteAllBlockedDates = async () => {
+    if (!window.confirm('האם אתה בטוח שברצונך למחוק את כל החסימות במערכת? פעולה זו אינה הפיכה!')) {
+      return;
+    }
+    
+    try {
+      const response = await axios.delete(`${process.env.REACT_APP_API_URL}/rooms/blocked-dates/all`);
+      console.log('תוצאת מחיקת חסימות:', response.data);
+      
+      toast.success(`נמחקו ${response.data.deletedCount} חסימות בהצלחה`);
+      
+      // רענון הנתונים
+      fetchBlockedDates();
+    } catch (error) {
+      console.error('שגיאה במחיקת חסימות:', error);
+      toast.error('שגיאה במחיקת חסימות');
+    }
+  };
+
+  // עדכון הכפתורים לתצוגה
+  const renderDebugButtons = () => {
+    return (
+      <Box sx={{ mt: 2, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <Button 
+          variant="outlined" 
+          color="warning" 
+          onClick={checkAllBlockedDates}
+          startIcon={<InfoIcon />}
+        >
+          בדיקת חסימות
+        </Button>
+        <Button 
+          variant="outlined" 
+          color="error" 
+          onClick={deleteAllBlockedDates}
+          startIcon={<DeleteIcon />}
+        >
+          מחיקת כל החסימות
+        </Button>
+        <Button 
+          variant="contained" 
+          color="error" 
+          onClick={() => disableAllICalSync(false)}
+          startIcon={<BlockIcon />}
+          disabled={loading}
+        >
+          {loading ? <CircularProgress size={24} /> : 'נטרול סנכרון Booking.com'}
+        </Button>
+        <Button 
+          variant="contained" 
+          color="error" 
+          onClick={() => disableAllICalSync(true)}
+          startIcon={<DeleteIcon />}
+          disabled={loading}
+          sx={{ bgcolor: 'darkred', '&:hover': { bgcolor: 'firebrick' } }}
+        >
+          {loading ? <CircularProgress size={24} /> : 'נטרול סנכרון + מחיקת כל החסימות'}
+        </Button>
+      </Box>
+    );
+  };
+  
+  // פונקציה לנטרול כל הסנכרונים מבוקינג
+  const disableAllICalSync = async (forceDeleteAll = false) => {
+    const message = forceDeleteAll 
+      ? 'האם אתה בטוח שברצונך לנטרל את כל הסנכרונים עם Booking.com ולמחוק את כל החסימות במערכת? פעולה זו אינה הפיכה!' 
+      : 'האם אתה בטוח שברצונך לנטרל את כל הסנכרונים עם Booking.com ולמחוק את החסימות הקשורות? פעולה זו אינה הפיכה!';
+      
+    if (!window.confirm(message)) {
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const url = forceDeleteAll 
+        ? `${process.env.REACT_APP_API_URL}/rooms/disable-all-ical-sync?forceDeleteAll=true`
+        : `${process.env.REACT_APP_API_URL}/rooms/disable-all-ical-sync`;
+        
+      const result = await axios.delete(url);
+      console.log('תוצאת ניטרול סנכרונים:', result.data);
+      
+      toast.success(`הסנכרון נוטרל בהצלחה! נמחקו ${result.data.deletedBlockedDates} חסימות ו-${result.data.updatedRooms} חדרים עודכנו`);
+      
+      // רענון הנתונים
+      fetchBlockedDates();
+      fetchRooms();
+    } catch (error) {
+      console.error('שגיאה בניטרול הסנכרונים:', error);
+      toast.error('שגיאה בניטרול הסנכרונים מבוקינג');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   return (
     <Container maxWidth={false} sx={{ mt: 2, pb: 4 }}>
       <Paper sx={{ p: 2, mb: 2 }}>
@@ -3006,42 +3110,7 @@ const BookingsCalendarPage = () => {
               ניהול הזמנות - תצוגת לוח
             </Typography>
             <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-              <Chip 
-                icon={<AssignmentIcon />} 
-                label={`סה"כ הזמנות: ${stats.total}`} 
-                color="default" 
-                variant="outlined" 
-                sx={{ 
-                  borderRadius: '8px', 
-                  fontWeight: 'medium',
-                  '&:hover': { boxShadow: '0 2px 5px rgba(0,0,0,0.1)' },
-                  transition: 'all 0.2s ease'
-                }}
-              />
-              <Chip 
-                icon={<CheckCircleIcon />} 
-                label={`שולמו: ${stats.paid} (${stats.paidPercentage}%)`} 
-                color="success" 
-                variant="outlined" 
-                sx={{ 
-                  borderRadius: '8px', 
-                  fontWeight: 'medium',
-                  '&:hover': { boxShadow: '0 2px 5px rgba(0,0,0,0.1)' },
-                  transition: 'all 0.2s ease'
-                }}
-              />
-              <Chip 
-                icon={<WarningIcon />} 
-                label={`ממתינות לתשלום: ${stats.pending}`} 
-                color="warning" 
-                variant="outlined"
-                sx={{ 
-                  borderRadius: '8px', 
-                  fontWeight: 'medium',
-                  '&:hover': { boxShadow: '0 2px 5px rgba(0,0,0,0.1)' },
-                  transition: 'all 0.2s ease'
-                }}
-              />
+              {/* הסרנו את הצגת הסטטיסטיקות כאן */}
             </Box>
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -3066,26 +3135,7 @@ const BookingsCalendarPage = () => {
                 </IconButton>
               </Tooltip>
             
-              <Button
-                variant="outlined"
-                onClick={handleOpenFilterMenu}
-                startIcon={<FilterIcon />}
-                endIcon={<ArrowDropDownIcon />}
-                size="small"
-                sx={{ 
-                  mr: 1, 
-                  borderRadius: '8px',
-                  fontWeight: 'bold',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                  '&:hover': { 
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 3px 6px rgba(0,0,0,0.12)'
-                  },
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                סנן
-              </Button>
+              {/* הסרנו את כפתור הסינון */}
             
               {/* כפתור עריכה גורפת של מחירים */}
               <Button
@@ -3161,30 +3211,13 @@ const BookingsCalendarPage = () => {
             </Button>
               
               <ToggleButtonGroup
-                value={viewMode}
+                value="month"
                 exclusive
                 onChange={handleChangeViewMode}
                 size="small"
-                sx={{
-                  '& .MuiToggleButton-root': {
-                    borderRadius: '4px',
-                    mx: 0.2,
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                      transform: 'translateY(-1px)',
-                    },
-                    '&.Mui-selected': {
-                      backgroundColor: alpha(theme.palette.primary.main, 0.15),
-                      color: theme.palette.primary.main,
-                      fontWeight: 'bold',
-                      '&:hover': {
-                        backgroundColor: alpha(theme.palette.primary.main, 0.25),
-                      }
-                    }
-                  }
-                }}
+                sx={{ display: 'none' }} // מסתיר את הקבוצה לחלוטין
               >
+                {/* השארנו את הכפתורים למקרה שנרצה להחזיר אותם בעתיד */}
                 <ToggleButton value="week">
                   <Tooltip title="תצוגת שבועות">
                     <WeekIcon />
@@ -3220,9 +3253,7 @@ const BookingsCalendarPage = () => {
                 color: theme.palette.text.primary,
                 fontSize: '1rem'
               }}>
-                {viewMode === 'week' 
-                  ? `${format(startDate, 'dd/MM/yyyy')} - ${format(addDays(startDate, daysToShow - 1), 'dd/MM/yyyy')}`
-                  : format(currentDate, 'MMMM yyyy', { locale: he })}
+                {format(currentDate, 'MMMM yyyy', { locale: he })}
               </Typography>
               <IconButton 
                 onClick={handleNextPeriod} 
@@ -3326,6 +3357,9 @@ const BookingsCalendarPage = () => {
       
       {/* חלון ערכיה גורפת של מחירים */}
       {renderBulkPriceDialog()}
+      
+      {/* כפתור לבדיקת חסימות */}
+      {renderDebugButtons()}
     </Container>
   );
 };

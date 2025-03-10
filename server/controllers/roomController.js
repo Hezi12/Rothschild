@@ -213,7 +213,7 @@ exports.deleteRoom = async (req, res) => {
   }
 };
 
-// @desc    בדיקת זמינות חדר
+// @desc    בדיקת זמינות חדר/חדרים בתאריכים מסוימים
 // @route   POST /api/rooms/check-availability
 // @access  Public
 exports.checkAvailability = async (req, res) => {
@@ -262,7 +262,26 @@ exports.checkAvailability = async (req, res) => {
         ]
       });
       
-      const isAvailable = overlappingBookings.length === 0;
+      // בדיקה אם יש תאריכים חסומים חופפים
+      const overlappingBlockedDates = await BlockedDate.find({
+        room: roomId,
+        $or: [
+          { 
+            startDate: { $lte: new Date(checkIn) },
+            endDate: { $gt: new Date(checkIn) }
+          },
+          { 
+            startDate: { $lt: new Date(checkOut) },
+            endDate: { $gte: new Date(checkOut) }
+          },
+          { 
+            startDate: { $gte: new Date(checkIn) },
+            endDate: { $lte: new Date(checkOut) }
+          }
+        ]
+      });
+      
+      const isAvailable = overlappingBookings.length === 0 && overlappingBlockedDates.length === 0;
       
       return res.json({
         success: true,

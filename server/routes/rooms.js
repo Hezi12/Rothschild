@@ -39,12 +39,95 @@ router.post(
   roomController.syncAllICals
 );
 
+// @route   DELETE /api/rooms/disable-all-ical-sync
+// @desc    ניטרול כל הסנכרונים החיצוניים והסרת החסימות מבוקינג
+// @access  Private/Admin
+router.delete('/disable-all-ical-sync', [protect, admin], async (req, res) => {
+  try {
+    // ייבוא המודלים
+    const BlockedDate = require('../models/BlockedDate');
+    const Room = require('../models/Room');
+    
+    // מחיקת כל החסימות שקשורות למקורות חיצוניים
+    let deleteBlockedDatesResult = await BlockedDate.deleteMany({
+      externalSource: { $in: ['booking.com', 'ical'] }
+    });
+    
+    // אם עדיין יש בעיות, מאפשר גם למחוק את כל החסימות שאינן קשורות להזמנות מקומיות
+    const forceDeleteAll = req.query.forceDeleteAll === 'true';
+    
+    if (forceDeleteAll) {
+      // מחיקת כל החסימות שאינן קשורות להזמנות (שלא מתחילות ב-booking:)
+      const deleteNonBookingBlockedDatesResult = await BlockedDate.deleteMany({
+        $or: [
+          { externalReference: { $exists: false } },
+          { externalReference: '' },
+          { externalReference: { $not: /^booking:/ } }
+        ]
+      });
+      
+      // עדכון המונה של החסימות שנמחקו
+      deleteBlockedDatesResult.deletedCount += deleteNonBookingBlockedDatesResult.deletedCount;
+      
+      console.log(`נמחקו ${deleteNonBookingBlockedDatesResult.deletedCount} חסימות נוספות (ללא מקור חיצוני)`);
+    }
+    
+    // מנקה את שדות ה-iCalUrl ומועד הסנכרון האחרון בכל החדרים
+    const updateRoomsResult = await Room.updateMany(
+      {}, // כל החדרים
+      { 
+        $set: { 
+          iCalUrl: '', 
+          lastSyncedAt: null 
+        } 
+      }
+    );
+    
+    res.json({
+      success: true,
+      message: `הסנכרון נוטרל בהצלחה. נמחקו ${deleteBlockedDatesResult.deletedCount} חסימות ו-${updateRoomsResult.modifiedCount} חדרים עודכנו`,
+      deletedBlockedDates: deleteBlockedDatesResult.deletedCount,
+      updatedRooms: updateRoomsResult.modifiedCount,
+      forceDeleteAllApplied: forceDeleteAll
+    });
+  } catch (error) {
+    console.error('שגיאה בניטרול הסנכרונים:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת',
+      error: error.message
+    });
+  }
+});
+
 // --- ניתובים עבור תאריכים חסומים ---
 
 // @route   GET /api/rooms/blocked-dates
 // @desc    קבלת כל התאריכים החסומים בטווח תאריכים
 // @access  Public
 router.get('/blocked-dates', roomController.getBlockedDates);
+
+// @route   DELETE /api/rooms/blocked-dates/all
+// @desc    מחיקת כל החסימות במערכת (לצורכי דיבאג)
+// @access  Private/Admin
+router.delete('/blocked-dates/all', [protect, admin], async (req, res) => {
+  try {
+    const BlockedDate = require('../models/BlockedDate');
+    const result = await BlockedDate.deleteMany({});
+    
+    res.json({
+      success: true,
+      message: `נמחקו ${result.deletedCount} חסימות מהמערכת`,
+      deletedCount: result.deletedCount
+    });
+  } catch (error) {
+    console.error('שגיאה במחיקת כל החסימות:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת' 
+    });
+  }
+});
 
 // @route   POST /api/rooms/block-dates
 // @desc    חסימת תאריכים לחדר

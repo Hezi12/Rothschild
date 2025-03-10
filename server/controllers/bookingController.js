@@ -1,5 +1,6 @@
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
+const BlockedDate = require('../models/BlockedDate');
 const { validationResult } = require('express-validator');
 const { sendBookingConfirmation } = require('../utils/emailService');
 
@@ -164,6 +165,32 @@ exports.createBooking = async (req, res) => {
       });
     }
     
+    // בדיקה אם יש חסימות בתאריכים
+    const overlappingBlockedDates = await BlockedDate.find({
+      room: roomId,
+      $or: [
+        { 
+          startDate: { $lte: checkInDate },
+          endDate: { $gt: checkInDate }
+        },
+        { 
+          startDate: { $lt: checkOutDate },
+          endDate: { $gte: checkOutDate }
+        },
+        { 
+          startDate: { $gte: checkInDate },
+          endDate: { $lte: checkOutDate }
+        }
+      ]
+    });
+    
+    if (overlappingBlockedDates.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'החדר אינו זמין בתאריכים המבוקשים - קיימת חסימה'
+      });
+    }
+    
     // חישוב מחיר כולל
     let totalPrice = room.basePrice * nights;
     
@@ -189,6 +216,18 @@ exports.createBooking = async (req, res) => {
     
     // שמירת ההזמנה במסד הנתונים
     await booking.save();
+    
+    // יצירת חסימה עבור התאריכים של ההזמנה
+    const newBlockedDate = new BlockedDate({
+      room: roomId,
+      startDate: checkInDate,
+      endDate: checkOutDate,
+      reason: `הזמנה #${booking.bookingNumber} - ${guest.name}`,
+      createdBy: req.user ? req.user.id : null,
+      externalReference: `booking:${booking._id}`
+    });
+    
+    await newBlockedDate.save();
     
     // שליחת אימייל אישור
     try {
@@ -266,7 +305,8 @@ exports.updateBooking = async (req, res) => {
     let nights = booking.nights;
     
     if ((checkIn && new Date(checkIn).getTime() !== booking.checkIn.getTime()) || 
-        (checkOut && new Date(checkOut).getTime() !== booking.checkOut.getTime())) {
+        (checkOut && new Date(checkOut).getTime() !== booking.checkOut.getTime()) ||
+        (roomId && roomId !== booking.room.toString())) {
       
       checkInDate = checkIn ? new Date(checkIn) : booking.checkIn;
       checkOutDate = checkOut ? new Date(checkOut) : booking.checkOut;
@@ -307,6 +347,51 @@ exports.updateBooking = async (req, res) => {
           message: 'החדר אינו זמין בתאריכים המבוקשים' 
         });
       }
+
+      // בדיקה אם יש חסימות בתאריכים (שלא קשורות להזמנה הנוכחית)
+      const overlappingBlockedDates = await BlockedDate.find({
+        room: roomId || booking.room,
+        externalReference: { $ne: `booking:${booking._id}` },
+        $or: [
+          { 
+            startDate: { $lte: checkInDate },
+            endDate: { $gt: checkInDate }
+          },
+          { 
+            startDate: { $lt: checkOutDate },
+            endDate: { $gte: checkOutDate }
+          },
+          { 
+            startDate: { $gte: checkInDate },
+            endDate: { $lte: checkOutDate }
+          }
+        ]
+      });
+
+      if (overlappingBlockedDates.length > 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'החדר אינו זמין בתאריכים המבוקשים - קיימת חסימה'
+        });
+      }
+      
+      // עדכון החסימה המשויכת להזמנה
+      // קודם מחיקת החסימה הקיימת
+      await BlockedDate.deleteMany({
+        externalReference: `booking:${booking._id}`
+      });
+      
+      // יצירת חסימה חדשה
+      const newBlockedDate = new BlockedDate({
+        room: roomId || booking.room,
+        startDate: checkInDate,
+        endDate: checkOutDate,
+        reason: `הזמנה #${booking.bookingNumber} - ${guest?.name || booking.guest.name}`,
+        createdBy: req.user ? req.user.id : null,
+        externalReference: `booking:${booking._id}`
+      });
+      
+      await newBlockedDate.save();
     }
     
     // חישוב מחיר כולל אם יש שינוי בתאריכים או בסטטוס תייר
@@ -391,12 +476,28 @@ exports.deleteBooking = async (req, res) => {
       });
     }
     
-    // מחיקת ההזמנה - שימוש בשיטה המומלצת בגרסאות עדכניות של Mongoose
+    // מחיקת החסימות המקושרות להזמנה
+    const deleteBlockedDatesResult = await BlockedDate.deleteMany({
+      externalReference: `booking:${booking._id}`
+    });
+    
+    console.log(`נמחקו ${deleteBlockedDatesResult.deletedCount} חסימות הקשורות להזמנה ${booking._id}`);
+    
+    // למקרה שאין חסימות עם מזהה חיצוני, ננסה גם למחוק לפי תאריכים
+    const deleteByDateResult = await BlockedDate.deleteMany({
+      room: booking.room,
+      startDate: booking.checkIn,
+      endDate: booking.checkOut
+    });
+    
+    console.log(`נמחקו ${deleteByDateResult.deletedCount} חסימות נוספות על פי תאריכים`);
+    
+    // מחיקת ההזמנה עצמה
     await Booking.findByIdAndDelete(req.params.id);
     
     res.json({
       success: true,
-      message: 'ההזמנה נמחקה בהצלחה'
+      message: `ההזמנה נמחקה בהצלחה והתאריכים שוחררו (${deleteBlockedDatesResult.deletedCount + deleteByDateResult.deletedCount} חסימות נמחקו)`
     });
   } catch (error) {
     console.error('שגיאה במחיקת הזמנה:', error);
