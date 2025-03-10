@@ -1,60 +1,59 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  Grid, 
-  Card, 
-  CardMedia, 
-  CardContent, 
-  CardActions,
+import {
+  Container,
+  Typography,
+  Box,
   Button,
-  IconButton,
+  Grid,
+  Paper,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  CircularProgress,
+  InputAdornment,
   Chip,
   Divider,
-  Switch,
+  IconButton,
+  MenuItem,
+  Badge,
   FormControlLabel,
+  Switch,
   Tooltip,
-  Badge
+  Avatar
 } from '@mui/material';
-import { 
-  Edit as EditIcon,
-  Delete as DeleteIcon,
+import {
   Add as AddIcon,
-  PhotoCamera as CameraIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Image as ImageIcon,
+  Hotel as HotelIcon,
+  Bed as BedIcon,
+  AttachMoney as MoneyIcon,
+  Person as PersonIcon,
   Star as StarIcon,
-  Sync as SyncIcon,
   Event as EventIcon
 } from '@mui/icons-material';
+import Layout from '../components/Layout';
 
 const RoomsListPage = () => {
+  // State
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [roomToDelete, setRoomToDelete] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [roomToEdit, setRoomToEdit] = useState(null);
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [roomForUpload, setRoomForUpload] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
+  const [currentRoom, setCurrentRoom] = useState(null);
   const [icalDialogOpen, setIcalDialogOpen] = useState(false);
   const [roomForIcal, setRoomForIcal] = useState(null);
   const [icalUrl, setIcalUrl] = useState('');
-  const [syncingIcal, setSyncingIcal] = useState(false);
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [roomForImages, setRoomForImages] = useState(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [roomImages, setRoomImages] = useState([]);
 
   // טעינת חדרים
   useEffect(() => {
@@ -63,128 +62,133 @@ const RoomsListPage = () => {
 
   const fetchRooms = async () => {
     try {
-      setLoading(true);
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/admin/all`);
-      setRooms(response.data.data);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`);
+      if (response.data.success) {
+        setRooms(response.data.data);
+      }
     } catch (error) {
-      console.error('שגיאה בטעינת חדרים:', error.response?.data || error.message);
-      toast.error('שגיאה בטעינת חדרים. אנא נסה שוב מאוחר יותר.');
+      console.error('שגיאה בטעינת חדרים:', error);
+      toast.error('שגיאה בטעינת חדרים. אנא נסה שוב.');
     } finally {
       setLoading(false);
     }
   };
 
-  // פתיחת דיאלוג מחיקה
-  const handleOpenDeleteDialog = (room) => {
-    setRoomToDelete(room);
-    setDeleteDialogOpen(true);
-  };
-
-  // סגירת דיאלוג מחיקה
-  const handleCloseDeleteDialog = () => {
-    setDeleteDialogOpen(false);
-    setRoomToDelete(null);
-  };
-
-  // מחיקת חדר
-  const handleDeleteRoom = async () => {
-    if (!roomToDelete) return;
+  const handleDeleteRoom = async (roomId) => {
+    if (!window.confirm('האם אתה בטוח שברצונך למחוק את החדר?')) {
+      return;
+    }
     
     try {
-      await axios.delete(`${process.env.REACT_APP_API_URL}/rooms/${roomToDelete._id}`);
+      const response = await axios.delete(`${process.env.REACT_APP_API_URL}/rooms/${roomId}`);
       
-      // עדכון הרשימה
-      setRooms(rooms.filter(room => room._id !== roomToDelete._id));
-      
-      toast.success('החדר נמחק בהצלחה');
+      if (response.data.success) {
+        setRooms(rooms.filter(r => r._id !== roomId));
+        toast.success('החדר נמחק בהצלחה');
+      }
     } catch (error) {
-      console.error('שגיאה במחיקת חדר:', error);
-      toast.error('שגיאה במחיקת החדר. אנא נסה שוב מאוחר יותר.');
-    } finally {
-      handleCloseDeleteDialog();
+      console.error('שגיאה במחיקת החדר:', error);
+      toast.error(
+        error.response?.data?.message || 
+        'שגיאה במחיקת החדר. אנא נסה שוב.'
+      );
     }
   };
 
-  // פתיחת דיאלוג עריכה
-  const handleOpenEditDialog = (room) => {
-    setRoomToEdit({
+  const handleEditRoom = (room) => {
+    setCurrentRoom({
       ...room,
-      amenities: room.amenities.join(', ')
+      amenities: room.amenities ? room.amenities.join(', ') : ''
     });
     setEditDialogOpen(true);
   };
 
-  // סגירת דיאלוג עריכה
   const handleCloseEditDialog = () => {
+    setCurrentRoom(null);
     setEditDialogOpen(false);
-    setRoomToEdit(null);
   };
 
-  // טיפול בשינוי שדות עריכה
-  const handleEditChange = (e) => {
-    const { name, value, checked, type } = e.target;
-    setRoomToEdit(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
-  // שמירת שינויים בחדר
   const handleSaveRoom = async () => {
-    try {
-      const roomData = {
-        ...roomToEdit,
-        amenities: roomToEdit.amenities.split(',').map(item => item.trim()).filter(Boolean)
-      };
-      
-      const response = await axios.put(`${process.env.REACT_APP_API_URL}/rooms/${roomToEdit._id}`, roomData);
-      
-      // עדכון הרשימה
-      setRooms(rooms.map(room => 
-        room._id === roomToEdit._id ? response.data.data : room
-      ));
-      
-      toast.success('החדר עודכן בהצלחה');
-      handleCloseEditDialog();
-    } catch (error) {
-      console.error('שגיאה בעדכון חדר:', error);
-      toast.error('שגיאה בעדכון החדר. אנא נסה שוב מאוחר יותר.');
-    }
-  };
-
-  // פתיחת דיאלוג העלאת תמונה
-  const handleOpenUploadDialog = (room) => {
-    setRoomForUpload(room);
-    setSelectedFile(null);
-    setUploadDialogOpen(true);
-  };
-
-  // סגירת דיאלוג העלאת תמונה
-  const handleCloseUploadDialog = () => {
-    setUploadDialogOpen(false);
-    setRoomForUpload(null);
-    setSelectedFile(null);
-  };
-
-  // טיפול בבחירת קובץ
-  const handleFileSelect = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-    }
-  };
-
-  // העלאת תמונה
-  const handleUploadImage = async () => {
-    if (!selectedFile || !roomForUpload) return;
+    if (!currentRoom) return;
     
     try {
-      setUploading(true);
+      // הכנת האמנטיס כמערך
+      const amenitiesArray = currentRoom.amenities ? 
+        (typeof currentRoom.amenities === 'string' ? 
+          currentRoom.amenities.split(',').map(item => item.trim()) : 
+          currentRoom.amenities) : 
+        [];
+      
+      // הכנת האובייקט לשמירה
+      const roomData = {
+        ...currentRoom,
+        amenities: amenitiesArray
+      };
+      
+      let response;
+      
+      if (currentRoom._id) {
+        // עדכון חדר קיים
+        response = await axios.put(
+          `${process.env.REACT_APP_API_URL}/rooms/${currentRoom._id}`,
+          roomData
+        );
+      } else {
+        // יצירת חדר חדש
+        response = await axios.post(
+          `${process.env.REACT_APP_API_URL}/rooms`,
+          roomData
+        );
+      }
+      
+      if (response.data.success) {
+        if (currentRoom._id) {
+          // עדכון החדר ברשימה
+          setRooms(rooms.map(r => r._id === currentRoom._id ? response.data.data : r));
+          toast.success('החדר עודכן בהצלחה');
+        } else {
+          // הוספת החדר החדש לרשימה
+          setRooms([...rooms, response.data.data]);
+          toast.success('החדר נוצר בהצלחה');
+        }
+        
+        // סגירת הדיאלוג
+        handleCloseEditDialog();
+      }
+    } catch (error) {
+      console.error('שגיאה בשמירת החדר:', error);
+      toast.error(
+        error.response?.data?.message || 
+        'שגיאה בשמירת החדר. אנא נסה שוב.'
+      );
+    }
+  };
+
+  const handleUploadImage = async (roomId, event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // בדיקת סוג הקובץ
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('סוג קובץ לא נתמך. אנא העלה תמונה בפורמט JPEG, PNG, GIF או WebP');
+      return;
+    }
+    
+    // בדיקת גודל הקובץ (מקסימום 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('גודל הקובץ גדול מדי. אנא העלה תמונה קטנה מ-5MB');
+      return;
+    }
+    
+    try {
+      setImageUploading(true);
       
       const formData = new FormData();
-      formData.append('image', selectedFile);
+      formData.append('image', file);
       
       const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/uploads/room/${roomForUpload._id}`,
+        `${process.env.REACT_APP_API_URL}/rooms/${roomId}/images`,
         formData,
         {
           headers: {
@@ -193,576 +197,485 @@ const RoomsListPage = () => {
         }
       );
       
-      // קבלת החדר המעודכן מהשרת לאחר העלאת התמונה
-      const updatedRoomResponse = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/${roomForUpload._id}`);
-      const updatedRoomData = updatedRoomResponse.data.data;
-      
-      // עדכון הרשימה עם החדר המעודכן
-      setRooms(rooms.map(room => 
-        room._id === roomForUpload._id ? updatedRoomData : room
-      ));
-      
-      toast.success('התמונה הועלתה בהצלחה');
-      handleCloseUploadDialog();
+      if (response.data.success) {
+        // עדכון רשימת החדרים עם התמונה החדשה
+        setRooms(rooms.map(room => {
+          if (room._id === roomId) {
+            return {
+              ...room,
+              images: [...room.images, response.data.data]
+            };
+          }
+          return room;
+        }));
+        
+        toast.success('התמונה הועלתה בהצלחה');
+      }
     } catch (error) {
       console.error('שגיאה בהעלאת תמונה:', error);
-      toast.error('שגיאה בהעלאת התמונה. אנא נסה שוב מאוחר יותר.');
+      toast.error(
+        error.response?.data?.message || 
+        'שגיאה בהעלאת התמונה. אנא נסה שוב.'
+      );
     } finally {
-      setUploading(false);
+      setImageUploading(false);
     }
   };
 
-  // מחיקת תמונה
   const handleDeleteImage = async (roomId, imageId) => {
-    try {
-      if (!window.confirm('האם אתה בטוח שברצונך למחוק את התמונה?')) {
-        return;
-      }
-      
-      await axios.delete(`${process.env.REACT_APP_API_URL}/uploads/room/${roomId}/${imageId}`);
-      
-      // קבלת החדר המעודכן מהשרת
-      const updatedRoomResponse = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/${roomId}`, {
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      });
-      const updatedRoomData = updatedRoomResponse.data.data;
-      
-      // עדכון הרשימה
-      setRooms(rooms.map(room => 
-        room._id === roomId ? updatedRoomData : room
-      ));
-      
-      toast.success('התמונה נמחקה בהצלחה');
-    } catch (error) {
-      console.error('שגיאה במחיקת תמונה:', error);
-      toast.error('שגיאה במחיקת התמונה. אנא נסה שוב מאוחר יותר.');
+    if (!window.confirm('האם אתה בטוח שברצונך למחוק את התמונה?')) {
+      return;
     }
-  };
-
-  // הגדרת תמונה ראשית
-  const handleSetPrimaryImage = async (roomId, imageId) => {
-    try {
-      await axios.put(`${process.env.REACT_APP_API_URL}/uploads/room/${roomId}/${imageId}/primary`);
-      
-      // קבלת החדר המעודכן מהשרת
-      const updatedRoomResponse = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/${roomId}`, {
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      });
-      const updatedRoomData = updatedRoomResponse.data.data;
-      
-      // עדכון הרשימה
-      setRooms(rooms.map(room => 
-        room._id === roomId ? updatedRoomData : room
-      ));
-      
-      toast.success('התמונה הוגדרה כתמונה ראשית בהצלחה');
-    } catch (error) {
-      console.error('שגיאה בהגדרת תמונה ראשית:', error);
-      toast.error('שגיאה בהגדרת התמונה כראשית. אנא נסה שוב מאוחר יותר.');
-    }
-  };
-
-  const handleOpenIcalDialog = (room) => {
-    setRoomForIcal(room);
-    setIcalUrl(room.iCalUrl || '');
-    setIcalDialogOpen(true);
-  };
-
-  const handleCloseIcalDialog = () => {
-    setRoomForIcal(null);
-    setIcalUrl('');
-    setIcalDialogOpen(false);
-  };
-
-  const handleSaveIcalUrl = async () => {
-    if (!roomForIcal) return;
     
     try {
-      setSyncingIcal(true);
-      
-      const response = await axios.put(
-        `${process.env.REACT_APP_API_URL}/rooms/${roomForIcal._id}/ical`,
-        { iCalUrl: icalUrl },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-access-token': localStorage.getItem('token')
-          }
-        }
+      const response = await axios.delete(
+        `${process.env.REACT_APP_API_URL}/rooms/${roomId}/images/${imageId}`
       );
       
-      // עדכון החדר ברשימה
-      setRooms(rooms.map(r => 
-        r._id === roomForIcal._id 
-          ? { ...r, iCalUrl: icalUrl, lastSyncedAt: response.data.syncResult?.syncTime || null } 
-          : r
-      ));
-      
-      // הצגת הודעת הצלחה
-      toast.success(response.data.message || 'כתובת ה-iCal עודכנה בהצלחה');
-      
-      // סגירת הדיאלוג
-      handleCloseIcalDialog();
+      if (response.data.success) {
+        // עדכון רשימת החדרים ללא התמונה שנמחקה
+        setRooms(rooms.map(room => {
+          if (room._id === roomId) {
+            return {
+              ...room,
+              images: room.images.filter(img => img._id !== imageId)
+            };
+          }
+          return room;
+        }));
+        
+        toast.success('התמונה נמחקה בהצלחה');
+      }
     } catch (error) {
-      console.error('שגיאה בעדכון כתובת ה-iCal:', error);
+      console.error('שגיאה במחיקת תמונה:', error);
       toast.error(
         error.response?.data?.message || 
-        'שגיאה בעדכון כתובת ה-iCal. אנא נסה שוב.'
+        'שגיאה במחיקת התמונה. אנא נסה שוב.'
       );
-    } finally {
-      setSyncingIcal(false);
     }
   };
 
-  const handleSyncIcal = async (roomId) => {
+  const handleSetPrimaryImage = async (roomId, imageId) => {
     try {
-      setSyncingIcal(true);
-      
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/rooms/${roomId}/sync-ical`,
-        {},
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-access-token': localStorage.getItem('token')
-          }
-        }
+      const response = await axios.put(
+        `${process.env.REACT_APP_API_URL}/rooms/${roomId}/images/${imageId}/primary`
       );
       
-      // עדכון החדר ברשימה
       if (response.data.success) {
-        setRooms(rooms.map(r => 
-          r._id === roomId 
-            ? { ...r, lastSyncedAt: response.data.data.syncTime } 
-            : r
-        ));
+        // עדכון רשימת החדרים עם התמונה הראשית החדשה
+        setRooms(rooms.map(room => {
+          if (room._id === roomId) {
+            return {
+              ...room,
+              images: room.images.map(img => ({
+                ...img,
+                isPrimary: img._id === imageId
+              }))
+            };
+          }
+          return room;
+        }));
         
-        toast.success(
-          `סנכרון הצליח! נוספו ${response.data.data.addedEvents} אירועים.`
-        );
-      } else {
-        toast.error(response.data.data.error || 'סנכרון נכשל');
+        toast.success('התמונה הראשית הוגדרה בהצלחה');
       }
     } catch (error) {
-      console.error('שגיאה בסנכרון יומן ה-iCal:', error);
+      console.error('שגיאה בהגדרת תמונה ראשית:', error);
       toast.error(
         error.response?.data?.message || 
-        'שגיאה בסנכרון יומן ה-iCal. אנא נסה שוב.'
+        'שגיאה בהגדרת התמונה הראשית. אנא נסה שוב.'
       );
-    } finally {
-      setSyncingIcal(false);
+    }
+  };
+
+  const handleOpenImagesDialog = (room) => {
+    setRoomForImages(room);
+    setRoomImages(room.images || []);
+    setImageDialogOpen(true);
+  };
+
+  const handleCloseImagesDialog = () => {
+    setRoomForImages(null);
+    setRoomImages([]);
+    setImageDialogOpen(false);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setCurrentRoom({
+      ...currentRoom,
+      [name]: value
+    });
+  };
+
+  const handleToggleActive = async (roomId, currentStatus) => {
+    try {
+      const response = await axios.put(
+        `${process.env.REACT_APP_API_URL}/rooms/${roomId}`,
+        { isActive: !currentStatus }
+      );
+      
+      if (response.data.success) {
+        // עדכון הסטטוס ברשימת החדרים
+        setRooms(rooms.map(room => {
+          if (room._id === roomId) {
+            return {
+              ...room,
+              isActive: !currentStatus
+            };
+          }
+          return room;
+        }));
+        
+        toast.success(`החדר ${!currentStatus ? 'הופעל' : 'הושבת'} בהצלחה`);
+      }
+    } catch (error) {
+      console.error('שגיאה בעדכון סטטוס החדר:', error);
+      toast.error(
+        error.response?.data?.message || 
+        'שגיאה בעדכון סטטוס החדר. אנא נסה שוב.'
+      );
     }
   };
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          ניהול חדרים
-        </Typography>
-        
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {/* פתיחת דיאלוג יצירת חדר חדש */}}
-        >
-          הוסף חדר חדש
-        </Button>
-      </Box>
-      
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : rooms.length === 0 ? (
-        <Paper sx={{ p: 3, textAlign: 'center' }}>
-          <Typography>לא נמצאו חדרים</Typography>
-        </Paper>
-      ) : (
-        <Grid container spacing={3}>
-          {rooms.map((room) => (
-            <Grid item xs={12} sm={6} md={4} key={room._id}>
-              <Card>
-                <CardMedia
-                  component="img"
-                  height="200"
-                  image={room.images.find(img => img.isPrimary)?.url || room.images[0]?.url || 'https://via.placeholder.com/400x200?text=אין+תמונה'}
-                  alt={`חדר ${room.roomNumber}`}
-                />
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Typography gutterBottom variant="h5" component="div">
-                    חדר {room.roomNumber}
-                    {room.iCalUrl && (
-                      <Tooltip title={room.lastSyncedAt ? `מסונכרן עם Booking.com (עדכון אחרון: ${new Date(room.lastSyncedAt).toLocaleString()})` : 'מסונכרן עם Booking.com'}>
-                        <EventIcon fontSize="small" color="primary" sx={{ ml: 1, verticalAlign: 'middle' }} />
-                      </Tooltip>
-                    )}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {room.description.substring(0, 100)}...
-                  </Typography>
-                  <Typography variant="body1" color="primary" sx={{ mt: 1 }}>
-                    {room.basePrice} ₪ / לילה
-                  </Typography>
-                  
-                  {/* תמונות החדר */}
-                  {room.images.length > 0 && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        תמונות:
-                      </Typography>
-                      <Grid container spacing={1}>
-                        {room.images.map(image => (
-                          <Grid item xs={4} key={image._id}>
-                            <Box 
-                              sx={{ 
-                                position: 'relative', 
-                                height: 80, 
-                                border: image.isPrimary ? '2px solid #1976d2' : '1px solid #ddd',
-                                borderRadius: 1,
-                                overflow: 'hidden'
-                              }}
-                            >
-                              <Box
-                                component="img"
-                                src={image.url}
-                                alt="תמונת חדר"
-                                sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              />
-                              <Box 
-                                sx={{ 
-                                  position: 'absolute', 
-                                  top: 0, 
-                                  right: 0, 
-                                  left: 0, 
-                                  bottom: 0, 
-                                  display: 'flex', 
-                                  justifyContent: 'center', 
-                                  alignItems: 'center', 
-                                  opacity: 0, 
-                                  bgcolor: 'rgba(0,0,0,0.5)', 
-                                  transition: 'opacity 0.3s',
-                                  '&:hover': {
-                                    opacity: 1
-                                  }
-                                }}
-                              >
-                                <IconButton 
-                                  size="small"
-                                  color="primary"
-                                  onClick={() => handleSetPrimaryImage(room._id, image._id)}
-                                  title="הגדר כתמונה ראשית"
-                                  sx={{ 
-                                    color: 'white', 
-                                    bgcolor: 'rgba(25, 118, 210, 0.7)',
-                                    mr: 0.5,
-                                    '&:hover': {
-                                      bgcolor: 'rgba(25, 118, 210, 0.9)'
-                                    } 
-                                  }}
-                                >
-                                  <StarIcon fontSize="small" />
-                                </IconButton>
-                                <IconButton 
-                                  size="small"
-                                  color="error"
-                                  onClick={() => handleDeleteImage(room._id, image._id)}
-                                  title="מחק תמונה"
-                                  sx={{ 
-                                    color: 'white', 
-                                    bgcolor: 'rgba(211, 47, 47, 0.7)',
-                                    '&:hover': {
-                                      bgcolor: 'rgba(211, 47, 47, 0.9)'
-                                    } 
-                                  }}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Box>
-                              {image.isPrimary && (
-                                <Box 
-                                  sx={{ 
-                                    position: 'absolute', 
-                                    top: 0, 
-                                    left: 0, 
-                                    bgcolor: 'primary.main', 
-                                    color: 'white',
-                                    px: 0.5,
-                                    py: 0.2,
-                                    fontSize: '0.6rem'
-                                  }}
-                                >
-                                  ראשי
-                                </Box>
-                              )}
-                            </Box>
-                          </Grid>
-                        ))}
-                      </Grid>
-                    </Box>
-                  )}
-                </CardContent>
-                
-                <CardActions>
-                  <IconButton 
-                    onClick={() => handleOpenEditDialog(room)}
-                    aria-label="ערוך"
-                    color="primary"
-                  >
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton 
-                    onClick={() => handleOpenUploadDialog(room)}
-                    aria-label="הוסף תמונה"
-                    color="primary"
-                  >
-                    <CameraIcon />
-                  </IconButton>
-                  <IconButton 
-                    onClick={() => handleOpenIcalDialog(room)}
-                    aria-label="הגדר iCal"
-                    color="primary"
-                  >
-                    <EventIcon />
-                  </IconButton>
-                  {room.iCalUrl && (
-                    <IconButton 
-                      onClick={() => handleSyncIcal(room._id)}
-                      aria-label="סנכרן iCal"
-                      color="primary"
-                      disabled={syncingIcal}
-                    >
-                      <SyncIcon />
-                    </IconButton>
-                  )}
-                  <Box sx={{ flexGrow: 1 }} />
-                  <IconButton 
-                    onClick={() => handleOpenDeleteDialog(room)}
-                    aria-label="מחק"
-                    color="error"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      )}
-      
-      {/* דיאלוג מחיקה */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={handleCloseDeleteDialog}
-      >
-        <DialogTitle>מחיקת חדר</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            האם אתה בטוח שברצונך למחוק את חדר {roomToDelete?.roomNumber}?
-            פעולה זו אינה ניתנת לביטול.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog}>ביטול</Button>
-          <Button onClick={handleDeleteRoom} color="error" autoFocus>
-            מחק
+    <Layout>
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            ניהול חדרים
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setCurrentRoom({
+                roomNumber: '',
+                type: 'standard',
+                basePrice: '',
+                maxOccupancy: 2,
+                description: '',
+                amenities: '',
+                isActive: true
+              });
+              setEditDialogOpen(true);
+            }}
+          >
+            הוסף חדר חדש
           </Button>
-        </DialogActions>
-      </Dialog>
-      
-      {/* דיאלוג עריכה */}
-      <Dialog
-        open={editDialogOpen}
-        onClose={handleCloseEditDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>עריכת חדר {roomToEdit?.roomNumber}</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="מספר חדר"
-                name="roomNumber"
-                type="number"
-                value={roomToEdit?.roomNumber || ''}
-                onChange={handleEditChange}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>סוג חדר</InputLabel>
-                <Select
-                  name="type"
-                  value={roomToEdit?.type || 'standard'}
-                  onChange={handleEditChange}
-                  label="סוג חדר"
+        </Box>
+        
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Grid container spacing={3}>
+            {rooms.map(room => (
+              <Grid item xs={12} sm={6} md={4} key={room._id}>
+                <Paper
+                  sx={{
+                    p: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                    opacity: room.isActive ? 1 : 0.7,
+                    position: 'relative'
+                  }}
                 >
-                  <MenuItem value="standard">סטנדרט</MenuItem>
-                  <MenuItem value="deluxe">דלקס</MenuItem>
-                  <MenuItem value="suite">סוויטה</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="מחיר בסיס"
-                name="basePrice"
-                type="number"
-                value={roomToEdit?.basePrice || ''}
-                onChange={handleEditChange}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="תפוסה מקסימלית"
-                name="maxOccupancy"
-                type="number"
-                value={roomToEdit?.maxOccupancy || ''}
-                onChange={handleEditChange}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="תיאור"
-                name="description"
-                multiline
-                rows={3}
-                value={roomToEdit?.description || ''}
-                onChange={handleEditChange}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="שירותים (מופרדים בפסיקים)"
-                name="amenities"
-                value={roomToEdit?.amenities || ''}
-                onChange={handleEditChange}
-                helperText="לדוגמה: מיזוג אוויר, טלוויזיה, מקרר"
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={roomToEdit?.isActive || false}
-                    onChange={handleEditChange}
-                    name="isActive"
-                    color="primary"
-                  />
-                }
-                label="חדר פעיל"
-              />
-            </Grid>
+                  {!room.isActive && (
+                    <Chip
+                      label="לא פעיל"
+                      color="error"
+                      size="small"
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8
+                      }}
+                    />
+                  )}
+                  
+                  <Box sx={{ mb: 2 }}>
+                    <Typography gutterBottom variant="h5" component="div">
+                      חדר {room.roomNumber}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {room.description.substring(0, 100)}
+                      {room.description.length > 100 ? '...' : ''}
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Grid container spacing={1}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          <BedIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
+                          {room.type === 'standard' ? 'סטנדרט' : 
+                           room.type === 'deluxe' ? 'דה-לוקס' : 'סוויטה'}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          <PersonIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
+                          עד {room.maxOccupancy} אורחים
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Typography variant="body2" color="text.secondary">
+                          <MoneyIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
+                          {room.basePrice} ₪ / לילה
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 2 }}>
+                    <IconButton
+                      onClick={() => handleEditRoom(room)}
+                      aria-label="ערוך"
+                      color="primary"
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      onClick={() => handleOpenImagesDialog(room)}
+                      aria-label="תמונות"
+                      color="primary"
+                    >
+                      <ImageIcon />
+                    </IconButton>
+                    <Box sx={{ flexGrow: 1 }} />
+                    <IconButton 
+                      onClick={() => handleToggleActive(room._id, room.isActive)}
+                      aria-label={room.isActive ? 'השבת' : 'הפעל'}
+                      color={room.isActive ? 'warning' : 'success'}
+                    >
+                      <HotelIcon />
+                    </IconButton>
+                    <IconButton
+                      onClick={() => handleDeleteRoom(room._id)}
+                      aria-label="מחק"
+                      color="error"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                </Paper>
+              </Grid>
+            ))}
           </Grid>
+        )}
+      </Container>
+      
+      {/* דיאלוג עריכת/הוספת חדר */}
+      <Dialog 
+        open={editDialogOpen} 
+        onClose={handleCloseEditDialog}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          {currentRoom && currentRoom._id ? 'עריכת חדר' : 'הוספת חדר חדש'}
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            margin="dense"
+            name="roomNumber"
+            label="מספר חדר"
+            type="number"
+            fullWidth
+            variant="outlined"
+            value={currentRoom?.roomNumber || ''}
+            onChange={handleInputChange}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            name="type"
+            label="סוג חדר"
+            select
+            fullWidth
+            variant="outlined"
+            value={currentRoom?.type || 'standard'}
+            onChange={handleInputChange}
+            sx={{ mb: 2 }}
+          >
+            <MenuItem value="standard">סטנדרט</MenuItem>
+            <MenuItem value="deluxe">דה-לוקס</MenuItem>
+            <MenuItem value="suite">סוויטה</MenuItem>
+          </TextField>
+          <TextField
+            margin="dense"
+            name="basePrice"
+            label="מחיר בסיס (לילה)"
+            type="number"
+            fullWidth
+            variant="outlined"
+            value={currentRoom?.basePrice || ''}
+            onChange={handleInputChange}
+            InputProps={{
+              endAdornment: <InputAdornment position="end">₪</InputAdornment>,
+            }}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            name="maxOccupancy"
+            label="מספר אורחים מקסימלי"
+            type="number"
+            fullWidth
+            variant="outlined"
+            value={currentRoom?.maxOccupancy || 2}
+            onChange={handleInputChange}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            name="description"
+            label="תיאור החדר"
+            multiline
+            rows={4}
+            fullWidth
+            variant="outlined"
+            value={currentRoom?.description || ''}
+            onChange={handleInputChange}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            name="amenities"
+            label="אמנטיס (מופרדים בפסיקים)"
+            fullWidth
+            variant="outlined"
+            value={currentRoom?.amenities || ''}
+            onChange={handleInputChange}
+            sx={{ mb: 2 }}
+            placeholder="טלוויזיה, מקרר, מזגן, WiFi"
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={currentRoom?.isActive ?? true}
+                onChange={(e) => setCurrentRoom({
+                  ...currentRoom,
+                  isActive: e.target.checked
+                })}
+                name="isActive"
+              />
+            }
+            label="חדר פעיל"
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseEditDialog}>ביטול</Button>
-          <Button onClick={handleSaveRoom} color="primary">
+          <Button onClick={handleSaveRoom} variant="contained">
             שמור
           </Button>
         </DialogActions>
       </Dialog>
       
-      {/* דיאלוג העלאת תמונה */}
+      {/* דיאלוג ניהול תמונות */}
       <Dialog
-        open={uploadDialogOpen}
-        onClose={handleCloseUploadDialog}
-      >
-        <DialogTitle>העלאת תמונה לחדר {roomForUpload?.roomNumber}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ textAlign: 'center', py: 2 }}>
-            <input
-              accept="image/*"
-              style={{ display: 'none' }}
-              id="upload-image"
-              type="file"
-              onChange={handleFileSelect}
-            />
-            <label htmlFor="upload-image">
-              <Button
-                variant="outlined"
-                component="span"
-                startIcon={<CameraIcon />}
-              >
-                בחר תמונה
-              </Button>
-            </label>
-            
-            {selectedFile && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body2">
-                  נבחר: {selectedFile.name}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseUploadDialog}>ביטול</Button>
-          <Button 
-            onClick={handleUploadImage} 
-            color="primary"
-            disabled={!selectedFile || uploading}
-          >
-            {uploading ? <CircularProgress size={24} /> : 'העלה'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* דיאלוג הגדרת iCal URL */}
-      <Dialog
-        open={icalDialogOpen}
-        onClose={handleCloseIcalDialog}
-        maxWidth="sm"
+        open={imageDialogOpen}
+        onClose={handleCloseImagesDialog}
         fullWidth
+        maxWidth="md"
       >
-        <DialogTitle>הגדרת סנכרון יומן Booking.com</DialogTitle>
+        <DialogTitle>ניהול תמונות - חדר {roomForImages?.roomNumber}</DialogTitle>
         <DialogContent>
-          <DialogContentText gutterBottom>
-            הזן את כתובת ה-iCal מ-Booking.com עבור חדר {roomForIcal?.roomNumber}.
-            הזמנות מהיומן יסונכרנו אוטומטית למערכת.
-          </DialogContentText>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="כתובת iCal URL"
-            type="url"
-            fullWidth
-            variant="outlined"
-            value={icalUrl}
-            onChange={(e) => setIcalUrl(e.target.value)}
-            disabled={syncingIcal}
-            placeholder="https://ical.booking.com/v1/export?t=..."
-            sx={{ mt: 2 }}
-          />
+          <Box sx={{ mb: 3 }}>
+            <Button
+              variant="contained"
+              component="label"
+              disabled={imageUploading}
+              startIcon={imageUploading ? <CircularProgress size={20} /> : <AddIcon />}
+            >
+              העלאת תמונה חדשה
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={(e) => {
+                  if (roomForImages) {
+                    handleUploadImage(roomForImages._id, e);
+                  }
+                }}
+              />
+            </Button>
+          </Box>
+          
+          <Grid container spacing={2}>
+            {roomForImages?.images?.map((image) => (
+              <Grid item xs={12} sm={6} md={4} key={image._id}>
+                <Paper
+                  sx={{
+                    p: 2,
+                    position: 'relative',
+                    border: image.isPrimary ? '2px solid green' : 'none'
+                  }}
+                >
+                  {image.isPrimary && (
+                    <Chip
+                      label="תמונה ראשית"
+                      color="success"
+                      size="small"
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        zIndex: 1
+                      }}
+                    />
+                  )}
+                  <Box
+                    component="img"
+                    src={image.url}
+                    alt={`תמונה של חדר ${roomForImages.roomNumber}`}
+                    sx={{
+                      width: '100%',
+                      height: 150,
+                      objectFit: 'cover',
+                      mb: 1
+                    }}
+                  />
+                  <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                    {!image.isPrimary && (
+                      <Button
+                        size="small"
+                        onClick={() => handleSetPrimaryImage(roomForImages._id, image._id)}
+                        startIcon={<StarIcon />}
+                        sx={{ mr: 1 }}
+                      >
+                        הגדר כראשית
+                      </Button>
+                    )}
+                    <Button
+                      size="small"
+                      color="error"
+                      onClick={() => handleDeleteImage(roomForImages._id, image._id)}
+                      startIcon={<DeleteIcon />}
+                    >
+                      מחק
+                    </Button>
+                  </Box>
+                </Paper>
+              </Grid>
+            ))}
+            {!roomForImages?.images?.length && (
+              <Grid item xs={12}>
+                <Typography variant="body1" align="center">
+                  אין תמונות לחדר זה עדיין
+                </Typography>
+              </Grid>
+            )}
+          </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseIcalDialog} disabled={syncingIcal}>ביטול</Button>
-          <Button 
-            onClick={handleSaveIcalUrl}
-            variant="contained"
-            disabled={syncingIcal}
-            startIcon={syncingIcal ? <CircularProgress size={20} /> : null}
-          >
-            {syncingIcal ? 'מסנכרן...' : 'שמור וסנכרן'}
-          </Button>
+          <Button onClick={handleCloseImagesDialog}>סגור</Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Layout>
   );
 };
 

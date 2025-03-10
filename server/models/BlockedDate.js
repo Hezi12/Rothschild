@@ -19,33 +19,6 @@ const BlockedDateSchema = new Schema({
     type: String,
     default: ''
   },
-  externalReference: {
-    type: String,
-    default: '',
-    index: true
-  },
-  externalSource: {
-    type: String,
-    default: ''
-  },
-  guestDetails: {
-    name: {
-      type: String,
-      default: ''
-    },
-    email: {
-      type: String,
-      default: ''
-    },
-    phone: {
-      type: String,
-      default: ''
-    },
-    notes: {
-      type: String,
-      default: ''
-    }
-  },
   createdBy: {
     type: Schema.Types.ObjectId,
     ref: 'User'

@@ -62,7 +62,13 @@ import {
   PriceChange as PriceChangeIcon,
   Save as SaveIcon,
   AttachMoney as MoneyIcon,
-  SyncDisabled as SyncDisabledIcon
+  Person as PersonIcon,
+  ViewWeek as ViewWeekIcon,
+  ViewDay as ViewDayIcon,
+  Close as CloseIcon,
+  Flight as FlightIcon,
+  Hotel as HotelIcon,
+  Search as SearchIcon
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { format, addDays, startOfWeek, endOfWeek, addWeeks, subWeeks, isSameDay, isWithinInterval, parseISO, isToday, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, subDays } from 'date-fns';
@@ -74,7 +80,7 @@ const BookingsCalendarPage = () => {
   const [bookings, setBookings] = useState([]);
   const [blockedDates, setBlockedDates] = useState([]);
   const [dynamicPrices, setDynamicPrices] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [loadingBlockedDates, setLoadingBlockedDates] = useState(true);
@@ -91,7 +97,6 @@ const BookingsCalendarPage = () => {
   const [showFullCardNumber, setShowFullCardNumber] = useState(false);
   const [error, setError] = useState(null);
   const [dataInitialized, setDataInitialized] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   
   // משתנים חדשים לניהול מחירים
   const [priceDialogOpen, setPriceDialogOpen] = useState(false);
@@ -2652,46 +2657,6 @@ const BookingsCalendarPage = () => {
     }
   };
 
-  // פונקציה חדשה לסנכרון יומני Booking.com
-  const handleSyncBookingCalendars = async () => {
-    try {
-      setIsSyncing(true);
-      
-      // קריאה ל-API לסנכרון כל יומני ה-iCal
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/rooms/sync-all-icals`,
-        {},
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-access-token': localStorage.getItem('token')
-          }
-        }
-      );
-      
-      if (response.data.success) {
-        // טעינה מחדש של הנתונים
-        await fetchBlockedDates();
-        
-        // הצג הודעת הצלחה
-        const syncResults = response.data.data.results || [];
-        const totalEvents = syncResults.reduce((sum, result) => sum + (result.addedEvents || 0), 0);
-        
-        toast.success(`סנכרון הושלם בהצלחה! ${totalEvents} אירועים סונכרנו`);
-      } else {
-        toast.error('שגיאה בסנכרון: ' + (response.data.data?.error || 'פרטים לא זמינים'));
-      }
-    } catch (error) {
-      console.error('שגיאה בסנכרון יומני Booking.com:', error);
-      toast.error(
-        error.response?.data?.message || 
-        'שגיאה בסנכרון יומני Booking.com. אנא נסה שוב.'
-      );
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
   // פונקציה לעדכון פרטי אורח בהזמנה מבוקינג
   const handleUpdateBookingGuestData = async () => {
     if (!selectedBookingBlock) return;
@@ -3285,24 +3250,6 @@ const BookingsCalendarPage = () => {
         </Button>
         <Button 
           variant="contained" 
-          color="error" 
-          onClick={() => disableAllICalSync()}
-          startIcon={<SyncDisabledIcon />}
-        >
-          {loading ? <CircularProgress size={24} /> : 'נטרול סנכרון Booking.com'}
-        </Button>
-        <Button 
-          variant="contained" 
-          color="error" 
-          onClick={() => disableAllICalSync(true)}
-          startIcon={<DeleteIcon />}
-          disabled={loading}
-          sx={{ bgcolor: 'darkred', '&:hover': { bgcolor: 'firebrick' } }}
-        >
-          {loading ? <CircularProgress size={24} /> : 'נטרול סנכרון + מחיקת כל החסימות'}
-        </Button>
-        <Button 
-          variant="contained" 
           color="primary" 
           onClick={handleFullRefresh}
           startIcon={<RefreshIcon />}
@@ -3312,61 +3259,6 @@ const BookingsCalendarPage = () => {
         </Button>
       </Box>
     );
-  };
-  
-  // פונקציה לנטרול כל הסנכרונים מבוקינג
-  const disableAllICalSync = async (forceDeleteAll = false) => {
-    const message = forceDeleteAll 
-      ? 'האם אתה בטוח שברצונך לנטרל את כל הסנכרונים עם Booking.com ולמחוק את כל החסימות במערכת? פעולה זו אינה הפיכה!' 
-      : 'האם אתה בטוח שברצונך לנטרל את כל הסנכרונים עם Booking.com ולמחוק את החסימות הקשורות? פעולה זו אינה הפיכה!';
-      
-    if (!window.confirm(message)) {
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      const url = forceDeleteAll 
-        ? `${process.env.REACT_APP_API_URL}/rooms/disable-all-ical-sync?forceDeleteAll=true`
-        : `${process.env.REACT_APP_API_URL}/rooms/disable-all-ical-sync`;
-        
-      const result = await axios.delete(url);
-      console.log('תוצאת ניטרול סנכרונים:', result.data);
-      
-      if (result.data && result.data.success) {
-        toast.success(`הסנכרון נוטרל בהצלחה! נמחקו ${result.data.deletedBlockedDates} חסימות ו-${result.data.updatedRooms} חדרים עודכנו`);
-        
-        // רענון הנתונים
-        fetchBlockedDates();
-        fetchRooms();
-      } else {
-        toast.warning('הפעולה הושלמה אך התשובה מהשרת לא הייתה ברורה. מומלץ לרענן את הדף.');
-      }
-    } catch (error) {
-      console.error('שגיאה בניטרול הסנכרונים:', error);
-      
-      // הצגת פרטי השגיאה המלאים
-      console.log('פרטי השגיאה המלאים:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        message: error.response?.data?.message,
-        error: error.response?.data?.error,
-        fullData: error.response?.data
-      });
-      
-      // הודעת שגיאה מפורטת יותר
-      if (error.response && error.response.data && error.response.data.message) {
-        toast.error(`שגיאה בניטרול הסנכרונים: ${error.response.data.message}`);
-      } else {
-        toast.error('שגיאה בניטרול הסנכרונים מבוקינג. נסה שוב מאוחר יותר.');
-      }
-      
-      // במקרה של שגיאה, ננסה לרענן את הנתונים בכל זאת
-      fetchBlockedDates();
-      fetchRooms();
-    } finally {
-      setLoading(false);
-    }
   };
   
   // פונקציה לרענון מלא של הנתונים
@@ -3412,27 +3304,7 @@ const BookingsCalendarPage = () => {
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              {/* כפתור סנכרון יומנים */}
-              <Tooltip title="סנכרון יומנים חיצוניים">
-                <IconButton
-                  color="primary"
-                  onClick={handleSyncBookingCalendars}
-                  disabled={isSyncing}
-                  sx={{ 
-                    ml: 1,
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    '&:hover': { 
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 8px rgba(0,0,0,0.15)'
-                    },
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  {isSyncing ? <CircularProgress size={24} /> : <CalendarIcon />}
-                </IconButton>
-              </Tooltip>
-            
-              {/* הסרנו את כפתור הסינון */}
+              {/* הסרנו את כפתור סנכרון יומנים */}
             
               {/* כפתור עריכה גורפת של מחירים */}
               <Button
