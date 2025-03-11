@@ -14,23 +14,17 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemIcon,
-  Chip
+  ListItemIcon
 } from '@mui/material';
 import { 
   Dashboard as DashboardIcon,
   Hotel as HotelIcon,
   EventNote as BookingIcon,
   Person as PersonIcon,
-  CalendarToday as CalendarIcon,
-  Edit as EditIcon,
-  Collections as GalleryIcon,
-  Image
+  CalendarToday as CalendarIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import { Modal } from 'react-bootstrap';
-import { Form } from 'react-bootstrap';
 
 const DashboardPage = () => {
   const { user } = useContext(AuthContext);
@@ -41,9 +35,6 @@ const DashboardPage = () => {
   });
   const [recentBookings, setRecentBookings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
-  const [deletePassword, setDeletePassword] = useState('');
-  const [deletingAll, setDeletingAll] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -86,71 +77,6 @@ const DashboardPage = () => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('he-IL');
-  };
-
-  // פונקציה למחיקת כל ההזמנות במערכת
-  const handleDeleteAllBookings = async () => {
-    if (!deletePassword) {
-      toast.error('יש להזין סיסמה');
-      return;
-    }
-    
-    try {
-      setDeletingAll(true);
-      const response = await axios.delete(
-        `${process.env.REACT_APP_API_URL}/bookings/all`,
-        { 
-          data: { password: deletePassword },
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
-      
-      if (response.data.success) {
-        toast.success(response.data.message);
-        setShowDeleteAllModal(false);
-        setDeletePassword('');
-        // רענון הדף
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('שגיאה במחיקת כל ההזמנות:', error);
-      toast.error(error.response?.data?.message || 'אירעה שגיאה במחיקת ההזמנות');
-    } finally {
-      setDeletingAll(false);
-    }
-  };
-
-  // פונקציית מחיקת חירום - לשימוש במקרי קצה בלבד
-  const handleEmergencyCleanup = async () => {
-    if (!window.confirm('אזהרה חמורה! פעולה זו תמחק את כל ההזמנות והחסימות ללא אפשרות שחזור. האם אתה בטוח?')) {
-      return;
-    }
-    if (!window.confirm('אזהרה נוספת: זוהי פעולת חירום! כל הנתונים ימחקו לצמיתות. האם להמשיך?')) {
-      return;
-    }
-    
-    try {
-      setDeletingAll(true);
-      
-      const response = await axios.delete(
-        `${process.env.REACT_APP_API_URL}/bookings/emergency-cleanup`
-      );
-      
-      if (response.data.success) {
-        toast.success(response.data.message);
-        setShowDeleteAllModal(false);
-        setDeletePassword('');
-        // רענון הדף
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('שגיאה במחיקת חירום:', error);
-      toast.error(error.response?.data?.message || 'אירעה שגיאה במחיקת הנתונים');
-    } finally {
-      setDeletingAll(false);
-    }
   };
 
   return (
@@ -255,16 +181,7 @@ const DashboardPage = () => {
 
       {/* שורת כלים נוספים */}
       <Box sx={{ mb: 4, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        <Chip 
-          icon={<GalleryIcon />} 
-          label="גלריה כללית" 
-          component={Link}
-          to="/dashboard/gallery"
-          clickable
-          color="primary"
-          variant="outlined"
-          sx={{ fontWeight: 'bold' }}
-        />
+        {/* הסרת קישור הגלריה מכאן */}
       </Box>
 
       {/* הזמנות אחרונות */}
@@ -309,87 +226,12 @@ const DashboardPage = () => {
         </CardActions>
       </Card>
 
-      {/* כפתור מחיקת כל ההזמנות */}
-      <div className="card mt-4 border-danger">
-        <div className="card-header bg-danger text-white">
-          <h3>פעולות מערכת מסוכנות</h3>
-        </div>
-        <div className="card-body">
-          <p className="text-danger fw-bold">אזהרה: הפעולות הבאות הן בלתי הפיכות ויכולות לגרום לאובדן נתונים!</p>
-          <Button 
-            variant="outline-danger" 
-            className="mt-2"
-            onClick={() => setShowDeleteAllModal(true)}
-          >
-            מחק את כל ההזמנות והחסימות במערכת
-          </Button>
-        </div>
-      </div>
-      
-      {/* מודאל אישור מחיקת כל ההזמנות */}
-      <Modal show={showDeleteAllModal} onHide={() => setShowDeleteAllModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title className="text-danger">אזהרה חמורה!</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p className="fw-bold text-danger">פעולה זו תמחק את כל ההזמנות והחסימות במערכת ללא אפשרות שחזור!</p>
-          <p>אם אתה בטוח שברצונך להמשיך, הזן את סיסמת האדמין הראשי:</p>
-          <Form.Group>
-            <Form.Control
-              type="password"
-              placeholder="סיסמת אדמין ראשי"
-              value={deletePassword}
-              onChange={(e) => setDeletePassword(e.target.value)}
-            />
-          </Form.Group>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDeleteAllModal(false)}>
-            ביטול
-          </Button>
-          <Button 
-            variant="danger" 
-            onClick={handleDeleteAllBookings}
-            disabled={deletingAll}
-          >
-            {deletingAll ? 'מוחק...' : 'מחק את כל ההזמנות והחסימות'}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* כפתור חירום למחיקת כל הנתונים */}
-      <Box sx={{ mt: 4, textAlign: 'center', p: 2, border: '2px dashed red', borderRadius: 2 }}>
-        <Typography variant="h6" color="error" gutterBottom>
-          אזור חירום - לשימוש במקרי קצה בלבד
-        </Typography>
-        <Button 
-          variant="contained" 
-          color="error" 
-          onClick={handleEmergencyCleanup}
-          disabled={deletingAll}
-          sx={{ mt: 1 }}
-        >
-          מחיקת חירום - כל ההזמנות והחסימות
-        </Button>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          לשימוש רק כשכל השאר נכשל
-        </Typography>
-      </Box>
-
       {/* כלים נוספים */}
       <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
         כלים נוספים
       </Typography>
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
-        <Chip 
-          icon={<Image />} 
-          label="גלריה כללית" 
-          component={Link}
-          to="/dashboard/gallery"
-          clickable
-          color="primary"
-          variant="outlined"
-        />
+        {/* הסרת קישור הגלריה מכאן */}
       </Box>
     </Box>
   );

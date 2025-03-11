@@ -17,7 +17,6 @@ import RoomsListPage from './pages/RoomsListPage';
 import NotFoundPage from './pages/NotFoundPage';
 import CalendarLinksPage from './pages/CalendarLinksPage';
 import SearchResultsPage from './pages/SearchResultsPage';
-import InstallationGuidePage from './pages/InstallationGuidePage';
 import CancellationRequestPage from './pages/CancellationRequestPage';
 import CancellationRedirectPage from './pages/CancellationRedirectPage';
 import GalleryManagementPage from './pages/GalleryManagementPage';
@@ -75,7 +74,6 @@ function App() {
             <Route path="search-results" element={<SearchResultsPage />} />
             <Route path="booking" element={<BookingPage />} />
             <Route path="login" element={<LoginPage />} />
-            <Route path="installation-guide" element={<InstallationGuidePage />} />
             <Route path="/cancel-booking/:id" element={<CancellationRequestPage />} />
             <Route path="cancel-booking/:id" element={<CancellationRequestPage />} />
             <Route path="cancel-redirect/:id" element={<CancellationRedirectPage />} />

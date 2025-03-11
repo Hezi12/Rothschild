@@ -33,37 +33,37 @@ router
   .route('/stats')
   .get(protect, admin, bookingController.getBookingsStats);
 
-// מחיקת כל ההזמנות - רק למנהל
-router
-  .route('/all')
-  .delete(protect, admin, bookingController.deleteAllBookings);
+// מחיקת נקודת קצה למחיקת כל ההזמנות
+// router
+//   .route('/all')
+//   .delete(protect, admin, bookingController.deleteAllBookings);
 
-// נקודת קצה ללא אימות למצבי חירום
-router
-  .route('/emergency-cleanup')
-  .delete(async (req, res) => {
-    try {
-      const Booking = require('../models/Booking');
-      
-      // מחיקת כל ההזמנות
-      const result = await Booking.deleteMany({});
-      
-      console.log(`מחיקת חירום: נמחקו ${result.deletedCount} הזמנות`);
-      
-      return res.json({
-        success: true,
-        message: `מחיקת חירום בוצעה בהצלחה: נמחקו ${result.deletedCount} הזמנות`,
-        count: result.deletedCount
-      });
-    } catch (error) {
-      console.error('שגיאה במחיקת חירום של הזמנות:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'שגיאה במחיקת הנתונים',
-        error: error.message
-      });
-    }
-  });
+// מחיקת נקודת קצה ללא אימות למצבי חירום
+// router
+//   .route('/emergency-cleanup')
+//   .delete(async (req, res) => {
+//     try {
+//       const Booking = require('../models/Booking');
+//       
+//       // מחיקת כל ההזמנות
+//       const result = await Booking.deleteMany({});
+//       
+//       console.log(`מחיקת חירום: נמחקו ${result.deletedCount} הזמנות`);
+//       
+//       return res.json({
+//         success: true,
+//         message: `מחיקת חירום בוצעה בהצלחה: נמחקו ${result.deletedCount} הזמנות`,
+//         count: result.deletedCount
+//       });
+//     } catch (error) {
+//       console.error('שגיאה במחיקת חירום של הזמנות:', error);
+//       return res.status(500).json({
+//         success: false,
+//         message: 'שגיאה במחיקת הנתונים',
+//         error: error.message
+//       });
+//     }
+//   });
 
 // @route   GET /api/bookings/cancel-request/:id
 // @desc    עמוד בקשת ביטול הזמנה

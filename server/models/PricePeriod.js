@@ -9,7 +9,8 @@ const PricePeriodSchema = new Schema({
   // שם התקופה (למשל "קיץ 2023", "חגי תשרי", "סופי שבוע")
   name: {
     type: String,
-    required: true
+    required: true,
+    trim: true
   },
   
   // תקופת התחלה וסיום
@@ -80,6 +81,20 @@ const PricePeriodSchema = new Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+
+  roomTypes: [{
+    type: String,
+    enum: ['standard', 'deluxe', 'suite'],
+    required: true
+  }],
+
+  priceMultiplier: {
+    type: Number,
+    required: true,
+    min: 0.1,
+    max: 10,
+    default: 1
   }
 });
 

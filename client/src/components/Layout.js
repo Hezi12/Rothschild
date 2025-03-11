@@ -18,17 +18,13 @@ import {
   Chip
 } from '@mui/material';
 import { 
-  Menu as MenuIcon,
   AccountCircle,
   Dashboard as DashboardIcon,
   ExitToApp as LogoutIcon,
   Hotel as HotelIcon,
-  Phone as PhoneIcon,
   WhatsApp as WhatsAppIcon,
   Call as CallIcon,
-  Info as InfoIcon,
-  Construction as ConstructionIcon,
-  MenuBook as MenuBookIcon
+  Construction as ConstructionIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 
@@ -52,10 +48,6 @@ const Layout = () => {
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
-  };
-
-  const handleMobileMenu = (event) => {
-    setMobileAnchorEl(event.currentTarget);
   };
 
   const handleClose = () => {
@@ -385,12 +377,6 @@ const Layout = () => {
             ניהול
           </MenuItem>
         )}
-        {isAdmin() && (
-          <MenuItem component={Link} to="/installation-guide" onClick={handleClose}>
-            <MenuBookIcon fontSize="small" sx={{ ml: 1 }} />
-            מדריך התקנה
-          </MenuItem>
-        )}
         <MenuItem onClick={handleLogout}>
           <LogoutIcon fontSize="small" sx={{ ml: 1 }} />
           התנתק
@@ -415,24 +401,18 @@ const Layout = () => {
         {isAuthenticated() ? (
           <>
             {isAdmin() && (
-              <MenuItem component={Link} to="/dashboard" onClick={handleMobileClose}>
+              <MenuItem component={Link} to="/dashboard" onClick={handleClose}>
                 <DashboardIcon fontSize="small" sx={{ ml: 1 }} />
                 ניהול
               </MenuItem>
             )}
-            {isAdmin() && (
-              <MenuItem component={Link} to="/installation-guide" onClick={handleMobileClose}>
-                <MenuBookIcon fontSize="small" sx={{ ml: 1 }} />
-                מדריך התקנה
-              </MenuItem>
-            )}
-            <MenuItem onClick={() => { handleMobileClose(); handleLogout(); }}>
+            <MenuItem onClick={() => { handleClose(); handleLogout(); }}>
               <LogoutIcon fontSize="small" sx={{ ml: 1 }} />
               התנתק
             </MenuItem>
           </>
         ) : (
-          <MenuItem component={Link} to="/login" onClick={handleMobileClose}>
+          <MenuItem component={Link} to="/login" onClick={handleClose}>
             התחברות
           </MenuItem>
         )}

@@ -2,6 +2,7 @@ const Room = require('../models/Room');
 const Booking = require('../models/Booking');
 const BlockedDate = require('../models/BlockedDate');
 const { validationResult } = require('express-validator');
+const cloudinary = require('../config/cloudinary');
 
 // @desc    קבלת כל החדרים
 // @route   GET /api/rooms
@@ -664,6 +665,82 @@ exports.updateBlockedDateGuestDetails = async (req, res) => {
       success: false, 
       message: 'שגיאת שרת',
       error: error.message
+    });
+  }
+};
+
+// @desc    עדכון מחירים מיוחדים לפי ימי שבוע לחדר ספציפי
+// @route   PUT /api/rooms/:id/special-prices
+// @access  Private/Admin
+exports.updateRoomSpecialPrices = async (req, res) => {
+  try {
+    const roomId = req.params.id;
+    const { specialPrices } = req.body;
+
+    // וידוא שהחדר קיים
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: 'החדר לא נמצא'
+      });
+    }
+
+    // עדכון מחירים מיוחדים
+    if (!room.specialPrices) {
+      room.specialPrices = {};
+    }
+
+    // עדכון או יצירה של מחירים מיוחדים לפי ימי שבוע
+    for (const [day, priceInfo] of Object.entries(specialPrices)) {
+      if (priceInfo.enabled && priceInfo.price > 0) {
+        room.specialPrices[day] = priceInfo.price;
+      } else {
+        delete room.specialPrices[day];
+      }
+    }
+
+    await room.save();
+
+    res.json({
+      success: true,
+      specialPrices: room.specialPrices,
+      message: 'המחירים המיוחדים עודכנו בהצלחה'
+    });
+  } catch (error) {
+    console.error('שגיאה בעדכון מחירים מיוחדים:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת' 
+    });
+  }
+};
+
+// @desc    קבלת מחירים מיוחדים לפי ימי שבוע לחדר ספציפי
+// @route   GET /api/rooms/:id/special-prices
+// @access  Private/Admin
+exports.getRoomSpecialPrices = async (req, res) => {
+  try {
+    const roomId = req.params.id;
+
+    // וידוא שהחדר קיים
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: 'החדר לא נמצא'
+      });
+    }
+
+    res.json({
+      success: true,
+      specialPrices: room.specialPrices || {}
+    });
+  } catch (error) {
+    console.error('שגיאה בקבלת מחירים מיוחדים:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת' 
     });
   }
 }; 

@@ -91,8 +91,6 @@ killall node
 - **צד שרת**: Node.js, Express, MongoDB
 - **צד לקוח**: React, Material-UI
 
-למידע מפורט יותר, בקר בדף [מדריך ההתקנה](/installation-guide) באפליקציה (דורש הרשאות מנהל).
-
 ## מבנה המערכת
 
 - **שרת**: Node.js + Express

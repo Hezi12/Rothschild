@@ -45,6 +45,11 @@ const RoomSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  specialPrices: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
   createdAt: {
     type: Date,
     default: Date.now

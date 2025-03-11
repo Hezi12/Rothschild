@@ -47,6 +47,7 @@ const chatRoutes = require('./routes/chatRoutes');
 const galleryRoutes = require('./routes/gallery');
 const priceRoutes = require('./routes/prices');
 const userRoutes = require('./routes/users');
+const pricePeriodRoutes = require('./routes/pricePeriods');
 
 // Routes
 app.use('/api/rooms', roomRoutes);
@@ -56,6 +57,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/gallery', galleryRoutes);
 app.use('/api/prices', priceRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/price-periods', pricePeriodRoutes);
 
 // נתיבי API
 app.use('/api/uploads', require('./routes/uploads'));

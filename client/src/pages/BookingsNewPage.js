@@ -26,7 +26,6 @@ import {
   Select,
   MenuItem,
   CircularProgress,
-  Snackbar,
   Alert,
   Chip,
   Divider,
@@ -43,7 +42,6 @@ import {
   Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
-  Payment as PaymentIcon,
   Event as EventIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -274,11 +272,9 @@ const BookingsNewPage = () => {
         bookingData.totalPrice = formData.basePrice * nights;
       }
       
-      let response;
-      
       if (selectedBooking) {
         // עדכון הזמנה קיימת
-        response = await axios.put(
+        await axios.put(
           `${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}`,
           bookingData,
           {
@@ -291,7 +287,7 @@ const BookingsNewPage = () => {
         alert('ההזמנה עודכנה בהצלחה');
       } else {
         // יצירת הזמנה חדשה
-        response = await axios.post(
+        await axios.post(
           `${process.env.REACT_APP_API_URL}/bookings`,
           bookingData,
           {
@@ -334,7 +330,7 @@ const BookingsNewPage = () => {
     }
   };
   
-  const handleUpdatePaymentStatus = async (newStatus, paymentMethod = '') => {
+  const handleUpdatePaymentStatus = async (bookingId, newStatus) => {
     if (!selectedBooking) return;
     
     try {
@@ -342,7 +338,7 @@ const BookingsNewPage = () => {
         `${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}/payment-status`,
         { 
           paymentStatus: newStatus, 
-          paymentMethod: paymentMethod 
+          paymentMethod: '' 
         },
         {
           headers: {
@@ -849,39 +845,15 @@ const BookingsNewPage = () => {
                 variant="outlined"
                 color="success"
                 startIcon={<CheckCircleIcon />}
-                onClick={() => handleUpdatePaymentStatus('paid', 'cash')}
+                onClick={() => handleUpdatePaymentStatus(selectedBooking._id, 'paid')}
               >
-                שולם במזומן
-              </Button>
-              <Button
-                variant="outlined"
-                color="success"
-                startIcon={<CheckCircleIcon />}
-                onClick={() => handleUpdatePaymentStatus('paid', 'credit')}
-              >
-                שולם בכרטיס אשראי
-              </Button>
-              <Button
-                variant="outlined"
-                color="success"
-                startIcon={<CheckCircleIcon />}
-                onClick={() => handleUpdatePaymentStatus('paid', 'mizrahi')}
-              >
-                שולם בבנק מזרחי
-              </Button>
-              <Button
-                variant="outlined"
-                color="success"
-                startIcon={<CheckCircleIcon />}
-                onClick={() => handleUpdatePaymentStatus('paid', 'poalim')}
-              >
-                שולם בבנק הפועלים
+                שולם
               </Button>
               <Button
                 variant="outlined"
                 color="error"
                 startIcon={<CancelIcon />}
-                onClick={() => handleUpdatePaymentStatus('pending', '')}
+                onClick={() => handleUpdatePaymentStatus(selectedBooking._id, 'pending')}
               >
                 לא שולם
               </Button>

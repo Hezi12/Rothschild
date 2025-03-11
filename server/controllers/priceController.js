@@ -117,7 +117,7 @@ exports.bulkUpdatePrices = async (req, res) => {
     return res.status(400).json({ success: false, errors: errors.array() });
   }
 
-  const { roomIds, startDate, endDate, price, daysOfWeek } = req.body;
+  const { roomIds, startDate, endDate, price, daysOfWeek, specialPrices } = req.body;
 
   try {
     // וידוא שהפרמטרים תקינים
@@ -132,14 +132,6 @@ exports.bulkUpdatePrices = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'נדרשים תאריך התחלה ותאריך סיום'
-      });
-    }
-
-    const numericPrice = Number(price);
-    if (isNaN(numericPrice) || numericPrice <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'המחיר חייב להיות מספר חיובי'
       });
     }
 
@@ -169,46 +161,47 @@ exports.bulkUpdatePrices = async (req, res) => {
 
     // עבור כל חדר, עדכן את המחירים בטווח התאריכים
     for (const roomId of roomIds) {
+      // איפוס מחירים קיימים בטווח התאריכים
+      await DynamicPrice.deleteMany({
+        room: roomId,
+        date: { $gte: start, $lte: end }
+      });
+
       // יצירת תאריכי ביניים בין תאריך ההתחלה לתאריך הסיום
       const dates = [];
       let currentDate = new Date(start);
       
       while (currentDate <= end) {
-        // אם צוינו ימי שבוע מסוימים, בדוק אם היום הנוכחי כלול בהם
+        // קבלת היום בשבוע
         const dayOfWeek = currentDate.getDay(); // 0 = ראשון, 1 = שני, וכו'
         
+        // בדיקה אם היום הנוכחי נכלל בימים שצוינו
         if (!daysOfWeek || daysOfWeek.includes(dayOfWeek)) {
-          dates.push(new Date(currentDate));
+          // קביעת המחיר בהתאם ליום בשבוע אם מוגדרים מחירים מיוחדים
+          let currentPrice = price;
+          
+          // אם ניתנו מחירים ספציפיים לימים, השתמש בהם
+          if (specialPrices && specialPrices[dayOfWeek] !== undefined) {
+            currentPrice = specialPrices[dayOfWeek];
+          }
+          
+          // וידוא שהמחיר הוא מספר חיובי
+          const numericPrice = Number(currentPrice);
+          if (!isNaN(numericPrice) && numericPrice > 0) {
+            // יצירת רשומת מחיר חדשה
+            const dynamicPrice = new DynamicPrice({
+              room: roomId,
+              date: new Date(currentDate),
+              price: numericPrice
+            });
+            
+            await dynamicPrice.save();
+            updatedPrices.push(dynamicPrice);
+          }
         }
         
         // התקדם ליום הבא
         currentDate.setDate(currentDate.getDate() + 1);
-      }
-
-      // עדכון או יצירת מחירים לכל התאריכים
-      for (const date of dates) {
-        // חיפוש מחיר קיים
-        let dynamicPrice = await DynamicPrice.findOne({
-          room: roomId,
-          date: startOfDay(date)
-        });
-
-        if (dynamicPrice) {
-          // עדכון מחיר קיים
-          dynamicPrice.price = numericPrice;
-          dynamicPrice.updatedAt = Date.now();
-          await dynamicPrice.save();
-        } else {
-          // יצירת רשומת מחיר חדשה
-          dynamicPrice = new DynamicPrice({
-            room: roomId,
-            date: startOfDay(date),
-            price: numericPrice
-          });
-          await dynamicPrice.save();
-        }
-        
-        updatedPrices.push(dynamicPrice);
       }
     }
 

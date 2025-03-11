@@ -130,4 +130,9 @@ router.delete('/:id/blocked-dates', [protect, admin], async (req, res) => {
   }
 });
 
+// נתיבים למחירים מיוחדים לפי ימי שבוע
+router.route('/:id/special-prices')
+  .get(protect, admin, roomController.getRoomSpecialPrices)
+  .put(protect, admin, roomController.updateRoomSpecialPrices);
+
 module.exports = router; 
