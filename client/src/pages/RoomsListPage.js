@@ -47,9 +47,6 @@ const RoomsListPage = () => {
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [currentRoom, setCurrentRoom] = useState(null);
-  const [icalDialogOpen, setIcalDialogOpen] = useState(false);
-  const [roomForIcal, setRoomForIcal] = useState(null);
-  const [icalUrl, setIcalUrl] = useState('');
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [roomForImages, setRoomForImages] = useState(null);
   const [imageUploading, setImageUploading] = useState(false);

@@ -237,17 +237,6 @@ const DashboardPage = () => {
           >
             ניהול הזמנות - גרסה חדשה ומשופרת
           </Button>
-          <Button
-            component={Link}
-            to="/dashboard/bookings"
-            fullWidth
-            variant="contained"
-            color="primary"
-            size="large"
-            sx={{ fontWeight: 'bold' }}
-          >
-            ניהול הזמנות
-          </Button>
         </Grid>
         <Grid item xs={12} md={6}>
           <Button
@@ -273,16 +262,6 @@ const DashboardPage = () => {
           to="/dashboard/gallery"
           clickable
           color="primary"
-          variant="outlined"
-          sx={{ fontWeight: 'bold' }}
-        />
-        <Chip 
-          icon={<EditIcon />} 
-          label="עורך iCal" 
-          component={Link}
-          to="/dashboard/ical-editor"
-          clickable
-          color="secondary"
           variant="outlined"
           sx={{ fontWeight: 'bold' }}
         />
@@ -407,15 +386,6 @@ const DashboardPage = () => {
           label="גלריה כללית" 
           component={Link}
           to="/dashboard/gallery"
-          clickable
-          color="primary"
-          variant="outlined"
-        />
-        <Chip 
-          icon={<CalendarIcon />} 
-          label="עורך iCal" 
-          component={Link}
-          to="/dashboard/ical-editor"
           clickable
           color="primary"
           variant="outlined"

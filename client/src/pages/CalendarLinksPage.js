@@ -68,7 +68,7 @@ const CalendarLinksPage = () => {
 
   // יצירת כתובת מותאמת לחדר - משתמש בנקודת הקצה החדשה
   const getCalendarLink = (roomId) => {
-    // משתמש בנקודת הקצה iCal של השרת החדש
+    // קישור דינמי לקובץ יומן בפורמט ICS
     return `${baseUrl}/calendar/${roomId}.ics`;
   };
 
@@ -133,7 +133,7 @@ const CalendarLinksPage = () => {
             הוראות שימוש
           </Typography>
           <Typography variant="body1" paragraph>
-            כאן תוכל/י ליצור ולהעתיק קישורים ללוחות שנה בפורמט iCal עם סיומת .ics, כפי שנדרש על ידי בוקינג.קום.
+            כאן תוכל/י ליצור ולהעתיק קישורים ללוחות שנה בפורמט ICS, כפי שנדרש על ידי בוקינג.קום ואתרי הזמנות אחרים.
           </Typography>
           <Typography variant="body1" paragraph>
             <strong>שימוש:</strong> העתק את הקישור של החדר הרצוי והדבק אותו בשדה היבוא של לוח השנה בממשק מנהל האתר של בוקינג.קום.
@@ -143,7 +143,7 @@ const CalendarLinksPage = () => {
 
       <Alert severity="info" sx={{ mb: 3 }} icon={<InfoIcon />}>
         <Typography variant="body1">
-          <strong>הערה:</strong> המערכת כרגע משתמשת בקבצי iCal סטטיים. עדכונים בהזמנות לא ישתקפו אוטומטית בקבצים אלה.
+          <strong>הערה:</strong> המערכת משתמשת בקבצי יומן דינמיים. עדכונים בהזמנות ישתקפו אוטומטית ביומנים.
         </Typography>
       </Alert>
 

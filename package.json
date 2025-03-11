@@ -10,8 +10,7 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "build": "cd client && npm run build",
     "start-prod": "cd server && npm run production",
-    "start": "node index.js",
-    "ical-server": "nodemon index.js"
+    "start": "node index.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

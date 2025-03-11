@@ -13,11 +13,9 @@ import RoomPage from './pages/RoomPage';
 import BookingPage from './pages/BookingPage';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
-import BookingsCalendarPage from './pages/BookingsCalendarPage';
 import RoomsListPage from './pages/RoomsListPage';
 import NotFoundPage from './pages/NotFoundPage';
 import CalendarLinksPage from './pages/CalendarLinksPage';
-import IcalEditorPage from './pages/IcalEditorPage';
 import SearchResultsPage from './pages/SearchResultsPage';
 import InstallationGuidePage from './pages/InstallationGuidePage';
 import CancellationRequestPage from './pages/CancellationRequestPage';
@@ -88,7 +86,6 @@ function App() {
                 <DashboardPage />
               </ProtectedRoute>
             } />
-            <Route path="/dashboard/bookings" element={<ProtectedRoute><BookingsCalendarPage /></ProtectedRoute>} />
             <Route path="/dashboard/bookings-calendar" element={<ProtectedRoute><BookingCalendarNew /></ProtectedRoute>} />
             <Route path="/dashboard/bookings-new" element={<ProtectedRoute><BookingsNewPage /></ProtectedRoute>} />
             <Route path="dashboard/rooms" element={
@@ -104,11 +101,6 @@ function App() {
             <Route path="dashboard/calendar-links" element={
               <ProtectedRoute>
                 <CalendarLinksPage />
-              </ProtectedRoute>
-            } />
-            <Route path="dashboard/ical-editor" element={
-              <ProtectedRoute>
-                <IcalEditorPage />
               </ProtectedRoute>
             } />
             
