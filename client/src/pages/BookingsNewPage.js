@@ -30,7 +30,10 @@ import {
   Alert,
   Chip,
   Divider,
-  Tooltip
+  Tooltip,
+  InputAdornment,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -69,7 +72,9 @@ const BookingsNewPage = () => {
     },
     isTourist: false,
     notes: '',
-    status: 'confirmed'
+    status: 'confirmed',
+    basePrice: 0,
+    totalPrice: 0
   });
   
   // סטייטים לסינון וחיפוש
@@ -157,7 +162,9 @@ const BookingsNewPage = () => {
         guest: { ...booking.guest },
         isTourist: booking.isTourist,
         notes: booking.notes || '',
-        status: booking.status
+        status: booking.status,
+        basePrice: booking.basePrice,
+        totalPrice: booking.totalPrice
       });
       setSelectedBooking(booking);
     } else {
@@ -173,7 +180,9 @@ const BookingsNewPage = () => {
         },
         isTourist: false,
         notes: '',
-        status: 'confirmed'
+        status: 'confirmed',
+        basePrice: 0,
+        totalPrice: 0
       });
       setSelectedBooking(null);
     }
@@ -253,12 +262,16 @@ const BookingsNewPage = () => {
         checkOut: format(checkOut, 'yyyy-MM-dd')
       };
       
-      if (rooms.length > 0 && formData.roomId) {
+      // במקרה של הזמנה חדשה, או שלא הוזן מחיר ידנית
+      if ((!selectedBooking || !formData.basePrice) && rooms.length > 0 && formData.roomId) {
         const selectedRoom = rooms.find(r => r._id === formData.roomId);
         if (selectedRoom) {
           bookingData.basePrice = selectedRoom.basePrice;
           bookingData.totalPrice = selectedRoom.basePrice * nights;
         }
+      } else if (formData.basePrice) {
+        // אם הוזן מחיר ידנית, חשב מחדש את סה"כ
+        bookingData.totalPrice = formData.basePrice * nights;
       }
       
       let response;
@@ -321,13 +334,16 @@ const BookingsNewPage = () => {
     }
   };
   
-  const handleUpdatePaymentStatus = async (newStatus) => {
+  const handleUpdatePaymentStatus = async (newStatus, paymentMethod = '') => {
     if (!selectedBooking) return;
     
     try {
       await axios.put(
         `${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}/payment-status`,
-        { paymentStatus: newStatus },
+        { 
+          paymentStatus: newStatus, 
+          paymentMethod: paymentMethod 
+        },
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -668,12 +684,27 @@ const BookingsNewPage = () => {
               </Grid>
               
               <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  label="מחיר בסיס ללילה"
+                  name="basePrice"
+                  type="number"
+                  value={formData.basePrice}
+                  onChange={handleFormChange}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">₪</InputAdornment>,
+                  }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
                 <Box sx={{ mt: 2 }}>
                   <DatePicker
                     label="תאריך צ'ק אין"
                     value={formData.checkIn}
                     onChange={(date) => handleDateChange('checkIn', date)}
-                    renderInput={(params) => <TextField {...params} fullWidth />}
+                    slotProps={{ textField: { fullWidth: true } }}
                   />
                 </Box>
               </Grid>
@@ -684,7 +715,7 @@ const BookingsNewPage = () => {
                     label="תאריך צ'ק אאוט"
                     value={formData.checkOut}
                     onChange={(date) => handleDateChange('checkOut', date)}
-                    renderInput={(params) => <TextField {...params} fullWidth />}
+                    slotProps={{ textField: { fullWidth: true } }}
                   />
                 </Box>
               </Grid>
@@ -728,15 +759,24 @@ const BookingsNewPage = () => {
               
               <Grid item xs={12}>
                 <FormControl component="fieldset" sx={{ mt: 2 }}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      name="isTourist"
-                      checked={formData.isTourist}
-                      onChange={handleCheckboxChange}
-                    />
-                    {' '}תייר (פטור ממע"מ)
-                  </label>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.isTourist}
+                        onChange={handleCheckboxChange}
+                        name="isTourist"
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography>תייר (פטור ממע"מ)</Typography>
+                        {formData.isTourist && (
+                          <Chip size="small" label="תייר" color="info" sx={{ ml: 1 }} />
+                        )}
+                      </Box>
+                    }
+                  />
                 </FormControl>
               </Grid>
               
@@ -809,23 +849,39 @@ const BookingsNewPage = () => {
                 variant="outlined"
                 color="success"
                 startIcon={<CheckCircleIcon />}
-                onClick={() => handleUpdatePaymentStatus('paid')}
+                onClick={() => handleUpdatePaymentStatus('paid', 'cash')}
               >
-                שולם במלואו
+                שולם במזומן
               </Button>
               <Button
                 variant="outlined"
-                color="warning"
-                startIcon={<PaymentIcon />}
-                onClick={() => handleUpdatePaymentStatus('partial')}
+                color="success"
+                startIcon={<CheckCircleIcon />}
+                onClick={() => handleUpdatePaymentStatus('paid', 'credit')}
               >
-                שולם חלקית
+                שולם בכרטיס אשראי
+              </Button>
+              <Button
+                variant="outlined"
+                color="success"
+                startIcon={<CheckCircleIcon />}
+                onClick={() => handleUpdatePaymentStatus('paid', 'mizrahi')}
+              >
+                שולם בבנק מזרחי
+              </Button>
+              <Button
+                variant="outlined"
+                color="success"
+                startIcon={<CheckCircleIcon />}
+                onClick={() => handleUpdatePaymentStatus('paid', 'poalim')}
+              >
+                שולם בבנק הפועלים
               </Button>
               <Button
                 variant="outlined"
                 color="error"
                 startIcon={<CancelIcon />}
-                onClick={() => handleUpdatePaymentStatus('pending')}
+                onClick={() => handleUpdatePaymentStatus('pending', '')}
               >
                 לא שולם
               </Button>

@@ -10,11 +10,6 @@ const { sendCancellationAlert } = require('../utils/emailService');
  * ניתובי API חדשים ומשופרים למערכת ההזמנות
  */
 
-// ניתובים פומביים - זמינים לכולם
-router
-  .route('/check-availability')
-  .get(bookingController.checkAvailability);
-
 // ניתובים רגילים - דורשים הרשאת משתמש רגיל
 router
   .route('/')

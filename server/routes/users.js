@@ -1,3 +1,8 @@
+const express = require('express');
+const router = express.Router();
+const User = require('../models/User');
+const { protect, admin } = require('../middleware/auth');
+
 // @route   PUT /api/users/:id/super-admin
 // @desc    הגדר או בטל הרשאות אדמין ראשי
 // @access  Private/Admin
@@ -41,4 +46,6 @@ router.put('/:id/super-admin', [protect, admin], async (req, res) => {
       error: error.message
     });
   }
-}); 
+});
+
+module.exports = router; 

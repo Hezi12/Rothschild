@@ -61,7 +61,7 @@ const BookingSchema = new Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['credit', 'cash', 'bank', 'other', ''],
+    enum: ['credit', 'cash', 'mizrahi', 'poalim', 'other', ''],
     default: ''
   },
   paymentStatus: {

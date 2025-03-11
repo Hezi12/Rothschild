@@ -1,4 +1,3 @@
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -47,6 +46,7 @@ const authRoutes = require('./routes/auth');
 const chatRoutes = require('./routes/chatRoutes');
 const galleryRoutes = require('./routes/gallery');
 const priceRoutes = require('./routes/prices');
+const userRoutes = require('./routes/users');
 
 // Routes
 app.use('/api/rooms', roomRoutes);
@@ -55,6 +55,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/gallery', galleryRoutes);
 app.use('/api/prices', priceRoutes);
+app.use('/api/users', userRoutes);
 
 // נתיבי API
 app.use('/api/uploads', require('./routes/uploads'));

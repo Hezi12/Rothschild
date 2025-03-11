@@ -309,7 +309,7 @@ exports.updateBooking = async (req, res) => {
     const updateData = { ...req.body };
     
     // בדיקת קיום ההזמנה
-    const booking = await Booking.findById(bookingId);
+    const booking = await Booking.findById(bookingId).populate('room');
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -317,14 +317,16 @@ exports.updateBooking = async (req, res) => {
       });
     }
     
-    // אם יש עדכון תאריכים, צריך לבדוק זמינות
-    if ((updateData.checkIn && updateData.checkIn !== booking.checkIn.toISOString()) || 
-        (updateData.checkOut && updateData.checkOut !== booking.checkOut.toISOString()) ||
-        (updateData.roomId && updateData.roomId !== booking.room.toString())) {
-      
-      const roomId = updateData.roomId || booking.room;
-      const checkInDate = updateData.checkIn ? new Date(updateData.checkIn) : booking.checkIn;
-      const checkOutDate = updateData.checkOut ? new Date(updateData.checkOut) : booking.checkOut;
+    // בדיקה אם יש שינויים בתאריכים או בחדר (שינויים שדורשים בדיקת זמינות)
+    const isCheckInChanged = updateData.checkIn && format(new Date(updateData.checkIn), 'yyyy-MM-dd') !== format(booking.checkIn, 'yyyy-MM-dd');
+    const isCheckOutChanged = updateData.checkOut && format(new Date(updateData.checkOut), 'yyyy-MM-dd') !== format(booking.checkOut, 'yyyy-MM-dd');
+    const isRoomChanged = updateData.roomId && updateData.roomId !== booking.room._id.toString();
+    
+    // אם יש עדכון תאריכים או חדר, צריך לבדוק זמינות
+    if (isCheckInChanged || isCheckOutChanged || isRoomChanged) {
+      const roomId = updateData.roomId || booking.room._id;
+      const checkInDate = isCheckInChanged ? new Date(updateData.checkIn) : booking.checkIn;
+      const checkOutDate = isCheckOutChanged ? new Date(updateData.checkOut) : booking.checkOut;
       
       // בדיקת זמינות החדר
       const { isAvailable, conflictingBookings } = await checkRoomAvailability(
@@ -344,30 +346,31 @@ exports.updateBooking = async (req, res) => {
           }))
         });
       }
+    }
+    
+    // עדכון מספר לילות אם השתנו התאריכים
+    if (isCheckInChanged || isCheckOutChanged) {
+      const start = isCheckInChanged ? new Date(updateData.checkIn) : booking.checkIn;
+      const end = isCheckOutChanged ? new Date(updateData.checkOut) : booking.checkOut;
       
-      // עדכון מספר לילות אם השתנו התאריכים
-      if (updateData.checkIn || updateData.checkOut) {
-        const start = updateData.checkIn ? new Date(updateData.checkIn) : booking.checkIn;
-        const end = updateData.checkOut ? new Date(updateData.checkOut) : booking.checkOut;
-        
-        // חישוב הפרש הימים
-        const diffTime = Math.abs(end - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        updateData.nights = diffDays;
-        
-        // עדכון מחיר אם צריך
-        if (diffDays !== booking.nights) {
-          const basePrice = updateData.basePrice || booking.basePrice;
-          updateData.totalPrice = basePrice * diffDays;
-        }
-      }
+      // חישוב הפרש הימים
+      const diffTime = Math.abs(end - start);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
-      // אם השתנה החדר
-      if (updateData.roomId) {
-        updateData.room = updateData.roomId;
-        delete updateData.roomId;
-      }
+      updateData.nights = diffDays;
+      
+      // עדכון המחיר הכולל בהתבסס על מחיר הבסיס החדש או הקיים
+      const basePrice = updateData.basePrice || booking.basePrice;
+      updateData.totalPrice = basePrice * diffDays;
+    } else if (updateData.basePrice) {
+      // אם רק המחיר השתנה (ולא התאריכים), עדכן את המחיר הכולל
+      updateData.totalPrice = updateData.basePrice * booking.nights;
+    }
+    
+    // אם השתנה החדר
+    if (isRoomChanged) {
+      updateData.room = updateData.roomId;
+      delete updateData.roomId;
     }
     
     // עדכון חותמת הזמן
@@ -377,7 +380,7 @@ exports.updateBooking = async (req, res) => {
     const updatedBooking = await Booking.findByIdAndUpdate(
       bookingId,
       updateData,
-      { new: true, runValidators: true }
+      { new: true, runValidators: false }
     ).populate('room', 'roomNumber type basePrice');
     
     res.json({
@@ -400,20 +403,24 @@ exports.deleteBooking = async (req, res) => {
   try {
     const bookingId = req.params.id;
     
-    // בדיקת קיום ההזמנה
-    const booking = await Booking.findById(bookingId);
-    if (!booking) {
+    // עדכון ישיר של ההזמנה ל"מבוטל" ללא טעינה מלאה ושמירה
+    const updatedBooking = await Booking.findByIdAndUpdate(
+      bookingId,
+      { 
+        $set: { 
+          status: 'canceled',
+          updatedAt: new Date()
+        } 
+      },
+      { new: true, runValidators: false }
+    );
+    
+    if (!updatedBooking) {
       return res.status(404).json({
         success: false,
         message: 'ההזמנה לא נמצאה'
       });
     }
-    
-    // במקום למחוק, משנים את הסטטוס ל"מבוטל"
-    booking.status = 'canceled';
-    booking.updatedAt = new Date();
-    
-    await booking.save();
     
     res.json({
       success: true,
@@ -442,36 +449,39 @@ exports.updatePaymentStatus = async (req, res) => {
       });
     }
     
-    // בדיקת קיום ההזמנה
-    const booking = await Booking.findById(id);
-    if (!booking) {
+    // בניית אובייקט עדכון
+    const updateData = {
+      paymentStatus,
+      updatedAt: new Date()
+    };
+    
+    // הוספת שדות אופציונליים אם סופקו
+    if (paidAmount !== undefined) {
+      updateData.paidAmount = paidAmount;
+    }
+    
+    if (paymentMethod) {
+      updateData.paymentMethod = paymentMethod;
+    }
+    
+    // עדכון ההזמנה ישירות
+    const updatedBooking = await Booking.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: false }
+    );
+    
+    if (!updatedBooking) {
       return res.status(404).json({
         success: false,
         message: 'ההזמנה לא נמצאה'
       });
     }
     
-    // עדכון סטטוס תשלום
-    booking.paymentStatus = paymentStatus;
-    
-    // עדכון סכום ששולם אם סופק
-    if (paidAmount !== undefined) {
-      booking.paidAmount = paidAmount;
-    }
-    
-    // עדכון אמצעי תשלום אם סופק
-    if (paymentMethod) {
-      booking.paymentMethod = paymentMethod;
-    }
-    
-    booking.updatedAt = new Date();
-    
-    await booking.save();
-    
     res.json({
       success: true,
       message: 'סטטוס התשלום עודכן בהצלחה',
-      data: booking
+      data: updatedBooking
     });
   } catch (error) {
     console.error('שגיאה בעדכון סטטוס תשלום:', error);
@@ -622,6 +632,28 @@ exports.getBookingsStats = async (req, res) => {
       success: false,
       message: 'אירעה שגיאה בקבלת סטטיסטיקות הזמנות',
       error: error.message
+    });
+  }
+};
+
+// @desc    קבלת כל ההזמנות לחדר מסוים
+// @route   GET /api/bookings/room/:roomId
+// @access  Private/Admin
+exports.getRoomBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find({ room: req.params.roomId })
+      .sort({ checkIn: 1 });
+    
+    res.json({
+      success: true,
+      count: bookings.length,
+      data: bookings
+    });
+  } catch (error) {
+    console.error('שגיאה בקבלת הזמנות לחדר:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת' 
     });
   }
 }; 
