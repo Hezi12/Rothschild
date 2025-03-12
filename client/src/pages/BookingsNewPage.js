@@ -42,7 +42,8 @@ import {
   Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
-  Event as EventIcon
+  Event as EventIcon,
+  WhatsApp as WhatsAppIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -64,9 +65,16 @@ const BookingsNewPage = () => {
     checkIn: null,
     checkOut: null,
     guest: {
-      name: '',
+      firstName: '',
+      lastName: '',
       phone: '',
       email: ''
+    },
+    creditCard: {
+      cardNumber: '',
+      expiryDate: '',
+      cvv: '',
+      cardholderName: ''
     },
     isTourist: false,
     notes: '',
@@ -157,7 +165,18 @@ const BookingsNewPage = () => {
         roomId: booking.room._id,
         checkIn: new Date(booking.checkIn),
         checkOut: new Date(booking.checkOut),
-        guest: { ...booking.guest },
+        guest: { 
+          firstName: booking.guest.firstName || '',
+          lastName: booking.guest.lastName || '',
+          phone: booking.guest.phone || '',
+          email: booking.guest.email || ''
+        },
+        creditCard: {
+          cardNumber: booking.creditCard?.cardNumber || '',
+          expiryDate: booking.creditCard?.expiryDate || '',
+          cvv: booking.creditCard?.cvv || '',
+          cardholderName: booking.creditCard?.cardholderName || ''
+        },
         isTourist: booking.isTourist,
         notes: booking.notes || '',
         status: booking.status,
@@ -172,9 +191,16 @@ const BookingsNewPage = () => {
         checkIn: null,
         checkOut: null,
         guest: {
-          name: '',
+          firstName: '',
+          lastName: '',
           phone: '',
           email: ''
+        },
+        creditCard: {
+          cardNumber: '',
+          expiryDate: '',
+          cvv: '',
+          cardholderName: ''
         },
         isTourist: false,
         notes: '',
@@ -202,6 +228,15 @@ const BookingsNewPage = () => {
         guest: {
           ...prev.guest,
           [guestField]: value
+        }
+      }));
+    } else if (name.startsWith('creditCard.')) {
+      const creditCardField = name.split('.')[1];
+      setFormData(prev => ({
+        ...prev,
+        creditCard: {
+          ...prev.creditCard,
+          [creditCardField]: value
         }
       }));
     } else {
@@ -257,7 +292,18 @@ const BookingsNewPage = () => {
         ...formData,
         nights,
         checkIn: format(checkIn, 'yyyy-MM-dd'),
-        checkOut: format(checkOut, 'yyyy-MM-dd')
+        checkOut: format(checkOut, 'yyyy-MM-dd'),
+        guest: {
+          ...formData.guest,
+          name: `${formData.guest.firstName} ${formData.guest.lastName}`.trim()
+        },
+        creditCard: {
+          ...formData.creditCard,
+          cardNumber: formData.creditCard?.cardNumber || '',
+          expiryDate: formData.creditCard?.expiryDate || '',
+          cvv: formData.creditCard?.cvv || '',
+          cardholderName: formData.creditCard?.cardholderName || ''
+        }
       };
       
       // במקרה של הזמנה חדשה, או שלא הוזן מחיר ידנית
@@ -395,6 +441,23 @@ const BookingsNewPage = () => {
       case 'pending': return 'error';
       default: return 'default';
     }
+  };
+  
+  // פונקציה לפתיחת ווטסאפ
+  const openWhatsApp = (phoneNumber) => {
+    // הסרת תווים שאינם ספרות
+    const cleanNumber = phoneNumber.replace(/\D/g, '');
+    
+    // בדיקה אם המספר מתחיל ב-0, אם כן - להסיר ולהוסיף 972
+    let formattedNumber = cleanNumber;
+    if (formattedNumber.startsWith('0')) {
+      formattedNumber = '972' + formattedNumber.substring(1);
+    } else if (!formattedNumber.startsWith('972')) {
+      formattedNumber = '972' + formattedNumber;
+    }
+    
+    // פתיחת קישור ווטסאפ
+    window.open(`https://wa.me/${formattedNumber}`, '_blank');
   };
   
   // רנדור הממשק
@@ -563,8 +626,22 @@ const BookingsNewPage = () => {
                         </TableCell>
                         <TableCell>
                           <Tooltip title={`טלפון: ${booking.guest.phone || 'לא צוין'}\nאימייל: ${booking.guest.email || 'לא צוין'}`}>
-                            <Box component="span" sx={{ cursor: 'pointer' }}>
-                              {booking.guest.name}
+                            <Box component="span" sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                              {booking.guest.firstName} {booking.guest.lastName}
+                              {booking.guest.phone && (
+                                <IconButton 
+                                  size="small" 
+                                  color="primary" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openWhatsApp(booking.guest.phone);
+                                  }}
+                                  title="פתח בווטסאפ"
+                                  sx={{ ml: 1 }}
+                                >
+                                  <WhatsAppIcon style={{ color: '#25D366' }} fontSize="small" />
+                                </IconButton>
+                              )}
                             </Box>
                           </Tooltip>
                         </TableCell>
@@ -638,19 +715,21 @@ const BookingsNewPage = () => {
         
         {/* דיאלוג הזמנה חדשה / עריכה */}
         <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-          <DialogTitle>
+          <DialogTitle sx={{ pb: 1 }}>
             {selectedBooking ? 'עריכת הזמנה' : 'הזמנה חדשה'}
           </DialogTitle>
-          <DialogContent dividers>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth margin="normal">
+          <DialogContent dividers sx={{ pt: 2 }}>
+            <Grid container spacing={1}>
+              {/* חלק 1: פרטי הזמנה - סידור קומפקטי יותר */}
+              <Grid item xs={12} sm={3}>
+                <FormControl fullWidth size="small">
                   <InputLabel>חדר</InputLabel>
                   <Select
                     name="roomId"
                     value={formData.roomId}
                     onChange={handleFormChange}
                     label="חדר"
+                    size="small"
                   >
                     <MenuItem value="">בחר חדר</MenuItem>
                     {rooms.map((room) => (
@@ -662,14 +741,15 @@ const BookingsNewPage = () => {
                 </FormControl>
               </Grid>
               
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth margin="normal">
+              <Grid item xs={12} sm={3}>
+                <FormControl fullWidth size="small">
                   <InputLabel>סטטוס</InputLabel>
                   <Select
                     name="status"
                     value={formData.status}
                     onChange={handleFormChange}
                     label="סטטוס"
+                    size="small"
                   >
                     <MenuItem value="confirmed">מאושר</MenuItem>
                     <MenuItem value="pending">ממתין</MenuItem>
@@ -679,10 +759,10 @@ const BookingsNewPage = () => {
                 </FormControl>
               </Grid>
               
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={3}>
                 <TextField
                   fullWidth
-                  margin="normal"
+                  size="small"
                   label="מחיר בסיס ללילה"
                   name="basePrice"
                   type="number"
@@ -693,59 +773,117 @@ const BookingsNewPage = () => {
                   }}
                 />
               </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                <Box sx={{ mt: 2 }}>
-                  <DatePicker
-                    label="תאריך צ'ק אין"
-                    value={formData.checkIn}
-                    onChange={(date) => handleDateChange('checkIn', date)}
-                    slotProps={{ textField: { fullWidth: true } }}
-                  />
-                </Box>
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                <Box sx={{ mt: 2 }}>
-                  <DatePicker
-                    label="תאריך צ'ק אאוט"
-                    value={formData.checkOut}
-                    onChange={(date) => handleDateChange('checkOut', date)}
-                    slotProps={{ textField: { fullWidth: true } }}
-                  />
-                </Box>
-              </Grid>
-              
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mt: 2 }}>
-                  פרטי אורח
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-              </Grid>
-              
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  fullWidth
-                  label="שם מלא"
-                  name="guest.name"
-                  value={formData.guest.name}
-                  onChange={handleFormChange}
+
+              <Grid item xs={12} sm={3}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.isTourist}
+                      onChange={handleCheckboxChange}
+                      name="isTourist"
+                      color="primary"
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', fontSize: '0.875rem' }}>
+                      <Typography variant="body2">תייר (פטור ממע"מ)</Typography>
+                    </Box>
+                  }
                 />
               </Grid>
               
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={6}>
+                <DatePicker
+                  label="תאריך צ'ק אין"
+                  value={formData.checkIn}
+                  onChange={(date) => handleDateChange('checkIn', date)}
+                  slotProps={{ 
+                    textField: { 
+                      fullWidth: true, 
+                      size: "small",
+                      margin: "dense"
+                    } 
+                  }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <DatePicker
+                  label="תאריך צ'ק אאוט"
+                  value={formData.checkOut}
+                  onChange={(date) => handleDateChange('checkOut', date)}
+                  slotProps={{ 
+                    textField: { 
+                      fullWidth: true, 
+                      size: "small",
+                      margin: "dense"
+                    } 
+                  }}
+                />
+              </Grid>
+              
+              {/* חלק 2: פרטי אורח */}
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5, fontWeight: 'bold' }}>
+                  פרטי אורח
+                </Typography>
+                <Divider sx={{ mb: 1 }} />
+              </Grid>
+              
+              <Grid item xs={12} sm={3}>
                 <TextField
                   fullWidth
+                  size="small"
+                  label="שם פרטי"
+                  name="guest.firstName"
+                  value={formData.guest.firstName}
+                  onChange={handleFormChange}
+                  required
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="שם משפחה"
+                  name="guest.lastName"
+                  value={formData.guest.lastName}
+                  onChange={handleFormChange}
+                  required
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={3}>
+                <TextField
+                  fullWidth
+                  size="small"
                   label="טלפון"
                   name="guest.phone"
                   value={formData.guest.phone}
                   onChange={handleFormChange}
+                  InputProps={{
+                    endAdornment: formData.guest.phone ? (
+                      <InputAdornment position="end">
+                        <IconButton 
+                          size="small" 
+                          color="primary" 
+                          onClick={() => openWhatsApp(formData.guest.phone)}
+                          title="פתח בווטסאפ"
+                        >
+                          <WhatsAppIcon style={{ color: '#25D366' }} />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : null
+                  }}
                 />
               </Grid>
               
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={3}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="אימייל"
                   name="guest.email"
                   value={formData.guest.email}
@@ -753,52 +891,85 @@ const BookingsNewPage = () => {
                 />
               </Grid>
               
+              {/* חלק 3: פרטי כרטיס אשראי */}
               <Grid item xs={12}>
-                <FormControl component="fieldset" sx={{ mt: 2 }}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={formData.isTourist}
-                        onChange={handleCheckboxChange}
-                        name="isTourist"
-                        color="primary"
-                      />
-                    }
-                    label={
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Typography>תייר (פטור ממע"מ)</Typography>
-                        {formData.isTourist && (
-                          <Chip size="small" label="תייר" color="info" sx={{ ml: 1 }} />
-                        )}
-                      </Box>
-                    }
-                  />
-                </FormControl>
+                <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5, fontWeight: 'bold' }}>
+                  פרטי כרטיס אשראי
+                </Typography>
+                <Divider sx={{ mb: 1 }} />
               </Grid>
               
+              <Grid item xs={12} sm={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="מספר כרטיס"
+                  name="creditCard.cardNumber"
+                  value={formData.creditCard?.cardNumber || ''}
+                  onChange={handleFormChange}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="תוקף (MM/YY)"
+                  name="creditCard.expiryDate"
+                  value={formData.creditCard?.expiryDate || ''}
+                  onChange={handleFormChange}
+                  placeholder="MM/YY"
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="שם בעל הכרטיס"
+                  name="creditCard.cardholderName"
+                  value={formData.creditCard?.cardholderName || ''}
+                  onChange={handleFormChange}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="CVV"
+                  name="creditCard.cvv"
+                  value={formData.creditCard?.cvv || ''}
+                  onChange={handleFormChange}
+                />
+              </Grid>
+              
+              {/* חלק 4: הערות */}
               <Grid item xs={12}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="הערות"
                   name="notes"
                   value={formData.notes}
                   onChange={handleFormChange}
                   multiline
-                  rows={3}
-                  margin="normal"
+                  rows={2}
+                  sx={{ mt: 1 }}
                 />
               </Grid>
             </Grid>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleCloseDialog} color="inherit">
+            <Button onClick={handleCloseDialog} color="inherit" size="small">
               ביטול
             </Button>
             <Button
               onClick={handleSaveBooking}
               variant="contained"
               color="primary"
-              disabled={!formData.roomId || !formData.checkIn || !formData.checkOut || !formData.guest.name}
+              size="small"
+              disabled={!formData.roomId || !formData.checkIn || !formData.checkOut || !formData.guest?.firstName || !formData.guest?.lastName}
             >
               שמירה
             </Button>

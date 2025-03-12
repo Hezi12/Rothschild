@@ -154,8 +154,7 @@ const NewBookingDialog = ({ open, onClose, onBookingCreated, selectedRoom, selec
   const handleCreateBooking = async () => {
     // וידוא שכל השדות החובה מלאים
     if (!booking.roomId || !booking.checkIn || !booking.checkOut || 
-        !booking.guest.firstName || !booking.guest.lastName || 
-        !booking.guest.email || !booking.guest.phone) {
+        !booking.guest.firstName || !booking.guest.lastName) {
       toast.error('נא למלא את כל שדות החובה');
       return;
     }
@@ -166,13 +165,23 @@ const NewBookingDialog = ({ open, onClose, onBookingCreated, selectedRoom, selec
         ...booking,
         guest: {
           ...booking.guest,
-          name: `${booking.guest.firstName} ${booking.guest.lastName}`.trim()
+          name: `${booking.guest.firstName} ${booking.guest.lastName}`.trim(),
+          // וודא שכל השדות קיימים
+          firstName: booking.guest.firstName || '',
+          lastName: booking.guest.lastName || '',
+          phone: booking.guest.phone || '',
+          email: booking.guest.email || ''
         }
       };
 
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/bookings`,
-        bookingData
+        bookingData,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
       );
 
       if (response.data.success) {

@@ -27,10 +27,41 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
   // כשהדיאלוג נפתח, אתחל את הנתונים
   React.useEffect(() => {
     if (booking) {
+      // טיפול בשדות האורח - וידוא שיש גם firstName/lastName וגם name
+      // במודל הישן יש guest.name, במודל החדש יש guest.firstName + guest.lastName
+      let guestFirstName = '';
+      let guestLastName = '';
+      
+      // נסה לקבל שם מלא וחלק אותו
+      if (booking.guest.name) {
+        const nameParts = booking.guest.name.split(' ');
+        guestFirstName = nameParts[0] || '';
+        guestLastName = nameParts.slice(1).join(' ') || '';
+      } 
+      // אם יש firstName ו-lastName, השתמש בהם
+      else if (booking.guest.firstName || booking.guest.lastName) {
+        guestFirstName = booking.guest.firstName || '';
+        guestLastName = booking.guest.lastName || '';
+      }
+      
+      // וודא שיש אובייקט creditCard
+      const creditCard = booking.creditCard || {};
+      
       setEditedBooking({
         ...booking,
         checkIn: booking.checkIn ? format(new Date(booking.checkIn), 'yyyy-MM-dd') : '',
-        checkOut: booking.checkOut ? format(new Date(booking.checkOut), 'yyyy-MM-dd') : ''
+        checkOut: booking.checkOut ? format(new Date(booking.checkOut), 'yyyy-MM-dd') : '',
+        guest: {
+          ...booking.guest,
+          firstName: guestFirstName,
+          lastName: guestLastName
+        },
+        creditCard: {
+          cardNumber: creditCard.cardNumber || '',
+          expiryDate: creditCard.expiryDate || '',
+          cvv: creditCard.cvv || '',
+          cardholderName: creditCard.cardholderName || ''
+        }
       });
     }
   }, [booking]);
@@ -62,18 +93,44 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
   const handleSaveBooking = async () => {
     setLoading(true);
     try {
+      // בדיקת שדות חובה
+      if (!editedBooking.guest.firstName || !editedBooking.guest.lastName) {
+        toast.error('שם פרטי ושם משפחה הם שדות חובה');
+        setLoading(false);
+        return;
+      }
+
+      // הכנת המידע לשמירה
       const bookingData = {
         ...editedBooking,
         roomId: editedBooking.room._id || editedBooking.room,
         guest: {
           ...editedBooking.guest,
-          name: `${editedBooking.guest.firstName || ''} ${editedBooking.guest.lastName || ''}`.trim()
+          name: `${editedBooking.guest.firstName || ''} ${editedBooking.guest.lastName || ''}`.trim(),
+          // וודא שכל השדות קיימים
+          firstName: editedBooking.guest.firstName || '',
+          lastName: editedBooking.guest.lastName || '',
+          phone: editedBooking.guest.phone || '',
+          email: editedBooking.guest.email || '',
+        },
+        creditCard: {
+          ...editedBooking.creditCard,
+          cardNumber: editedBooking.creditCard?.cardNumber || '',
+          expiryDate: editedBooking.creditCard?.expiryDate || '',
+          cvv: editedBooking.creditCard?.cvv || '',
+          cardholderName: editedBooking.creditCard?.cardholderName || ''
         }
       };
 
+      // שליחת הבקשה לשרת
       const response = await axios.put(
         `${process.env.REACT_APP_API_URL}/bookings/${booking._id}`,
-        bookingData
+        bookingData,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
       );
 
       if (response.data.success) {
@@ -190,6 +247,39 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
             <Typography variant="body1">
               {booking.paymentStatus === 'paid' ? 'שולם' : 
                booking.paymentStatus === 'partial' ? 'תשלום חלקי' : 'טרם שולם'}
+            </Typography>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" gutterBottom>פרטי כרטיס אשראי</Typography>
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <Typography variant="subtitle2">מספר כרטיס:</Typography>
+            <Typography variant="body1">
+              {booking.creditCard?.cardNumber || 'לא הוזן'}
+            </Typography>
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <Typography variant="subtitle2">תוקף:</Typography>
+            <Typography variant="body1">
+              {booking.creditCard?.expiryDate || 'לא הוזן'}
+            </Typography>
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <Typography variant="subtitle2">שם בעל הכרטיס:</Typography>
+            <Typography variant="body1">
+              {booking.creditCard?.cardholderName || 'לא הוזן'}
+            </Typography>
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <Typography variant="subtitle2">CVV:</Typography>
+            <Typography variant="body1">
+              {booking.creditCard?.cvv || 'לא הוזן'}
             </Typography>
           </Grid>
 
@@ -316,6 +406,52 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
               label="דוא&quot;ל"
               name="guest.email"
               value={editedBooking.guest.email || ''}
+              onChange={handleFieldChange}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" gutterBottom>פרטי כרטיס אשראי</Typography>
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="מספר כרטיס"
+              name="creditCard.cardNumber"
+              value={editedBooking.creditCard?.cardNumber || ''}
+              onChange={handleFieldChange}
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="תוקף (MM/YY)"
+              name="creditCard.expiryDate"
+              value={editedBooking.creditCard?.expiryDate || ''}
+              onChange={handleFieldChange}
+              placeholder="MM/YY"
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="שם בעל הכרטיס"
+              name="creditCard.cardholderName"
+              value={editedBooking.creditCard?.cardholderName || ''}
+              onChange={handleFieldChange}
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="CVV"
+              name="creditCard.cvv"
+              value={editedBooking.creditCard?.cvv || ''}
               onChange={handleFieldChange}
             />
           </Grid>

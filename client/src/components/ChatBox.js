@@ -69,18 +69,56 @@ const ChatBox = () => {
     setIsLoading(true);
     
     try {
+      // בדיקה אם השאלה היא על הרב של המלון
+      const rabbiQuestion = input.trim().match(/מי הרב|הרב של המלון|רב של המלון|רב המלון/i);
+      
+      if (rabbiQuestion) {
+        // תשובה מופרזת ומצחיקה על הרב אביעד חתוכה
+        setTimeout(() => {
+          const exaggeratedResponse = "הו! שאלת על הרב שלנו? יש לי הכבוד להציג בפניך את מורנו ורבנו, סיני ועוקר הרים, עמוד האש ההולך לפני המחנה, נשיא הדור וגאון הגאונים, מאור ישראל, הרב הגאון הצדיק רבי אביעד חתוכה שליט\"א! 🌟✨\n\nהרב אביעד, ענק שבענקים ואור מופלא, הוא לא רק הרב של המלון, אלא גם הסמכות הרוחנית המוחלטת בכל ענייני הכשרות, הנקיון והשירות. חוכמתו מגיעה לשמיים וחיוכו מאיר חדרים חשוכים! אומרים שכאשר הוא מברך על הקפה בבוקר, המים מתבשלים מעצמם מרוב יראת כבוד! 😇\n\nבמקרה ואתה רוצה להתייעץ עם הרב המופלא, צריך לתאם זאת 3 חודשים מראש ולהביא בקבוק שתייה, כי חוכמתו עלולה לגרום להתייבשות! 😂";
+          
+          setMessages(prev => [...prev, { role: 'assistant', content: exaggeratedResponse }]);
+          setIsLoading(false);
+        }, 1500); // דיליי קצר כדי שייראה אמין
+        
+        return;
+      }
+      
+      // בדיקה אם השאלה היא מחוץ לתחום הידע של הצ'אט (לא קשורה למלון)
+      const unknownTopicsRegex = /(פוליטיקה|ספורט|רכבים|בורסה|השקעות|מניות|קריפטו|ביטקוין|אוכל|מסעדות|קולנוע|סרטים|מוזיקה|שירים|אלקטרוניקה|מחשבים|טכנולוגיה|חדשות)/i;
+      const unknownQuestionMatch = input.trim().match(unknownTopicsRegex);
+      
+      if (unknownQuestionMatch) {
+        setTimeout(() => {
+          const unknownResponse = `מצטער, אני לא מומחה בנושאי ${unknownQuestionMatch[0]}. אני יכול לעזור במידע על מלונית רוטשילד 79, הזמנות, ושירותים שאנחנו מציעים.\n\nלשאלות נוספות או סיוע אישי, אנחנו זמינים בווטסאפ: https://wa.me/972506070260`;
+          
+          setMessages(prev => [...prev, { role: 'assistant', content: unknownResponse }]);
+          setIsLoading(false);
+        }, 1500);
+        
+        return;
+      }
+      
       // שליחת בקשה ל-API של השרת, עם שימוש בקובץ הגדרות הסביבה
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/chat`, {
         messages: [...messages, userMessage].map(msg => ({ role: msg.role, content: msg.content }))
       });
       
-      const assistantMessage = response.data;
+      let assistantMessage = response.data;
+      
+      // בדיקה אם התשובה מציינת שאין מידע או לא יודע לענות
+      const dontKnowRegex = /(אין לי מידע|איני יודע|לא יודע|אין לי תשובה|מצטער, אין לי|אין בידי|לא מכיר|איני מכיר)/i;
+      if (dontKnowRegex.test(assistantMessage) && !assistantMessage.includes("https://wa.me/")) {
+        // מוסיף הפניה לווטסאפ אם יש תשובת "לא יודע" ואין כבר קישור
+        assistantMessage += "\n\nאם ברצונך לקבל מידע נוסף או לדבר עם נציג שירות, ניתן לפנות אלינו בווטסאפ: https://wa.me/972506070260";
+      }
+      
       setMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
     } catch (error) {
       console.error('שגיאה בשליחת הודעה:', error);
       setMessages(prev => [
         ...prev, 
-        { role: 'assistant', content: 'מצטער, נתקלתי בבעיה. אנא נסה שוב מאוחר יותר.' }
+        { role: 'assistant', content: 'מצטער, נתקלתי בבעיה. אנא נסה שוב מאוחר יותר או פנה אלינו ישירות בווטסאפ: https://wa.me/972506070260' }
       ]);
     } finally {
       setIsLoading(false);
