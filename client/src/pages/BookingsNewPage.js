@@ -188,10 +188,10 @@ const BookingsNewPage = () => {
           email: booking.guest.email || ''
         },
         creditCard: {
-          cardNumber: booking.creditCard?.cardNumber || '',
-          expiryDate: booking.creditCard?.expiryDate || '',
-          cvv: booking.creditCard?.cvv || '',
-          cardholderName: booking.creditCard?.cardholderName || ''
+          cardNumber: booking.creditCard ? booking.creditCard.cardNumber || '' : '',
+          expiryDate: booking.creditCard ? booking.creditCard.expiryDate || '' : '',
+          cvv: booking.creditCard ? booking.creditCard.cvv || '' : '',
+          cardholderName: booking.creditCard ? booking.creditCard.cardholderName || '' : ''
         },
         isTourist: booking.isTourist,
         notes: booking.notes || '',
@@ -357,11 +357,10 @@ const BookingsNewPage = () => {
           name: `${formData.guest.firstName} ${formData.guest.lastName}`.trim()
         },
         creditCard: {
-          ...formData.creditCard,
-          cardNumber: formData.creditCard?.cardNumber || '',
-          expiryDate: formData.creditCard?.expiryDate || '',
-          cvv: formData.creditCard?.cvv || '',
-          cardholderName: formData.creditCard?.cardholderName || ''
+          cardNumber: formData.creditCard.cardNumber,
+          expiryDate: formData.creditCard.expiryDate,
+          cvv: formData.creditCard.cvv,
+          cardholderName: formData.creditCard.cardholderName
         }
       };
       
@@ -377,11 +376,12 @@ const BookingsNewPage = () => {
         bookingData.totalPrice = formData.basePrice * nights;
       }
       
-      console.log("Credit Card Details:", bookingData.creditCard);
+      console.log("Saving booking with credit card details:", bookingData.creditCard);
       
+      let response;
       if (selectedBooking) {
         // עדכון הזמנה קיימת
-        await axios.put(
+        response = await axios.put(
           `${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}`,
           bookingData,
           {
@@ -390,11 +390,12 @@ const BookingsNewPage = () => {
             }
           }
         );
+        console.log("Updated booking response:", response.data);
         setError('');
         alert('ההזמנה עודכנה בהצלחה');
       } else {
         // יצירת הזמנה חדשה
-        await axios.post(
+        response = await axios.post(
           `${process.env.REACT_APP_API_URL}/bookings`,
           bookingData,
           {
@@ -403,6 +404,7 @@ const BookingsNewPage = () => {
             }
           }
         );
+        console.log("Created booking response:", response.data);
         setError('');
         alert('ההזמנה נוצרה בהצלחה');
       }
@@ -519,6 +521,52 @@ const BookingsNewPage = () => {
     
     // פתיחת קישור ווטסאפ
     window.open(`https://wa.me/${formattedNumber}`, '_blank');
+  };
+  
+  // פונקציה לבדיקת נתוני ההזמנה מהשרת
+  const fetchBookingDetails = async (bookingId) => {
+    try {
+      console.log("fetching booking details for id:", bookingId);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings/${bookingId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      console.log("Fetched booking details:", response.data.data);
+      console.log("Credit Card details received:", response.data.data.creditCard);
+      
+      // וידוא שנתוני כרטיס האשראי קיימים
+      if (!response.data.data.creditCard) {
+        console.warn("No credit card data found in booking");
+      }
+      
+      return response.data.data;
+    } catch (error) {
+      console.error('שגיאה בטעינת פרטי ההזמנה:', error);
+      setError('שגיאה בטעינת פרטי ההזמנה');
+      return null;
+    }
+  };
+
+  // עדכון הפונקציה שפותחת את הדיאלוג
+  const handleOpenEditDialog = async (booking) => {
+    console.log("Opening edit dialog for booking:", booking);
+    
+    if (booking) {
+      // שליפת פרטי הזמנה עדכניים מהשרת
+      const refreshedBooking = await fetchBookingDetails(booking._id);
+      
+      if (refreshedBooking) {
+        console.log("Using refreshed booking data");
+        handleOpenDialog(refreshedBooking);
+      } else {
+        console.log("Using original booking data");
+        handleOpenDialog(booking);
+      }
+    } else {
+      handleOpenDialog(null);
+    }
   };
   
   // רנדור הממשק
@@ -744,7 +792,7 @@ const BookingsNewPage = () => {
                               <IconButton 
                                 color="primary" 
                                 size="small"
-                                onClick={() => handleOpenDialog(booking)}
+                                onClick={() => handleOpenEditDialog(booking)}
                               >
                                 <EditIcon fontSize="small" />
                               </IconButton>
