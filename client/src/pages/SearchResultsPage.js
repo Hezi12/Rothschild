@@ -422,9 +422,9 @@ const SearchResultsPage = () => {
                               }
                               secondary={
                                 <Typography variant="caption" color="text.secondary">
-                                  {room.hasSpecialPrices ? 
+                                  {room.nightsTotal ? 
                                     `${room.nightsTotal} ₪ ל-${calculateNights()} לילות` : 
-                                    `${room.basePrice * calculateNights()} ₪ (${room.basePrice} ₪ × ${calculateNights()} לילות)`
+                                    `${room.basePrice * calculateNights()} ₪ ל-${calculateNights()} לילות`
                                   }
                                 </Typography>
                               }
@@ -683,28 +683,7 @@ const SearchResultsPage = () => {
                           }}
                         >
                           ₪{room.nightsTotal ? Math.round(room.nightsTotal / calculateNights()) : room.basePrice}
-                          {room.hasSpecialPrices && 
-                            <Tooltip title="מחיר מיוחד ליום זה" arrow>
-                              <InfoIcon 
-                                color="primary" 
-                                fontSize="small" 
-                                sx={{ fontSize: '0.9rem', ml: 0.5, verticalAlign: 'middle' }} 
-                              />
-                            </Tooltip>
-                          }
                         </Typography>
-                        {room.hasSpecialPrices && room.basePrice !== (room.nightsTotal / calculateNights()) && (
-                          <Typography 
-                            variant="caption" 
-                            color="text.secondary" 
-                            sx={{ 
-                              textDecoration: 'line-through',
-                              mr: 1 
-                            }}
-                          >
-                            ₪{room.basePrice}
-                          </Typography>
-                        )}
                       </Box>
                     </Grid>
                     <Grid item xs={6}>
