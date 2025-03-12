@@ -132,6 +132,17 @@ const calculateRoomPrice = async (roomId, checkIn, checkOut) => {
   }
 };
 
+// פונקציה לחישוב מע"מ ומחיר סופי
+const calculateVatAndTotalPrice = (basePrice, isTourist = false, vatRate = 18) => {
+  const vatAmount = isTourist ? 0 : (basePrice * vatRate / 100);
+  const totalPrice = basePrice + vatAmount;
+  
+  return {
+    vatAmount: Math.round(vatAmount * 100) / 100, // עיגול לשתי ספרות אחרי הנקודה
+    totalPrice: Math.round(totalPrice * 100) / 100 // עיגול לשתי ספרות אחרי הנקודה
+  };
+};
+
 // @desc    יצירת הזמנה חדשה
 // @route   POST /api/bookings
 // @access  Private
@@ -230,12 +241,17 @@ exports.createBooking = async (req, res) => {
 
     // התאמת אובייקט האורח בהתאם למבנה המצופה
     const guestData = {
-      name: guest.name || `${guest.firstName} ${guest.lastName}`,
-      firstName: guest.firstName || '',
-      lastName: guest.lastName || '',
+      firstName: guest.firstName || (guest.name ? guest.name.split(' ')[0] : ''),
+      lastName: guest.lastName || (guest.name ? guest.name.split(' ').slice(1).join(' ') : ''),
       email: guest.email || '',
-      phone: guest.phone || ''
+      phone: guest.phone || '',
+      country: guest.country || 'ישראל',
+      idNumber: guest.idNumber || '',
+      notes: guest.notes || ''
     };
+
+    // בדיקה אם האורח הוא תייר (פטור ממע"מ)
+    const isTourist = guest.isTourist || false;
 
     // חישוב basePrice אם אפשר
     let basePrice = room.basePrice;
@@ -243,11 +259,21 @@ exports.createBooking = async (req, res) => {
       basePrice = Math.floor(calculatedTotalPrice / calculatedNights);
     }
 
+    // חישוב מע"מ ומחיר סופי
+    const basePriceTotal = basePrice * calculatedNights;
+    const { vatAmount, totalPrice: finalTotalPrice } = calculateVatAndTotalPrice(
+      basePriceTotal, 
+      isTourist
+    );
+
     console.log('חישובים:', {
       bookingNumber,
       calculatedNights, 
-      calculatedTotalPrice,
-      basePrice
+      basePrice,
+      basePriceTotal,
+      vatAmount,
+      totalPrice: isTourist ? basePriceTotal : finalTotalPrice,
+      isTourist
     });
 
     // יצירת הזמנה חדשה
@@ -259,7 +285,10 @@ exports.createBooking = async (req, res) => {
       checkOut: checkOutDate,
       nights: calculatedNights,
       basePrice: basePrice,
-      totalPrice: calculatedTotalPrice,
+      vatRate: 18,
+      vatAmount: vatAmount,
+      totalPrice: isTourist ? basePriceTotal : finalTotalPrice,
+      isTourist: isTourist,
       guest: guestData,
       status,
       paymentStatus,

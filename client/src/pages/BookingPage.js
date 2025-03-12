@@ -96,6 +96,7 @@ const BookingPage = () => {
   const [calculations, setCalculations] = useState({
     nights: 0,
     basePrice: 0,
+    vatRate: 18,
     vatAmount: 0,
     totalPrice: 0
   });
@@ -186,7 +187,8 @@ const BookingPage = () => {
           const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
             roomId: initialRoomId,
             checkIn: initialCheckIn,
-            checkOut: initialCheckOut
+            checkOut: initialCheckOut,
+            isTourist: bookingData.isTourist
           });
           
           if (!response.data.isAvailable) {
@@ -199,8 +201,9 @@ const BookingPage = () => {
           setCalculations({
             nights: response.data.nights || calculateNights(),
             basePrice: response.data.basePrice || (room.basePrice * calculateNights()),
-            vatAmount: bookingData.isTourist ? 0 : (response.data.basePrice || (room.basePrice * calculateNights())) * 0.17,
-            totalPrice: response.data.totalPrice || ((room.basePrice * calculateNights()) + (bookingData.isTourist ? 0 : (room.basePrice * calculateNights()) * 0.17))
+            vatRate: 18,
+            vatAmount: response.data.vatAmount || (bookingData.isTourist ? 0 : (response.data.basePrice || (room.basePrice * calculateNights())) * 0.18),
+            totalPrice: response.data.totalPrice || ((room.basePrice * calculateNights()) + (bookingData.isTourist ? 0 : (room.basePrice * calculateNights()) * 0.18))
           });
         } catch (error) {
           console.error('שגיאה בבדיקת זמינות:', error);
@@ -220,14 +223,16 @@ const BookingPage = () => {
   useEffect(() => {
     if (bookingData.checkIn && bookingData.checkOut && room) {
       const nights = calculateNights();
-      const basePrice = nights * (room.basePrice || 0);  // וידוא שיש מחיר בסיס
-      const vatAmount = bookingData.isTourist ? 0 : basePrice * 0.17;
+      const basePrice = nights * (room.basePrice || 400);  // ברירת מחדל 400 ₪
+      const vatRate = 18; // אחוז המע"מ
+      const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
       const totalPrice = basePrice + vatAmount;
       
       // וידוא שכל הערכים הם מספרים תקפים
       setCalculations({
         nights: nights || 0,
         basePrice: basePrice || 0,
+        vatRate: vatRate,
         vatAmount: vatAmount || 0,
         totalPrice: isNaN(totalPrice) ? 0 : totalPrice
       });
@@ -248,12 +253,15 @@ const BookingPage = () => {
     
     try {
       setCheckingAvailability(true);
+      setError(null);
       
-      // בדיקת זמינות אמיתית מול השרת
+      // אם לא נבחר חדר ספציפי, בדוק את כל החדרים הזמינים
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
-        roomId: bookingData.roomId,
+        roomId: bookingData.roomId || null,
         checkIn: bookingData.checkIn,
-        checkOut: bookingData.checkOut
+        checkOut: bookingData.checkOut,
+        guests: bookingData.guests,
+        isTourist: bookingData.isTourist
       });
       
       const isAvailable = response.data.isAvailable;
@@ -424,92 +432,62 @@ const BookingPage = () => {
     try {
       setLoading(true);
       
-      // בניית אובייקט ההזמנה לשליחה לשרת
+      // הכנת אובייקט ההזמנה לשליחה
       const bookingPayload = {
         roomId: bookingData.roomId,
+        checkIn: bookingData.checkIn instanceof Date ? bookingData.checkIn.toISOString() : bookingData.checkIn,
+        checkOut: bookingData.checkOut instanceof Date ? bookingData.checkOut.toISOString() : bookingData.checkOut,
+        nights: calculations.nights,
+        basePrice: calculations.basePrice,
+        vatRate: calculations.vatRate,
+        vatAmount: calculations.vatAmount,
+        totalPrice: calculations.totalPrice,
+        isTourist: bookingData.isTourist,
         guest: {
           firstName: bookingData.guest.firstName,
           lastName: bookingData.guest.lastName,
-          name: `${bookingData.guest.firstName} ${bookingData.guest.lastName}`,
+          email: bookingData.guest.email,
           phone: bookingData.guest.phone,
-          email: bookingData.guest.email
+          country: bookingData.guest.country || 'ישראל'
         },
-        checkIn: bookingData.checkIn instanceof Date && !isNaN(bookingData.checkIn) ? bookingData.checkIn.toISOString() : bookingData.checkIn,
-        checkOut: bookingData.checkOut instanceof Date && !isNaN(bookingData.checkOut) ? bookingData.checkOut.toISOString() : bookingData.checkOut,
-        notes: bookingData.notes,
-        // שדות חובה למודל ההזמנה בשרת
-        nights: calculations.nights,
-        totalPrice: isNaN(calculations.totalPrice) ? 0 : calculations.totalPrice, // וידוא שהמחיר תמיד מספר תקף
         status: 'confirmed',
-        paymentStatus: 'pending'
+        paymentStatus: 'pending',
+        notes: bookingData.notes
       };
       
-      // רישום מידע לצורכי דיבוג
-      console.log('שולח הזמנה:', JSON.stringify(bookingPayload, null, 2));
-      console.log('מידע חשוב על החישובים:', { 
-        calculations,
-        roomBasePrice: room?.basePrice,
-        roomId: bookingData.roomId,
-        nights: calculateNights(),
-        checkInDate: bookingData.checkIn,
-        checkOutDate: bookingData.checkOut,
-        isDateCheckInValid: bookingData.checkIn instanceof Date,
-        isDateCheckOutValid: bookingData.checkOut instanceof Date
-      });
+      console.log('שולח הזמנה:', bookingPayload);
       
-      try {
-        const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingPayload);
-        console.log('ההזמנה נוצרה בהצלחה:', response.data);
-        
-        // עדכון מספר ההזמנה והמעבר לשלב הסיום
-        if (response.data.data && response.data.data.bookingNumber) {
-          setBookingId(response.data.data.bookingNumber);
-        } else if (response.data.bookingNumber) {
-          setBookingId(response.data.bookingNumber);
-        } else {
-          console.log('מספר הזמנה לא נמצא בתגובת השרת:', response.data);
-          setBookingId('הזמנה נוצרה בהצלחה');
-        }
-        
-        toast.success('ההזמנה נשלחה בהצלחה!');
-        setActiveStep(steps.length);
-      } catch (apiError) {
-        console.error('שגיאת API מפורטת:', {
-          status: apiError.response?.status,
-          statusText: apiError.response?.statusText,
-          data: apiError.response?.data,
-          message: apiError.message
-        });
-        
-        // הדפסת מידע נוסף לדיבוג
-        console.error('פירוט נוסף של השגיאה:', apiError);
-        
-        if (apiError.response?.data?.error) {
-          console.error('פירוט שגיאה מהשרת:', apiError.response.data.error);
-        }
-        
-        // הצג הודעת שגיאה מפורטת יותר
-        const errorMessage = apiError.response?.data?.message || 
-                            apiError.response?.data?.error ||
-                            apiError.response?.statusText || 
-                            apiError.message || 
-                            'שגיאה בשליחת ההזמנה. אנא נסה שוב מאוחר יותר.';
-                            
-        toast.error(`שגיאה: ${errorMessage}`);
-        
-        // בסביבת פיתוח - אפשר לעבור לשלב הסיום בכל מקרה
-        if (process.env.NODE_ENV === 'development') {
-          toast.info('מעבר לשלב סיום למרות השגיאה (מוצג רק בסביבת פיתוח)');
-          setBookingId('TEST-BOOKING-ID');
-          setActiveStep(steps.length);
-        } else {
-          // בסביבת ייצור - הצג הודעה ללקוח שיפנה למלון באופן ישיר
-          toast.info('נראה שיש בעיה טכנית, אנא נסה שוב או צור קשר עם המלון בטלפון לביצוע ההזמנה');
+      // שליחת ההזמנה לשרת
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingPayload);
+      
+      // בדיקה אם יש מספר הזמנה בתשובה
+      let bookingNumber = '';
+      if (response.data.data && response.data.data.bookingNumber) {
+        bookingNumber = response.data.data.bookingNumber;
+      } else if (response.data.bookingNumber) {
+        bookingNumber = response.data.bookingNumber;
+      } else {
+        console.log('לא נמצא מספר הזמנה בתשובה:', response.data);
+      }
+      
+      setBookingId(bookingNumber);
+      setActiveStep(activeStep + 1);
+      toast.success('ההזמנה נשלחה בהצלחה!');
+    } catch (error) {
+      console.error('שגיאה בשליחת ההזמנה:', error);
+      
+      let errorMessage = 'אירעה שגיאה בשליחת ההזמנה. אנא נסה שוב.';
+      if (error.response) {
+        if (error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.status === 400) {
+          errorMessage = 'נתונים שגויים. אנא בדוק את הפרטים שהזנת.';
+        } else if (error.response.status === 500) {
+          errorMessage = 'שגיאת שרת. אנא נסה שוב מאוחר יותר.';
         }
       }
-    } catch (error) {
-      console.error('שגיאה כללית בשליחת ההזמנה:', error);
-      toast.error('שגיאה בשליחת ההזמנה. אנא נסה שוב מאוחר יותר.');
+      
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -548,104 +526,130 @@ const BookingPage = () => {
           mb: { xs: 3, sm: 4 }
         }}
       >
-        <Grid container spacing={3}>
-          <Grid item xs={12} sm={6}>
-            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6}>
               <DatePicker
                 label="תאריך הגעה"
-                disablePast
                 value={bookingData.checkIn}
-                onChange={(newValue) => handleDateChange('checkIn', newValue)}
-                sx={{ width: '100%' }}
+                onChange={(date) => handleDateChange('checkIn', date)}
+                format="dd/MM/yyyy"
+                disablePast
                 slotProps={{
                   textField: {
-                    variant: 'outlined',
+                    variant: "outlined",
                     fullWidth: true,
-                    size: isMobile ? "small" : "medium"
-                  },
-                  actionBar: {
-                    actions: ['clear', 'today'],
+                    error: Boolean(error && error.includes('תאריך')),
+                    InputLabelProps: { shrink: true }
                   }
                 }}
               />
-            </LocalizationProvider>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+            </Grid>
+            <Grid item xs={12} sm={6}>
               <DatePicker
                 label="תאריך עזיבה"
-                disablePast
-                minDate={bookingData.checkIn ? addDays(bookingData.checkIn, 1) : addDays(new Date(), 1)}
                 value={bookingData.checkOut}
-                onChange={(newValue) => handleDateChange('checkOut', newValue)}
-                sx={{ width: '100%' }}
+                onChange={(date) => handleDateChange('checkOut', date)}
+                format="dd/MM/yyyy"
+                disablePast
+                minDate={bookingData.checkIn ? addDays(new Date(bookingData.checkIn), 1) : null}
                 slotProps={{
                   textField: {
-                    variant: 'outlined',
+                    variant: "outlined",
                     fullWidth: true,
-                    size: isMobile ? "small" : "medium"
-                  },
-                  actionBar: {
-                    actions: ['clear', 'today'],
+                    error: Boolean(error && error.includes('תאריך')),
+                    InputLabelProps: { shrink: true }
                   }
                 }}
               />
-            </LocalizationProvider>
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="מספר אורחים"
+                value={bookingData.guests}
+                onChange={handleChange}
+                name="guests"
+                fullWidth
+                variant="outlined"
+                SelectProps={{
+                  native: true
+                }}
+              >
+                {[1, 2, 3, 4, 5, 6].map((num) => (
+                  <option key={num} value={num}>
+                    {num}
+                  </option>
+                ))}
+              </TextField>
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="מספר חדרים"
+                value={bookingData.rooms}
+                onChange={handleChange}
+                name="rooms"
+                fullWidth
+                variant="outlined"
+                SelectProps={{
+                  native: true
+                }}
+              >
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <option key={num} value={num}>
+                    {num}
+                  </option>
+                ))}
+              </TextField>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    name="isTourist"
+                    checked={bookingData.isTourist}
+                    onChange={handleChange}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Typography fontWeight="medium">
+                    אני תייר (פטור ממע״מ)
+                  </Typography>
+                }
+              />
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ ml: 4 }}
+              >
+                תיירים מחו"ל זכאים לפטור ממע"מ. המחירים יוצגו ללא מע"מ (18%).
+              </Typography>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={checkAvailability}
+                disabled={checkingAvailability}
+                fullWidth
+                size="large"
+                sx={{ mt: 1 }}
+              >
+                {checkingAvailability ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  'בדוק זמינות'
+                )}
+              </Button>
+            </Grid>
           </Grid>
-          
-          <Grid item xs={6}>
-            <TextField
-              label="מספר אורחים"
-              name="guests"
-              value={bookingData.guests}
-              onChange={handleChange}
-              type="number"
-              InputProps={{ inputProps: { min: 1, max: 10 } }}
-              fullWidth
-              size={isMobile ? "small" : "medium"}
-            />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField
-              label="מספר חדרים"
-              name="rooms"
-              value={bookingData.rooms}
-              onChange={handleChange}
-              type="number"
-              InputProps={{ inputProps: { min: 1, max: 5 } }}
-              fullWidth
-              size={isMobile ? "small" : "medium"}
-            />
-          </Grid>
-        </Grid>
-        
-        {bookingData.checkIn && bookingData.checkOut && calculateNights() > 0 && (
-          <Box sx={{ mt: 2, textAlign: 'center' }}>
-            <Typography variant="body1">
-              משך שהייה: <strong>{calculateNights()} לילות</strong>
-            </Typography>
-          </Box>
-        )}
-        
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-          <Button
-            onClick={() => navigate(-1)}
-            variant="outlined"
-            size={isMobile ? "small" : "medium"}
-          >
-            חזרה
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={checkAvailability}
-            disabled={checkingAvailability || !bookingData.checkIn || !bookingData.checkOut}
-            size={isMobile ? "small" : "medium"}
-            sx={{ minWidth: isMobile ? 100 : 120 }}
-          >
-            {checkingAvailability ? <CircularProgress size={24} /> : 'בדוק זמינות'}
-          </Button>
-        </Box>
+        </LocalizationProvider>
       </Paper>
       
       <Box sx={{ mb: 4 }}>
@@ -1202,13 +1206,10 @@ const BookingPage = () => {
                 }}
               >
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  <b>אמצעי תשלום:</b> כרטיס אשראי (פיקדון בלבד)
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
                   <b>מחיר בסיס:</b> {calculations.basePrice.toFixed(2)} ₪
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  <b>מע"מ ({bookingData.isTourist ? 'פטור' : '17%'}):</b> {calculations.vatAmount.toFixed(2)} ₪
+                  <b>מע"מ ({bookingData.isTourist ? 'פטור' : '18%'}):</b> {calculations.vatAmount.toFixed(2)} ₪
                 </Typography>
                 <Typography variant="body2" sx={{ 
                   mt: 1.5,
@@ -1218,6 +1219,11 @@ const BookingPage = () => {
                 }}>
                   סה"כ לתשלום: {calculations.totalPrice.toFixed(2)} ₪
                 </Typography>
+                {bookingData.isTourist && (
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
+                    *פטור ממע"מ לתיירים בהצגת דרכון בצ'ק-אין
+                  </Typography>
+                )}
               </Box>
             </Box>
             

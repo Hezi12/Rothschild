@@ -201,7 +201,7 @@ exports.deleteRoom = async (req, res) => {
 // @access  Public
 exports.checkAvailability = async (req, res) => {
   try {
-    const { roomId, checkIn, checkOut, guests } = req.body;
+    const { roomId, checkIn, checkOut, guests, isTourist = false } = req.body;
     
     if (!checkIn || !checkOut) {
       return res.status(400).json({
@@ -216,6 +216,23 @@ exports.checkAvailability = async (req, res) => {
     
     const checkOutDate = new Date(checkOut);
     checkOutDate.setHours(0, 0, 0, 0);
+    
+    // חישוב מספר לילות
+    const diffTime = Math.abs(checkOutDate - checkInDate);
+    const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    // פונקציה לחישוב מע"מ ומחיר סופי
+    const calculateVatAndTotalPrice = (basePrice, isTourist = false, vatRate = 18) => {
+      const vatAmount = isTourist ? 0 : (basePrice * vatRate / 100);
+      const totalPrice = basePrice + vatAmount;
+      
+      return {
+        basePrice,
+        vatRate,
+        vatAmount: Math.round(vatAmount * 100) / 100,
+        totalPrice: Math.round(totalPrice * 100) / 100
+      };
+    };
     
     // אם סופק חדר ספציפי לבדיקה
     if (roomId) {
@@ -256,6 +273,11 @@ exports.checkAvailability = async (req, res) => {
       }
       
       // אם אין הזמנות חופפות, החדר זמין
+      // חישוב מחיר (כולל/לא כולל מע"מ בהתאם למעמד התייר)
+      const basePrice = room.basePrice;
+      const totalNightsPrice = basePrice * nights;
+      const priceDetails = calculateVatAndTotalPrice(totalNightsPrice, isTourist);
+      
       return res.json({
         success: true,
         isAvailable: true,
@@ -263,7 +285,16 @@ exports.checkAvailability = async (req, res) => {
           id: room._id,
           roomNumber: room.roomNumber,
           basePrice: room.basePrice
-        }
+        },
+        checkIn: checkInDate,
+        checkOut: checkOutDate,
+        nights,
+        basePrice,
+        nightsTotal: totalNightsPrice,
+        vatRate: priceDetails.vatRate,
+        vatAmount: priceDetails.vatAmount,
+        totalPrice: priceDetails.totalPrice,
+        isTourist
       });
     } else {
       // אם לא סופק מזהה חדר, בדוק את כל החדרים הזמינים

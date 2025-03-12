@@ -45,6 +45,14 @@ const BookingSchema = new Schema({
   },
   basePrice: {
     type: Number,
+    default: 400
+  },
+  vatRate: {
+    type: Number,
+    default: 18
+  },
+  vatAmount: {
+    type: Number,
     default: 0
   },
   totalPrice: {
@@ -72,7 +80,11 @@ const BookingSchema = new Schema({
   
   // פרטי האורח
   guest: {
-    name: {
+    firstName: {
+      type: String,
+      required: true
+    },
+    lastName: {
       type: String,
       required: true
     },

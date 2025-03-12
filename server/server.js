@@ -11,7 +11,6 @@ dotenv.config();
 require('./models/User');
 require('./models/Room');
 require('./models/Booking');
-require('./models/User');
 require('./models/Gallery');
 require('./models/DynamicPrice');
 
