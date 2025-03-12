@@ -24,9 +24,10 @@ const NewBookingDialog = ({ open, onClose, onBookingCreated, selectedRoom, selec
   const [loading, setLoading] = useState(false);
   const [rooms, setRooms] = useState([]);
   const [booking, setBooking] = useState({
-    roomId: '',
-    checkIn: '',
-    checkOut: '',
+    roomId: selectedRoom?._id || '',
+    checkIn: selectedDates?.start || null,
+    checkOut: selectedDates?.end || null,
+    basePrice: 0,
     nights: 1,
     totalPrice: 0,
     guest: {
@@ -34,6 +35,12 @@ const NewBookingDialog = ({ open, onClose, onBookingCreated, selectedRoom, selec
       lastName: '',
       email: '',
       phone: ''
+    },
+    creditCard: {
+      cardNumber: '',
+      expiryDate: '',
+      cvv: '',
+      cardholderName: ''
     },
     status: 'confirmed',
     paymentStatus: 'pending',
@@ -356,6 +363,56 @@ const NewBookingDialog = ({ open, onClose, onBookingCreated, selectedRoom, selec
                 <MenuItem value="paid">שולם</MenuItem>
               </Select>
             </FormControl>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="subtitle1" gutterBottom>פרטי כרטיס אשראי</Typography>
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="מספר כרטיס אשראי"
+              name="creditCard.cardNumber"
+              value={booking.creditCard.cardNumber}
+              onChange={handleFieldChange}
+              placeholder="0000 0000 0000 0000"
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="שם בעל הכרטיס"
+              name="creditCard.cardholderName"
+              value={booking.creditCard.cardholderName}
+              onChange={handleFieldChange}
+              placeholder="שם מלא כפי שמופיע על הכרטיס"
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="תוקף (MM/YY)"
+              name="creditCard.expiryDate"
+              value={booking.creditCard.expiryDate}
+              onChange={handleFieldChange}
+              placeholder="MM/YY"
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="קוד אבטחה (CVV)"
+              name="creditCard.cvv"
+              value={booking.creditCard.cvv}
+              onChange={handleFieldChange}
+              type="password"
+              placeholder="***"
+            />
           </Grid>
 
           <Grid item xs={12}>
