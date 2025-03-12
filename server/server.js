@@ -12,7 +12,6 @@ require('./models/User');
 require('./models/Room');
 require('./models/Booking');
 require('./models/User');
-require('./models/BlockedDate');
 require('./models/Gallery');
 require('./models/DynamicPrice');
 
