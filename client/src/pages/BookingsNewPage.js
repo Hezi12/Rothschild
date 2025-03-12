@@ -157,6 +157,22 @@ const BookingsNewPage = () => {
     fetchBookings();
   }, [fetchRooms, fetchBookings]);
   
+  // עדכון המחיר הכולל כאשר המחיר הבסיסי או התאריכים משתנים
+  useEffect(() => {
+    if (formData.checkIn && formData.checkOut && formData.basePrice) {
+      const checkIn = new Date(formData.checkIn);
+      const checkOut = new Date(formData.checkOut);
+      const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+      
+      if (nights > 0) {
+        setFormData(prev => ({
+          ...prev,
+          totalPrice: prev.basePrice * nights
+        }));
+      }
+    }
+  }, [formData.checkIn, formData.checkOut, formData.basePrice]);
+  
   // פונקציות לניהול טפסים
   const handleOpenDialog = (booking = null) => {
     if (booking) {
@@ -252,6 +268,28 @@ const BookingsNewPage = () => {
       ...prev,
       [field]: date
     }));
+    
+    // מעדכן לילות ומחיר כולל אם שני התאריכים קיימים
+    if (field === 'checkIn' && formData.checkOut) {
+      updateNightsAndTotalPrice(date, formData.checkOut);
+    } else if (field === 'checkOut' && formData.checkIn) {
+      updateNightsAndTotalPrice(formData.checkIn, date);
+    }
+  };
+  
+  // פונקציה לחישוב לילות ומחיר כולל
+  const updateNightsAndTotalPrice = (checkIn, checkOut) => {
+    const startDate = new Date(checkIn);
+    const endDate = new Date(checkOut);
+    const nights = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+    
+    if (nights > 0 && formData.basePrice) {
+      setFormData(prev => ({
+        ...prev,
+        nights: nights,
+        totalPrice: prev.basePrice * nights
+      }));
+    }
   };
   
   const handleCheckboxChange = (e) => {
@@ -287,6 +325,27 @@ const BookingsNewPage = () => {
       const checkOut = new Date(formData.checkOut);
       const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
       
+      // בדיקת תקינות פרטי כרטיס אשראי
+      if (!formData.creditCard.cardNumber) {
+        alert('נא למלא מספר כרטיס אשראי');
+        return;
+      }
+      
+      if (!formData.creditCard.expiryDate) {
+        alert('נא למלא תוקף כרטיס אשראי');
+        return;
+      }
+      
+      if (!formData.creditCard.cvv) {
+        alert('נא למלא קוד CVV');
+        return;
+      }
+      
+      if (!formData.creditCard.cardholderName) {
+        alert('נא למלא שם בעל הכרטיס');
+        return;
+      }
+      
       // בניית אובייקט ההזמנה
       const bookingData = {
         ...formData,
@@ -317,6 +376,8 @@ const BookingsNewPage = () => {
         // אם הוזן מחיר ידנית, חשב מחדש את סה"כ
         bookingData.totalPrice = formData.basePrice * nights;
       }
+      
+      console.log("Credit Card Details:", bookingData.creditCard);
       
       if (selectedBooking) {
         // עדכון הזמנה קיימת
@@ -793,7 +854,7 @@ const BookingsNewPage = () => {
                 />
               </Grid>
               
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <DatePicker
                   label="תאריך צ'ק אין"
                   value={formData.checkIn}
@@ -808,7 +869,7 @@ const BookingsNewPage = () => {
                 />
               </Grid>
               
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <DatePicker
                   label="תאריך צ'ק אאוט"
                   value={formData.checkOut}
@@ -820,6 +881,37 @@ const BookingsNewPage = () => {
                       margin: "dense"
                     } 
                   }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={2}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="לילות"
+                  type="number"
+                  value={formData.checkIn && formData.checkOut ? 
+                    Math.ceil((new Date(formData.checkOut) - new Date(formData.checkIn)) / (1000 * 60 * 60 * 24)) : 
+                    0}
+                  InputProps={{
+                    readOnly: true,
+                  }}
+                  sx={{ mt: 1 }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={2}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="מחיר כולל"
+                  type="number"
+                  value={formData.totalPrice}
+                  InputProps={{
+                    readOnly: true,
+                    endAdornment: <InputAdornment position="end">₪</InputAdornment>,
+                  }}
+                  sx={{ mt: 1 }}
                 />
               </Grid>
               
