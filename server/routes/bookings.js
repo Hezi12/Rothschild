@@ -396,27 +396,25 @@ router.get('/direct-cancel-request/:id', async (req, res) => {
 // @access  Private/Admin
 router.delete('/room/:roomId', [protect, admin], async (req, res) => {
   try {
-    const roomId = req.params.roomId;
+    const { roomId } = req.params;
     
-    // מחיקת כל ההזמנות של החדר
-    const deleteResult = await Booking.deleteMany({ room: roomId });
+    // מחיקת כל ההזמנות לחדר
+    const bookingsDeleteResult = await Booking.deleteMany({ room: roomId });
     
-    // מחיקת כל החסימות של החדר
-    const BlockedDate = require('../models/BlockedDate');
-    const blocksDeleteResult = await BlockedDate.deleteMany({ room: roomId });
+    // מחיקת כל החסימות לחדר
+    // const BlockedDate = require('../models/BlockedDate');
+    // const blocksDeleteResult = await BlockedDate.deleteMany({ room: roomId });
     
     res.json({
       success: true,
-      message: `נמחקו ${deleteResult.deletedCount} הזמנות ו-${blocksDeleteResult.deletedCount} חסימות מהחדר`,
-      deletedBookings: deleteResult.deletedCount,
-      deletedBlocks: blocksDeleteResult.deletedCount
+      message: `נמחקו ${bookingsDeleteResult.deletedCount} הזמנות לחדר`,
+      // blocksDeleted: blocksDeleteResult.deletedCount
     });
   } catch (error) {
-    console.error('שגיאה במחיקת ההזמנות של החדר:', error);
-    res.status(500).json({
-      success: false,
-      message: 'שגיאת שרת',
-      error: error.message
+    console.error('שגיאה במחיקת הזמנות לחדר:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת' 
     });
   }
 });

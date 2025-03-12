@@ -1,9 +1,12 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
 
 // יצירת קונטקסט
 export const AuthContext = createContext();
+
+// הוק שימושי לגישה לקונטקסט
+export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

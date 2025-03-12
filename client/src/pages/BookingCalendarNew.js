@@ -22,9 +22,10 @@ import {
   Grid,
   Tooltip,
   useMediaQuery,
-  Container
+  Container,
+  Chip
 } from '@mui/material';
-import { alpha, useTheme } from '@mui/material/styles';
+import { alpha, useTheme, styled } from '@mui/material/styles';
 import {
   ChevronLeft,
   ChevronRight,
@@ -39,6 +40,53 @@ import {
   ArrowForward as ArrowForwardIcon,
   ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
+import BookingDetailsDialog from '../components/BookingDetailsDialog';
+import NewBookingDialog from '../components/NewBookingDialog';
+import { useAuth } from '../context/AuthContext';
+
+// סטיילינג לתאים בלוח השנה
+const StyledDay = styled(Paper)(({ theme, isToday, isCurrentMonth, isSelected, hasBooking, isBlocked }) => ({
+  height: '100px',
+  overflow: 'hidden',
+  padding: theme.spacing(1),
+  color: !isCurrentMonth ? theme.palette.text.disabled : theme.palette.text.primary,
+  backgroundColor: isSelected
+    ? theme.palette.primary.light
+    : isToday
+    ? theme.palette.action.selected
+    : isBlocked
+    ? theme.palette.error.light
+    : hasBooking
+    ? theme.palette.warning.light
+    : 'inherit',
+  cursor: 'pointer',
+  '&:hover': {
+    backgroundColor: theme.palette.action.hover,
+  },
+  position: 'relative',
+}));
+
+// קומפוננטה להצגת הזמנה בתוך תא
+const BookingChip = styled(Chip)(({ theme, status }) => ({
+  margin: '2px 0',
+  backgroundColor: 
+    status === 'confirmed' ? theme.palette.success.main :
+    status === 'pending' ? theme.palette.warning.main :
+    status === 'canceled' ? theme.palette.error.main :
+    theme.palette.info.main,
+  color: '#fff',
+  fontSize: '0.7rem',
+  height: '20px',
+  width: '100%',
+  '& .MuiChip-label': {
+    padding: '0 4px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  }
+}));
 
 // קומפוננטה משנית - תצוגת חדר בלוח
 const RoomCell = ({ room }) => {
@@ -120,108 +168,54 @@ const BookingCellContent = ({ booking, onOpenDetails }) => {
 };
 
 // קומפוננטה משנית - תצוגת יום בלוח
-const DayCell = ({ date, room, bookings, blockedDates, onCellClick, onOpenDetails }) => {
-  const theme = useTheme();
-  // בדיקה אם התאריך חסום
-  const isBlocked = blockedDates.some(block => 
-    block.room === room._id && 
-    date >= new Date(block.startDate) && 
-    date < new Date(block.endDate)
-  );
+const DayCell = ({ day, currentMonth, selectedDate, bookings, onSelectDate, onBookingClick }) => {
+  const isCurrentMonth = isSameMonth(day, currentMonth);
+  const isToday = isSameDay(day, new Date());
+  const isSelected = selectedDate && isSameDay(day, selectedDate);
   
-  // סינון הזמנות הרלוונטיות לתא זה
-  const cellBookings = bookings.filter(booking => {
-    if (!booking || !booking.checkIn || !booking.checkOut) return false;
-    
-    const checkIn = booking.checkIn instanceof Date ? booking.checkIn : new Date(booking.checkIn);
-    const checkOut = booking.checkOut instanceof Date ? booking.checkOut : new Date(booking.checkOut);
-    
-    // בדיקה אם התאריך נמצא בטווח ההזמנה ושייך לאותו חדר
-    return (
-      booking.room === room._id && 
-      date >= checkIn && 
-      date < checkOut
-    );
+  // סינון הזמנות הרלוונטיות לתאריך הנוכחי
+  const relevantBookings = bookings.filter(booking => {
+    const bookingStart = new Date(booking.checkIn);
+    const bookingEnd = new Date(booking.checkOut);
+    return day >= bookingStart && day < bookingEnd;
   });
   
-  // בחירת רקע לתא לפי מצבו
-  let backgroundColor = 'white';
-  if (isToday(date)) {
-    backgroundColor = alpha(theme.palette.info.light, 0.1);
-  }
+  const hasBooking = relevantBookings.length > 0;
   
-  // תצוגת הזמנה תקבל עדיפות על פני חסימה
-  if (cellBookings.length > 0) {
-    // יש הזמנה בתא זה - נציג אותה
-    return (
-      <Box
-        sx={{
-          minWidth: '100px',
-          minHeight: '80px',
-          height: '100%',
-          border: '1px solid #e0e0e0',
-          borderRadius: '4px',
-          backgroundColor: isToday(date) ? alpha(theme.palette.info.light, 0.1) : 'white',
-          p: 0.5
-        }}
-      >
-        <BookingCellContent 
-          booking={cellBookings[0]} 
-          onOpenDetails={onOpenDetails} 
-        />
-      </Box>
-    );
-  }
-  
-  // אם אין הזמנה בתא זה, אבל יש חסימה
-  if (isBlocked) {
-    return (
-      <Box
-        onClick={() => onCellClick(room, date)}
-        sx={{
-          minWidth: '100px',
-          minHeight: '80px',
-          height: '100%',
-          border: '1px solid #e0e0e0',
-          borderRadius: '4px',
-          backgroundColor: '#ffcccc',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer'
-        }}
-      >
-        <Typography variant="caption" color="error">
-          חסום
-        </Typography>
-      </Box>
-    );
-  }
-  
-  // תא רגיל - פנוי
+  const handleClick = () => {
+    onSelectDate(day);
+  };
+
+  const handleBookingClick = (e, booking) => {
+    e.stopPropagation();
+    onBookingClick(booking);
+  };
+
   return (
-    <Box
-      onClick={() => onCellClick(room, date)}
-      sx={{
-        minWidth: '100px',
-        minHeight: '80px',
-        height: '100%',
-        border: '1px solid #e0e0e0',
-        borderRadius: '4px',
-        backgroundColor,
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        '&:hover': {
-          backgroundColor: alpha(theme.palette.primary.light, 0.1)
-        }
-      }}
+    <StyledDay
+      elevation={1}
+      isToday={isToday}
+      isCurrentMonth={isCurrentMonth}
+      isSelected={isSelected}
+      hasBooking={hasBooking}
+      onClick={handleClick}
     >
-      <Typography variant="caption" color="text.secondary">
-        {room.basePrice} ₪
+      <Typography variant="caption" sx={{ position: 'absolute', top: 2, right: 5 }}>
+        {format(day, 'd')}
       </Typography>
-    </Box>
+      
+      <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {relevantBookings.map(booking => (
+          <BookingChip
+            key={booking._id}
+            label={`${booking.room?.roomNumber || 'חדר'} - ${booking.guest?.name || 'אורח'}`}
+            status={booking.status}
+            onClick={(e) => handleBookingClick(e, booking)}
+            size="small"
+          />
+        ))}
+      </Box>
+    </StyledDay>
   );
 };
 
@@ -263,805 +257,220 @@ const BookingCalendarNew = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
-  // ניהול מצב (state)
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [dates, setDates] = useState([]);
+  // סטייט לשמירת נתונים
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
-  const [blockedDates, setBlockedDates] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  // מצב דיאלוגים
-  const [newBookingDialog, setNewBookingDialog] = useState(false);
-  const [bookingDetailsDialog, setBookingDetailsDialog] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
+  const [calendarDays, setCalendarDays] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
+  const [newBookingOpen, setNewBookingOpen] = useState(false);
+  const { logout } = useAuth();
   
-  // מצב טופס הזמנה חדשה
-  const [newBooking, setNewBooking] = useState({
-    room: '',
-    checkIn: '',
-    checkOut: '',
-    nights: 1,
-    totalPrice: 0,
-    guest: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      address: ''
-    },
-    paymentMethod: 'cash',
-    paymentStatus: 'pending',
-    isTourist: false,
-    creditCardDetails: {
-      cardNumber: '',
-      expiryDate: '',
-      cvv: ''
-    },
-    notes: ''
-  });
-  
-  // יצירת טווח תאריכים להצגה
-  const calculateDatesToShow = useCallback(() => {
-    // במצב חודשי נציג חודש שלם
-    const monthStart = startOfMonth(currentDate);
-    const monthEnd = endOfMonth(currentDate);
-    const daysToShow = eachDayOfInterval({ start: monthStart, end: monthEnd });
-    setDates(daysToShow);
-  }, [currentDate]);
-  
-  // טעינת חדרים
-  const fetchRooms = useCallback(async () => {
-    try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`);
-      if (response.data.success) {
-        setRooms(response.data.data.filter(room => room.isActive));
-      }
-    } catch (error) {
-      console.error('שגיאה בטעינת חדרים:', error);
-      toast.error('שגיאה בטעינת חדרים');
+  // יצירת מערך של ימים להצגה בלוח השנה
+  useEffect(() => {
+    const days = [];
+    const start = startOfMonth(currentMonth);
+    const end = endOfMonth(currentMonth);
+    
+    let day = start;
+    while (day <= end) {
+      days.push(day);
+      day = addDays(day, 1);
     }
-  }, []);
+    
+    setCalendarDays(days);
+  }, [currentMonth]);
   
-  // טעינת הזמנות
-  const fetchBookings = useCallback(async () => {
+  // טעינת הזמנות וחדרים
+  useEffect(() => {
+    fetchBookings();
+    fetchRooms();
+  }, [currentMonth]);
+  
+  // פונקציה לטעינת הזמנות
+  const fetchBookings = async () => {
+    setLoading(true);
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings`);
+      const startDate = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+      const endDate = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+      
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings`, {
+        params: { startDate, endDate }
+      });
+      
       if (response.data.success) {
-        const processedBookings = response.data.data.map(booking => ({
-          ...booking,
-          checkIn: new Date(booking.checkIn),
-          checkOut: new Date(booking.checkOut)
-        }));
-        setBookings(processedBookings);
+        setBookings(response.data.data);
       }
     } catch (error) {
       console.error('שגיאה בטעינת הזמנות:', error);
       toast.error('שגיאה בטעינת הזמנות');
-    }
-  }, []);
-  
-  // טעינת תאריכים חסומים
-  const fetchBlockedDates = useCallback(async () => {
-    try {
-      try {
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms/blocked-dates`);
-        if (response.data.success) {
-          setBlockedDates(response.data.data);
-          console.log(`נטענו ${response.data.data.length} תאריכים חסומים`);
-        } else {
-          console.warn('תשובה לא תקינה בטעינת תאריכים חסומים:', response.data);
-          setBlockedDates([]); // אתחול למערך ריק במקרה של תשובה לא תקינה
-        }
-      } catch (apiError) {
-        // במקרה של שגיאת תקשורת או שגיאת שרת, נמשיך בלי תאריכים חסומים
-        console.warn('לא ניתן לטעון תאריכים חסומים. ממשיכים עם מערך ריק:', apiError);
-        setBlockedDates([]); // אתחול למערך ריק
-        // לא מציגים הודעת שגיאה למשתמש - פשוט ממשיכים בלי תאריכים חסומים
-      }
-    } catch (error) {
-      console.error('שגיאה חמורה בטעינת תאריכים חסומים:', error);
-      setBlockedDates([]); // אתחול למערך ריק במקרה של שגיאה
-    }
-  }, []);
-  
-  // רענון כללי של הנתונים
-  const refreshData = useCallback(async () => {
-    setLoading(true);
-    try {
-      await Promise.all([
-        fetchRooms(),
-        fetchBookings(),
-        fetchBlockedDates()
-      ]);
-    } catch (error) {
-      console.error('שגיאה ברענון נתונים:', error);
     } finally {
       setLoading(false);
     }
-  }, [fetchRooms, fetchBookings, fetchBlockedDates]);
-  
-  // אתחול הדף
-  useEffect(() => {
-    calculateDatesToShow();
-    refreshData();
-  }, [calculateDatesToShow, refreshData]);
-  
-  // עדכון תאריכים בשינוי חודש
-  useEffect(() => {
-    calculateDatesToShow();
-  }, [currentDate, calculateDatesToShow]);
-  
-  // הצגת הודעת אזהרה בטעינת הדף
-  useEffect(() => {
-    toast.warning(
-      <div style={{ textAlign: 'center', direction: 'rtl' }}>
-        <h4>דף מיושן</h4>
-        <p>דף זה יוסר בקרוב. אנא השתמש בדף "ניהול הזמנות (חדש)" מהתפריט.</p>
-      </div>,
-      { autoClose: false }
-    );
-  }, []);
-  
-  // ניווט לחודש הבא
-  const handleNextMonth = () => {
-    setCurrentDate(prevDate => addMonths(prevDate, 1));
   };
   
-  // ניווט לחודש הקודם
-  const handlePrevMonth = () => {
-    setCurrentDate(prevDate => subMonths(prevDate, 1));
+  // פונקציה לטעינת חדרים
+  const fetchRooms = async () => {
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`);
+      if (response.data.success) {
+        setRooms(response.data.data);
+      }
+    } catch (error) {
+      console.error('שגיאה בטעינת חדרים:', error);
+    }
   };
   
-  // ניווט להיום
-  const goToToday = () => {
-    setCurrentDate(new Date());
+  // מעבר לחודש הבא
+  const nextMonth = () => {
+    setCurrentMonth(addMonths(currentMonth, 1));
   };
   
-  // פתיחת דיאלוג הזמנה חדשה
-  const handleOpenNewBookingDialog = (room, date) => {
-    setSelectedRoom(room);
-    setSelectedDate(date);
-    
-    // חישוב תאריך צ'ק-אאוט (יום אחד לאחר צ'ק-אין)
-    const checkInDate = date;
-    const checkOutDate = addDays(date, 1);
-    
-    // חישוב מספר לילות (ברירת מחדל: לילה אחד)
-    const nights = 1;
-    
-    // חישוב סך הכל לתשלום
-    const totalPrice = room.basePrice * nights;
-    
-    setNewBooking({
-      room: room._id,
-      checkIn: format(checkInDate, 'yyyy-MM-dd'),
-      checkOut: format(checkOutDate, 'yyyy-MM-dd'),
-      nights: nights,
-      totalPrice: totalPrice,
-      guest: {
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        address: ''
-      },
-      paymentMethod: 'cash',
-      paymentStatus: 'pending',
-      isTourist: false,
-      creditCardDetails: {
-        cardNumber: '',
-        expiryDate: '',
-        cvv: ''
-      },
-      notes: ''
-    });
-    
-    setNewBookingDialog(true);
+  // מעבר לחודש הקודם
+  const prevMonth = () => {
+    setCurrentMonth(subMonths(currentMonth, 1));
+  };
+  
+  // בחירת תאריך
+  const handleDateSelect = (day) => {
+    setSelectedDate(day);
   };
   
   // פתיחת דיאלוג פרטי הזמנה
-  const handleOpenBookingDetails = (booking) => {
+  const handleBookingClick = (booking) => {
     setSelectedBooking(booking);
-    setBookingDetailsDialog(true);
+    setBookingDetailsOpen(true);
   };
   
-  // סגירת דיאלוגים
-  const handleCloseDialogs = () => {
-    setNewBookingDialog(false);
-    setBookingDetailsDialog(false);
+  // סגירת דיאלוג פרטי הזמנה
+  const handleCloseBookingDetails = () => {
+    setBookingDetailsOpen(false);
     setSelectedBooking(null);
-    setSelectedRoom(null);
-    setSelectedDate(null);
   };
   
-  // שינוי שדה בטופס הזמנה חדשה
-  const handleBookingFieldChange = (e) => {
-    const { name, value } = e.target;
-    
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      setNewBooking(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
-      }));
-    } else {
-      setNewBooking(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
+  // פתיחת דיאלוג הזמנה חדשה
+  const handleOpenNewBooking = () => {
+    setNewBookingOpen(true);
   };
   
-  // שינוי תאריך צ'ק-אין
-  const handleCheckInDateChange = (e) => {
-    const newCheckIn = e.target.value;
-    const checkInDate = new Date(newCheckIn);
-    
-    // חישוב מחדש של מספר הלילות והמחיר הכולל
-    let checkOutDate = new Date(newBooking.checkOut);
-    const room = rooms.find(r => r._id === newBooking.room);
-    
-    if (!isNaN(checkOutDate.getTime()) && !isNaN(checkInDate.getTime()) && room) {
-      const oneDay = 24 * 60 * 60 * 1000; // מילישניות ביום
-      const nights = Math.ceil(Math.max(1, (checkOutDate - checkInDate) / oneDay));
-      const totalPrice = room.basePrice * nights;
-      
-      setNewBooking(prev => ({
-        ...prev,
-        checkIn: newCheckIn,
-        nights: nights,
-        totalPrice: totalPrice
-      }));
-    } else {
-      // אם אין תאריך צ'ק-אאוט תקין או אין חדר
-      setNewBooking(prev => ({
-        ...prev,
-        checkIn: newCheckIn
-      }));
-    }
+  // סגירת דיאלוג הזמנה חדשה
+  const handleCloseNewBooking = () => {
+    setNewBookingOpen(false);
   };
   
-  // שינוי תאריך צ'ק-אאוט
-  const handleCheckOutDateChange = (e) => {
-    const newCheckOut = e.target.value;
-    const checkOutDate = new Date(newCheckOut);
-    
-    // חישוב מחדש של מספר הלילות והמחיר הכולל
-    let checkInDate = new Date(newBooking.checkIn);
-    const room = rooms.find(r => r._id === newBooking.room);
-    
-    if (!isNaN(checkInDate.getTime()) && !isNaN(checkOutDate.getTime()) && room) {
-      const oneDay = 24 * 60 * 60 * 1000; // מילישניות ביום
-      const nights = Math.ceil(Math.max(1, (checkOutDate - checkInDate) / oneDay));
-      const totalPrice = room.basePrice * nights;
-      
-      setNewBooking(prev => ({
-        ...prev,
-        checkOut: newCheckOut,
-        nights: nights,
-        totalPrice: totalPrice
-      }));
-    } else {
-      // אם אין תאריך צ'ק-אין תקין או אין חדר
-      setNewBooking(prev => ({
-        ...prev,
-        checkOut: newCheckOut
-      }));
-    }
+  // עדכון לאחר יצירת הזמנה חדשה
+  const handleBookingCreated = () => {
+    fetchBookings();
   };
   
-  // שמירת הזמנה חדשה
-  const handleSaveNewBooking = async () => {
-    // וידוא שכל השדות הנדרשים מלאים
-    const { room, checkIn, checkOut, guest } = newBooking;
-    if (!room || !checkIn || !checkOut || !guest.firstName || !guest.lastName || !guest.phone) {
-      toast.error('יש למלא את כל השדות החובה');
-      return;
-    }
-    
-    try {
-      // לוגים לדיבאג - בדיקת כל ההזמנות והחסימות הקיימות
-      console.log('=== בדיקת דיבאג לפני יצירת הזמנה חדשה ===');
-      console.log(`מנסה ליצור הזמנה לחדר: ${room} בתאריכים:`, {
-        checkIn: checkIn,
-        checkOut: checkOut
-      });
-      
-      console.log('הזמנות קיימות במערכת:', bookings.length);
-      bookings.forEach(booking => {
-        console.log(`הזמנה: ${booking._id}, חדר: ${booking.room._id || booking.room}, תאריכים:`, {
-          checkIn: booking.checkIn,
-          checkOut: booking.checkOut
-        });
-      });
-      
-      console.log('חסימות קיימות במערכת:', blockedDates.length);
-      blockedDates.forEach(block => {
-        console.log(`חסימה: ${block._id}, חדר: ${block.room._id || block.room}, תאריכים:`, {
-          startDate: block.startDate,
-          endDate: block.endDate,
-          reason: block.reason
-        });
-      });
-      
-      // הכנת האובייקט בפורמט שהשרת מצפה לקבל
-      const bookingData = {
-        roomId: room, // השרת מצפה ל-roomId ולא ל-room
-        checkIn: format(new Date(checkIn), 'yyyy-MM-dd'),
-        checkOut: format(new Date(checkOut), 'yyyy-MM-dd'),
-        nights: newBooking.nights || 1,
-        isTourist: newBooking.isTourist || false,
-        paymentMethod: newBooking.paymentMethod || 'cash',
-        paymentStatus: newBooking.paymentStatus || 'pending',
-        totalPrice: newBooking.totalPrice || 0,
-        guest: {
-          firstName: guest.firstName,
-          lastName: guest.lastName,
-          name: `${guest.firstName} ${guest.lastName}`,
-          email: guest.email || '',
-          phone: guest.phone,
-          address: guest.address || ''
-        },
-        notes: newBooking.notes || ''
-      };
-      
-      // הוספת פרטי כרטיס אשראי אם הם קיימים
-      if (newBooking.paymentMethod === 'credit' && newBooking.creditCardDetails) {
-        bookingData.creditCardDetails = {
-          cardNumber: newBooking.creditCardDetails?.cardNumber || '',
-          expiryDate: newBooking.creditCardDetails?.expiryDate || '',
-          cvv: newBooking.creditCardDetails?.cvv || ''
-        };
-      }
-      
-      console.log('שולח נתוני הזמנה לשרת:', bookingData);
-      
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/bookings`,
-        bookingData
-      );
-      
-      if (response.data.success) {
-        toast.success('ההזמנה נוצרה בהצלחה');
-        handleCloseDialogs();
-        refreshData();
-      }
-    } catch (error) {
-      console.error('שגיאה ביצירת הזמנה:', error);
-      toast.error(error.response?.data?.message || 'שגיאה ביצירת הזמנה');
-    }
+  // עדכון לאחר שינוי הזמנה
+  const handleBookingChanged = () => {
+    fetchBookings();
   };
   
-  // מחיקת הזמנה
-  const handleDeleteBooking = async () => {
-    if (!selectedBooking) return;
-    
-    if (!window.confirm('האם אתה בטוח שברצונך למחוק את ההזמנה?')) {
-      return;
-    }
-    
-    try {
-      const response = await axios.delete(
-        `${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}`
-      );
-      
-      if (response.data.success) {
-        toast.success('ההזמנה נמחקה בהצלחה');
-        handleCloseDialogs();
-        refreshData();
-      }
-    } catch (error) {
-      console.error('שגיאה במחיקת הזמנה:', error);
-      toast.error('שגיאה במחיקת הזמנה');
-    }
-  };
+  // שמות ימי השבוע
+  const weekDays = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
   
-  // טיפול בלחיצה על תא בלוח
-  const handleCellClick = (room, date) => {
-    handleOpenNewBookingDialog(room, date);
-  };
-  
-  // רינדור הדיאלוג ליצירת הזמנה חדשה
-  const renderNewBookingDialog = () => {
+  if (loading) {
     return (
-      <Dialog 
-        open={newBookingDialog} 
-        onClose={handleCloseDialogs}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>הזמנה חדשה</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>חדר</InputLabel>
-                <Select
-                  name="room"
-                  value={newBooking.room}
-                  onChange={handleBookingFieldChange}
-                >
-                  {rooms.map(room => (
-                    <MenuItem key={room._id} value={room._id}>
-                      {room.name} - {room.basePrice} ₪ ללילה
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="תאריך הגעה"
-                type="date"
-                name="checkIn"
-                value={newBooking.checkIn}
-                onChange={handleCheckInDateChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="תאריך עזיבה"
-                type="date"
-                name="checkOut"
-                value={newBooking.checkOut}
-                onChange={handleCheckOutDateChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="מספר לילות"
-                type="number"
-                name="nights"
-                value={newBooking.nights}
-                InputProps={{ readOnly: true }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="מחיר כולל"
-                type="number"
-                name="totalPrice"
-                value={newBooking.totalPrice}
-                onChange={handleBookingFieldChange}
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-                פרטי האורח
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="שם פרטי"
-                name="guest.firstName"
-                value={newBooking.guest.firstName}
-                onChange={handleBookingFieldChange}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="שם משפחה"
-                name="guest.lastName"
-                value={newBooking.guest.lastName}
-                onChange={handleBookingFieldChange}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="דוא״ל"
-                name="guest.email"
-                value={newBooking.guest.email}
-                onChange={handleBookingFieldChange}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="טלפון"
-                name="guest.phone"
-                value={newBooking.guest.phone}
-                onChange={handleBookingFieldChange}
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>סטטוס תשלום</InputLabel>
-                <Select
-                  name="paymentStatus"
-                  value={newBooking.paymentStatus}
-                  onChange={handleBookingFieldChange}
-                >
-                  <MenuItem value="paid">שולם</MenuItem>
-                  <MenuItem value="partial">תשלום חלקי</MenuItem>
-                  <MenuItem value="unpaid">לא שולם</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialogs}>ביטול</Button>
-          <Button 
-            onClick={handleSaveNewBooking} 
-            variant="contained" 
-            color="primary"
-          >
-            שמירה
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
     );
-  };
+  }
   
-  // רינדור דיאלוג פרטי הזמנה
-  const renderBookingDetailsDialog = () => {
-    if (!selectedBooking) return null;
-    
-    return (
-      <Dialog 
-        open={bookingDetailsDialog} 
-        onClose={handleCloseDialogs}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>פרטי הזמנה</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <Typography variant="h6">
-                {selectedBooking.guest.firstName} {selectedBooking.guest.lastName}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                הזמנה #{selectedBooking._id.substring(0, 8)}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2">תאריך הגעה:</Typography>
-              <Typography variant="body1" fontWeight="bold">
-                {format(new Date(selectedBooking.checkIn), 'dd/MM/yyyy')}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2">תאריך עזיבה:</Typography>
-              <Typography variant="body1" fontWeight="bold">
-                {format(new Date(selectedBooking.checkOut), 'dd/MM/yyyy')}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2">מספר לילות:</Typography>
-              <Typography variant="body1" fontWeight="bold">
-                {selectedBooking.nights}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2">מחיר כולל:</Typography>
-              <Typography variant="body1" fontWeight="bold">
-                {selectedBooking.totalPrice} ₪
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2">חדר:</Typography>
-              <Typography variant="body1" fontWeight="bold">
-                {rooms.find(r => r._id === selectedBooking.room)?.name || 'לא ידוע'}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2">סטטוס תשלום:</Typography>
-              <Typography variant="body1" fontWeight="bold">
-                {selectedBooking.paymentStatus === 'paid' && 'שולם'}
-                {selectedBooking.paymentStatus === 'partial' && 'תשלום חלקי'}
-                {selectedBooking.paymentStatus === 'unpaid' && 'לא שולם'}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-                פרטי האורח
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2">דוא״ל:</Typography>
-              <Typography variant="body1">
-                {selectedBooking.guest.email}
-              </Typography>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <Typography variant="body2">טלפון:</Typography>
-              <Typography variant="body1">
-                {selectedBooking.guest.phone}
-              </Typography>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={handleDeleteBooking}
-            color="error"
-            startIcon={<DeleteIcon />}
-          >
-            מחיקה
-          </Button>
-          <Button onClick={handleCloseDialogs}>סגירה</Button>
-        </DialogActions>
-      </Dialog>
-    );
-  };
-  
-  // פונקציה חדשה לאיפוס מלא של המערכת
-  const handleForceReset = async () => {
-    // אזהרה כפולה למניעת מחיקה בטעות
-    if (!window.confirm('האם אתה בטוח שברצונך למחוק את כל ההזמנות וכל החסימות מהמערכת? פעולה זו אינה הפיכה!')) {
-      return;
-    }
-    if (!window.confirm('אזהרה נוספת: פעולה זו תמחק את כל היסטוריית ההזמנות והחסימות ללא אפשרות שחזור. האם אתה בטוח?')) {
-      return;
-    }
-
-    // בקשת סיסמת מנהל לאבטחה נוספת
-    const deletePassword = prompt('הזן סיסמת מנהל למחיקת כל הנתונים:');
-    if (!deletePassword) {
-      toast.error('יש להזין סיסמה');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      
-      // מחיקת כל ההזמנות
-      const bookingsResponse = await axios.delete(
-        `${process.env.REACT_APP_API_URL}/bookings/all`,
-        { 
-          data: { password: deletePassword },
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
-      
-      // מחיקת כל החסימות
-      const blocksResponse = await axios.delete(
-        `${process.env.REACT_APP_API_URL}/rooms/blocked-dates/all`,
-        { 
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
-      
-      const bookingsDeleted = bookingsResponse.data.success ? bookingsResponse.data.count : 0;
-      const blocksDeleted = blocksResponse.data.deletedCount || 0;
-      
-      toast.success(`נמחקו בהצלחה: ${bookingsDeleted} הזמנות ו-${blocksDeleted} חסימות`);
-      
-      // רענון הנתונים
-      await refreshData();
-    } catch (error) {
-      console.error('שגיאה באיפוס המערכת:', error);
-      toast.error(error.response?.data?.message || 'אירעה שגיאה באיפוס המערכת');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // רינדור הלוח
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
-        <Typography variant="h4" gutterBottom>
-          ניהול הזמנות - גרסה חדשה
-        </Typography>
-        
-        {/* חלק הראש עם החודש הנוכחי וכפתורי ניווט */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box>
-            <Typography variant="h5" component="div">
-              {format(currentDate, 'MMMM yyyy', { locale: he })}
+    <Box sx={{ p: 3 }}>
+      <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h5">לוח הזמנות</Typography>
+          
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <IconButton onClick={prevMonth}>
+              <KeyboardArrowRightIcon />
+            </IconButton>
+            
+            <Typography variant="h6" sx={{ mx: 2 }}>
+              {format(currentMonth, 'MMMM yyyy', { locale: he })}
             </Typography>
+            
+            <IconButton onClick={nextMonth}>
+              <KeyboardArrowLeftIcon />
+            </IconButton>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button variant="outlined" onClick={goToToday} startIcon={<TodayIcon />}>
-              היום
-            </Button>
-            <Button variant="outlined" onClick={handlePrevMonth} startIcon={<ArrowForwardIcon />}>
-              חודש קודם
-            </Button>
-            <Button variant="outlined" onClick={handleNextMonth} startIcon={<ArrowBackIcon />}>
-              חודש הבא
-            </Button>
-          </Box>
+          
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={handleOpenNewBooking}
+          >
+            הזמנה חדשה
+          </Button>
         </Box>
-        
-        {/* תצוגת הלוח */}
+
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
             <CircularProgress />
           </Box>
         ) : (
-          <Box sx={{ overflowX: 'auto' }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: `180px repeat(${dates.length}, 100px)`, gap: 1 }}>
-              {/* כותרת ריקה עבור טור החדרים */}
-              <Box sx={{ border: '1px solid rgba(0,0,0,0.1)', p: 1, bgcolor: 'background.paper', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                חדרים / תאריכים
-              </Box>
-              
-              {/* כותרות תאריכים */}
-              <DayHeaders dates={dates} />
-              
-              {/* שורות החדרים */}
-              {rooms.map(room => (
-                <React.Fragment key={room._id}>
-                  {/* תא חדר */}
-                  <RoomCell room={room} />
-                  
-                  {/* תאים לכל תאריך */}
-                  {dates.map(date => (
-                    <DayCell
-                      key={date.toISOString()}
-                      date={date}
-                      room={room}
-                      bookings={bookings}
-                      blockedDates={blockedDates}
-                      onCellClick={handleCellClick}
-                      onOpenDetails={handleOpenBookingDetails}
-                    />
-                  ))}
-                </React.Fragment>
+          <>
+            <Grid container spacing={1} sx={{ mb: 1 }}>
+              {weekDays.map((day, index) => (
+                <Grid item xs key={index}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 1,
+                      textAlign: 'center',
+                      backgroundColor: 'primary.main',
+                      color: 'white',
+                    }}
+                  >
+                    <Typography variant="subtitle2">{day}</Typography>
+                  </Paper>
+                </Grid>
               ))}
-            </Box>
-          </Box>
+            </Grid>
+
+            <Grid container spacing={1}>
+              {calendarDays.map((day, index) => (
+                <Grid item xs key={index}>
+                  <DayCell
+                    day={day}
+                    currentMonth={currentMonth}
+                    selectedDate={selectedDate}
+                    bookings={bookings}
+                    onSelectDate={handleDateSelect}
+                    onBookingClick={handleBookingClick}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </>
         )}
-        
-        {/* כפתור איפוס המערכת */}
-        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleForceReset}
-            startIcon={<DeleteIcon />}
-            sx={{ fontWeight: 'bold' }}
-          >
-            איפוס מלא של המערכת - מחיקת כל ההזמנות והחסימות
-          </Button>
-        </Box>
       </Paper>
-      
-      {/* הדיאלוגים */}
-      {renderNewBookingDialog()}
-      {renderBookingDetailsDialog()}
-    </Container>
+
+      {/* דיאלוג פרטי הזמנה */}
+      <BookingDetailsDialog
+        open={bookingDetailsOpen}
+        booking={selectedBooking}
+        onClose={handleCloseBookingDetails}
+        onBookingChange={handleBookingChanged}
+      />
+
+      {/* דיאלוג הזמנה חדשה */}
+      <NewBookingDialog
+        open={newBookingOpen}
+        onClose={handleCloseNewBooking}
+        onBookingCreated={handleBookingCreated}
+        selectedRoom={null}
+        selectedDates={selectedDate ? { start: selectedDate, end: addDays(selectedDate, 1) } : null}
+      />
+    </Box>
   );
 };
 

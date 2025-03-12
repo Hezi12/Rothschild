@@ -17,59 +17,6 @@ router.get('/', roomController.getRooms);
 // @access  Public
 router.post('/check-availability', roomController.checkAvailability);
 
-// @route   GET /api/rooms/blocked-dates
-// @desc    קבלת תאריכים חסומים
-// @access  Public
-router.get('/blocked-dates', roomController.getBlockedDates);
-
-// @route   POST /api/rooms/blocked-dates
-// @desc    חסימת תאריכים
-// @access  Private/Admin
-router.post(
-  '/blocked-dates',
-  [
-    protect,
-    admin,
-    [
-      check('roomId', 'יש לספק מזהה חדר').not().isEmpty(),
-      check('startDate', 'יש לספק תאריך התחלה').isISO8601(),
-      check('endDate', 'יש לספק תאריך סיום').isISO8601()
-    ]
-  ],
-  roomController.blockDates
-);
-
-// @route   DELETE /api/rooms/blocked-dates/:id
-// @desc    ביטול חסימת תאריכים
-// @access  Private/Admin
-router.delete('/blocked-dates/:id', [protect, admin], roomController.unblockDates);
-
-// @route   DELETE /api/rooms/blocked-dates/all
-// @desc    מחיקת כל התאריכים החסומים
-// @access  Private/Admin
-router.delete('/blocked-dates/all', [protect, admin], async (req, res) => {
-  try {
-    // ייבוא המודל
-    const BlockedDate = require('../models/BlockedDate');
-    
-    // מחיקת כל החסימות
-    const result = await BlockedDate.deleteMany({});
-    
-    res.json({
-      success: true,
-      message: `נמחקו ${result.deletedCount} חסימות בהצלחה`,
-      count: result.deletedCount
-    });
-  } catch (error) {
-    console.error('שגיאה במחיקת כל החסימות:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'שגיאת שרת',
-      error: error.message 
-    });
-  }
-});
-
 // @route   GET /api/rooms/:id
 // @desc    קבלת חדר לפי מזהה
 // @access  Public
@@ -103,32 +50,6 @@ router.put('/:id', [protect, admin], roomController.updateRoom);
 // @desc    מחיקת חדר
 // @access  Private/Admin
 router.delete('/:id', [protect, admin], roomController.deleteRoom);
-
-// @route   DELETE /api/rooms/:id/blocked-dates
-// @desc    מחיקת כל החסימות לחדר מסוים
-// @access  Private/Admin
-router.delete('/:id/blocked-dates', [protect, admin], async (req, res) => {
-  try {
-    // ייבוא המודל
-    const BlockedDate = require('../models/BlockedDate');
-    
-    // מחיקת כל החסימות של החדר הספציפי
-    const result = await BlockedDate.deleteMany({ room: req.params.id });
-    
-    res.json({
-      success: true,
-      message: `נמחקו ${result.deletedCount} חסימות בהצלחה`,
-      count: result.deletedCount
-    });
-  } catch (error) {
-    console.error(`שגיאה במחיקת החסימות לחדר ${req.params.id}:`, error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'שגיאת שרת',
-      error: error.message 
-    });
-  }
-});
 
 // נתיבים למחירים מיוחדים לפי ימי שבוע
 router.route('/:id/special-prices')
