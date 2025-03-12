@@ -165,6 +165,7 @@ exports.createBooking = async (req, res) => {
       nights,
       totalPrice,
       guest,
+      creditCard,
       status = 'confirmed',
       paymentStatus = 'pending',
       notes
@@ -176,7 +177,8 @@ exports.createBooking = async (req, res) => {
       checkOut,
       guest,
       nights,
-      totalPrice
+      totalPrice,
+      creditCard: creditCard ? 'התקבלו פרטי כרטיס אשראי' : 'לא התקבלו פרטי כרטיס אשראי'
     });
 
     // בדיקת קלט בסיסית
@@ -294,8 +296,11 @@ exports.createBooking = async (req, res) => {
       guest: guestData,
       status,
       paymentStatus,
-      notes
+      notes,
+      creditCard: creditCard || {}
     });
+
+    console.log('פרטי כרטיס אשראי לשמירה:', creditCard || {});
 
     // שמירת ההזמנה
     await booking.save();
@@ -445,6 +450,22 @@ exports.getBookingById = async (req, res) => {
     // בדיקה האם פרטי כרטיס האשראי קיימים בתשובה
     console.log('Credit card details in response:', booking.creditCard);
     
+    // אם שדה כרטיס האשראי לא קיים, ניצור אותו כאובייקט ריק
+    if (!booking.creditCard) {
+      console.log('שדה כרטיס אשראי לא קיים בהזמנה. יוצר אובייקט ריק.');
+      booking.creditCard = {
+        cardNumber: '',
+        expiryDate: '',
+        cvv: '',
+        cardholderName: ''
+      };
+    }
+    
+    // מידע ספציפי לדיבאג
+    const responseObj = booking.toObject();
+    console.log('האם יש שדה creditCard?', !!responseObj.creditCard);
+    console.log('מפתחות אובייקט ההזמנה:', Object.keys(responseObj));
+    
     res.json({
       success: true,
       data: booking
@@ -471,10 +492,16 @@ exports.updateBooking = async (req, res) => {
       nights, 
       totalPrice, 
       guest, 
+      creditCard,
       status, 
       paymentStatus,
       notes 
     } = req.body;
+
+    console.log('נתונים לעדכון הזמנה:', {
+      id: req.params.id,
+      creditCard: creditCard ? 'התקבלו פרטי כרטיס אשראי' : 'לא התקבלו פרטי כרטיס אשראי'
+    });
 
     const booking = await Booking.findById(req.params.id);
     
@@ -564,16 +591,27 @@ exports.updateBooking = async (req, res) => {
     // עדכון שאר השדות אם הם קיימים
     if (totalPrice) updatedFields.totalPrice = totalPrice;
     if (guest) updatedFields.guest = guest;
+    if (creditCard) updatedFields.creditCard = creditCard;
     if (status) updatedFields.status = status;
     if (paymentStatus) updatedFields.paymentStatus = paymentStatus;
     if (notes !== undefined) updatedFields.notes = notes;
+    
+    console.log('שדות לעדכון:', {
+      ...updatedFields,
+      creditCard: updatedFields.creditCard ? 'כולל פרטי כרטיס אשראי' : 'ללא פרטי כרטיס אשראי'
+    });
     
     // עדכון ההזמנה בדאטהבייס
     const updatedBooking = await Booking.findByIdAndUpdate(
       req.params.id,
       { $set: updatedFields },
       { new: true, runValidators: true }
-    ).populate('room', 'roomNumber type basePrice');
+    ).populate('room', 'roomNumber type basePrice')
+     .select('+creditCard');
+    
+    // בדיקה אם שדה כרטיס האשראי קיים בתוצאה
+    console.log('האם creditCard קיים בתוצאה?', !!updatedBooking.creditCard);
+    console.log('שדות הזמנה מעודכנת:', Object.keys(updatedBooking.toObject()));
     
     res.json({
       success: true,

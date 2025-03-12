@@ -520,8 +520,18 @@ const BookingsNewPage = () => {
       );
       
       const booking = response.data.data;
-      console.log("Fetched booking details:", booking);
-      console.log("Credit Card Details from API:", booking.creditCard);
+      console.log("Fetched booking details (full object):", JSON.stringify(booking));
+      
+      // בדיקה מעמיקה של שדה כרטיס האשראי
+      console.log("Credit Card value:", booking.creditCard);
+      console.log("Credit Card type:", typeof booking.creditCard);
+      console.log("Credit Card fields:", booking.creditCard ? Object.keys(booking.creditCard) : "no fields");
+      
+      // אם אין שדה כרטיס אשראי, נדווח על כך
+      if (!booking.creditCard) {
+        console.error("האובייקט 'booking' לא כולל את השדה 'creditCard'");
+        alert("שגיאה: חסרים פרטי כרטיס אשראי בהזמנה. יש ליצור הזמנה חדשה עם פרטי כרטיס אשראי.");
+      }
       
       // כעת מגדירים את הטופס עם הנתונים המלאים מהשרת
       setFormData({
