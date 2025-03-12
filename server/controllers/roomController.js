@@ -329,8 +329,38 @@ exports.checkAvailability = async (req, res) => {
       
       // אם אין הזמנות חופפות, החדר זמין
       // חישוב מחיר (כולל/לא כולל מע"מ בהתאם למעמד התייר)
-      const basePrice = room.basePrice;
-      const totalNightsPrice = basePrice * nights;
+      let totalNightsPrice = 0;
+      
+      // בדיקה אם יש מחירים מיוחדים לפי ימי שבוע
+      if (room.specialPrices && room.specialPrices.size > 0) {
+        console.log('נמצאו מחירים מיוחדים לחדר:', Object.fromEntries(room.specialPrices));
+        
+        // חישוב מחיר לכל לילה בנפרד לפי היום בשבוע
+        const currentDate = new Date(checkInDate);
+        for (let i = 0; i < nights; i++) {
+          const dayOfWeek = currentDate.getDay(); // 0 = ראשון, 6 = שבת
+          const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+          const dayName = dayNames[dayOfWeek];
+          
+          // בדיקה אם יש מחיר מיוחד ליום זה
+          if (room.specialPrices.has(dayName)) {
+            const specialPrice = room.specialPrices.get(dayName);
+            console.log(`מחיר מיוחד ליום ${dayName} (${i+1}/${nights}): ${specialPrice}₪`);
+            totalNightsPrice += specialPrice;
+          } else {
+            console.log(`מחיר רגיל ליום ${dayName} (${i+1}/${nights}): ${room.basePrice}₪`);
+            totalNightsPrice += room.basePrice;
+          }
+          
+          // קידום היום ב-24 שעות
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      } else {
+        // אם אין מחירים מיוחדים, השתמש במחיר הבסיסי כפול מספר הלילות
+        console.log('לא נמצאו מחירים מיוחדים, משתמש במחיר בסיס:', room.basePrice);
+        totalNightsPrice = room.basePrice * nights;
+      }
+      
       const priceDetails = calculateVatAndTotalPrice(totalNightsPrice, isTourist);
       
       return res.json({
@@ -344,8 +374,9 @@ exports.checkAvailability = async (req, res) => {
         checkIn: checkInDate,
         checkOut: checkOutDate,
         nights,
-        basePrice,
+        basePrice: room.basePrice,
         nightsTotal: totalNightsPrice,
+        hasSpecialPrices: room.specialPrices && room.specialPrices.size > 0,
         vatRate: priceDetails.vatRate,
         vatAmount: priceDetails.vatAmount,
         totalPrice: priceDetails.totalPrice,
@@ -486,9 +517,13 @@ exports.getRoomSpecialPrices = async (req, res) => {
       });
     }
 
+    // המרת המפה לאובייקט JSON רגיל
+    const specialPricesObj = room.specialPrices ? Object.fromEntries(room.specialPrices) : {};
+    console.log('מחירים מיוחדים שנשלחים ללקוח:', specialPricesObj);
+
     res.json({
       success: true,
-      specialPrices: room.specialPrices || {}
+      specialPrices: specialPricesObj
     });
   } catch (error) {
     console.error('שגיאה בקבלת מחירים מיוחדים:', error);

@@ -149,22 +149,14 @@ const RoomsListPage = () => {
           const roomSpecialPrices = specialPricesResponse.data.specialPrices;
           const updatedPrices = { ...defaultSpecialPrices };
           
-          // מיפוי ימים למספרים
-          const dayMap = {
-            0: 'sunday',
-            1: 'monday', 
-            2: 'tuesday',
-            3: 'wednesday',
-            4: 'thursday',
-            5: 'friday',
-            6: 'saturday'
-          };
+          console.log('מחירים מיוחדים שהתקבלו מהשרת:', roomSpecialPrices);
           
           // עדכון המחירים המיוחדים מתוך הנתונים שהתקבלו
-          Object.entries(roomSpecialPrices).forEach(([dayNumber, price]) => {
-            const day = dayMap[dayNumber];
-            if (day) {
+          // כעת המפתחות הם כבר שמות ימים באנגלית (sunday, monday, וכו')
+          Object.entries(roomSpecialPrices).forEach(([day, price]) => {
+            if (updatedPrices[day]) { // וידוא שמדובר ביום תקין
               updatedPrices[day] = { enabled: true, price: Number(price) };
+              console.log(`נטען מחיר מיוחד ליום ${day}: ${price}₪`);
             }
           });
           
