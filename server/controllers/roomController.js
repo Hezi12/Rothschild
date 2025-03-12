@@ -142,14 +142,38 @@ exports.updateRoom = async (req, res) => {
     
     // טיפול במפת מחירים מיוחדים
     if (req.body.specialPrices && typeof req.body.specialPrices === 'object' && !Array.isArray(req.body.specialPrices)) {
-      // המרת מבנה JSON למפה מונגו
-      const convertedSpecialPrices = {};
+      console.log('מחירים מיוחדים שהתקבלו:', req.body.specialPrices);
+      
+      // יצירת מפה חדשה או שימוש במפה הקיימת
+      const updatedSpecialPrices = room.specialPrices || new Map();
+      
+      // ניקוי המפה הקיימת אם מעדכנים את כל הערכים
+      if (Object.keys(req.body.specialPrices).length > 0) {
+        // נזכור את ערכי המפה הקיימת לפני הריקון
+        const oldValues = Object.fromEntries(updatedSpecialPrices);
+        console.log('ערכי מפת מחירים מיוחדים לפני עדכון:', oldValues);
+        
+        // ריקון המפה אם נשלח עדכון מלא
+        updatedSpecialPrices.clear();
+      }
+      
+      // עדכון או הוספת ערכים חדשים למפה
       for (const [key, value] of Object.entries(req.body.specialPrices)) {
         if (value !== null && value !== undefined) {
-          convertedSpecialPrices[key] = Number(value);
+          const numValue = Number(value);
+          if (!isNaN(numValue)) {
+            console.log(`עדכון מחיר מיוחד: ${key} = ${numValue}`);
+            updatedSpecialPrices.set(key, numValue);
+          } else {
+            console.warn(`ערך לא תקף למחיר מיוחד: ${key} = ${value}`);
+          }
         }
       }
-      req.body.specialPrices = convertedSpecialPrices;
+      
+      console.log('מפת מחירים מיוחדים לאחר עדכון:', Object.fromEntries(updatedSpecialPrices));
+      
+      // שמירת המפה המעודכנת באובייקט הבקשה
+      req.body.specialPrices = updatedSpecialPrices;
     }
     
     // עדכון הנתונים
