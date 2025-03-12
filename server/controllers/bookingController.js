@@ -157,8 +157,15 @@ exports.createBooking = async (req, res) => {
       notes
     } = req.body;
 
+    console.log('נתוני ההזמנה שהתקבלו:', {
+      roomId,
+      checkIn,
+      checkOut,
+      guest
+    });
+
     // בדיקת קלט בסיסית
-    if (!roomId || !checkIn || !checkOut || !guest.name || !guest.email) {
+    if (!roomId || !checkIn || !checkOut || !guest) {
       return res.status(400).json({
         success: false,
         message: 'נא למלא את כל שדות החובה'
@@ -166,11 +173,16 @@ exports.createBooking = async (req, res) => {
     }
 
     // המרת התאריכים לאובייקט Date ואיפוס השעות לחצות
-    const checkInDate = new Date(checkIn);
+    let checkInDate = new Date(checkIn);
     checkInDate.setHours(0, 0, 0, 0);
     
-    const checkOutDate = new Date(checkOut);
+    let checkOutDate = new Date(checkOut);
     checkOutDate.setHours(0, 0, 0, 0);
+
+    console.log('תאריכים מתוקנים:', {
+      checkInDate,
+      checkOutDate
+    });
 
     // בדיקה שהחדר קיים
     const room = await Room.findById(roomId);
@@ -208,6 +220,15 @@ exports.createBooking = async (req, res) => {
       calculatedTotalPrice = await calculateRoomPrice(roomId, checkInDate, checkOutDate);
     }
 
+    // התאמת אובייקט האורח בהתאם למבנה המצופה
+    const guestData = {
+      name: guest.name || `${guest.firstName} ${guest.lastName}`,
+      firstName: guest.firstName || '',
+      lastName: guest.lastName || '',
+      email: guest.email || '',
+      phone: guest.phone || ''
+    };
+
     // יצירת הזמנה חדשה
     const booking = new Booking({
       bookingNumber,
@@ -217,7 +238,7 @@ exports.createBooking = async (req, res) => {
       checkOut: checkOutDate,
       nights: calculatedNights,
       totalPrice: calculatedTotalPrice,
-      guest,
+      guest: guestData,
       status,
       paymentStatus,
       notes
@@ -243,7 +264,7 @@ exports.createBooking = async (req, res) => {
     console.error('שגיאה ביצירת הזמנה:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'שגיאת שרת' 
+      message: 'שגיאת שרת: ' + error.message
     });
   }
 };
