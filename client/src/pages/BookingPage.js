@@ -88,7 +88,8 @@ const BookingPage = () => {
     creditCardDetails: {
       cardNumber: '',
       expiryDate: '',
-      cvv: ''
+      cvv: '',
+      cardholderName: ''
     },
     notes: ''
   });
@@ -495,12 +496,20 @@ const BookingPage = () => {
           phone: bookingData.guest.phone,
           country: bookingData.guest.country || 'ישראל'
         },
+        // הוספת פרטי כרטיס אשראי לאובייקט שנשלח לשרת
+        creditCard: {
+          cardNumber: bookingData.creditCardDetails.cardNumber,
+          expiryDate: bookingData.creditCardDetails.expiryDate,
+          cvv: bookingData.creditCardDetails.cvv,
+          cardholderName: bookingData.creditCardDetails.cardholderName
+        },
         status: 'confirmed',
         paymentStatus: 'pending',
         notes: bookingData.notes
       };
       
       console.log('שולח הזמנה:', bookingPayload);
+      console.log('פרטי כרטיס אשראי נשלחים:', bookingPayload.creditCard);
       
       // שליחת ההזמנה לשרת
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingPayload);
@@ -1050,6 +1059,20 @@ const BookingPage = () => {
                 }}
               />
             </Grid>
+            <Grid item xs={12}>
+              <TextField
+                required
+                fullWidth
+                label="שם בעל הכרטיס"
+                name="creditCardDetails.cardholderName"
+                value={bookingData.creditCardDetails.cardholderName}
+                onChange={handleChange}
+                placeholder="שם מלא כפי שמופיע על הכרטיס"
+                InputProps={{
+                  sx: { borderRadius: 1.5 }
+                }}
+              />
+            </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 required
@@ -1400,7 +1423,7 @@ const BookingPage = () => {
   // בדיקת תקינות פרטי התשלום
   const isPaymentDetailsValid = () => {
     if (bookingData.paymentMethod === 'credit') {
-      const { cardNumber, expiryDate, cvv } = bookingData.creditCardDetails;
+      const { cardNumber, expiryDate, cvv, cardholderName } = bookingData.creditCardDetails;
       
       // ניקוי רווחים ממספר הכרטיס
       const cleanCardNumber = cardNumber ? cardNumber.replace(/\s/g, '') : '';
@@ -1411,7 +1434,8 @@ const BookingPage = () => {
         cleanCardNumber && 
         cleanCardNumber.length >= 8 && 
         expiryDate && 
-        cvv
+        cvv &&
+        cardholderName
       );
 
       // הדפסת מידע לקונסול לצורכי דיבוג
@@ -1420,6 +1444,7 @@ const BookingPage = () => {
         cardNumberLength: cleanCardNumber.length,
         expiryDate,
         cvv,
+        cardholderName,
         isValid
       });
       
