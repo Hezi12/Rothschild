@@ -218,11 +218,12 @@ const BookingPage = () => {
       const vatAmount = bookingData.isTourist ? 0 : basePrice * 0.17;
       const totalPrice = basePrice + vatAmount;
       
+      // וידוא שכל הערכים הם מספרים תקפים
       setCalculations({
         nights: nights || 0,
         basePrice: basePrice || 0,
         vatAmount: vatAmount || 0,
-        totalPrice: totalPrice || 0
+        totalPrice: isNaN(totalPrice) ? 0 : totalPrice
       });
     }
   }, [bookingData.checkIn, bookingData.checkOut, bookingData.isTourist, room]);
