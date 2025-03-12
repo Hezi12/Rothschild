@@ -90,7 +90,7 @@ const ChatBox = () => {
       
       if (unknownQuestionMatch) {
         setTimeout(() => {
-          const unknownResponse = `מצטער, אני לא מומחה בנושאי ${unknownQuestionMatch[0]}. אני יכול לעזור במידע על מלונית רוטשילד 79, הזמנות, ושירותים שאנחנו מציעים.\n\nלשאלות נוספות או סיוע אישי, אנחנו זמינים בווטסאפ: https://wa.me/972506070260`;
+          const unknownResponse = `מצטער, אני לא מומחה בנושאי ${unknownQuestionMatch[0]}. אני יכול לעזור במידע על מלונית רוטשילד 79, הזמנות, ושירותים שאנחנו מציעים.\n\nלשאלות נוספות או סיוע אישי, אנחנו זמינים בווטסאפ: [[WHATSAPP]]`;
           
           setMessages(prev => [...prev, { role: 'assistant', content: unknownResponse }]);
           setIsLoading(false);
@@ -108,9 +108,9 @@ const ChatBox = () => {
       
       // בדיקה אם התשובה מציינת שאין מידע או לא יודע לענות
       const dontKnowRegex = /(אין לי מידע|איני יודע|לא יודע|אין לי תשובה|מצטער, אין לי|אין בידי|לא מכיר|איני מכיר)/i;
-      if (dontKnowRegex.test(assistantMessage) && !assistantMessage.includes("https://wa.me/")) {
+      if (dontKnowRegex.test(assistantMessage) && !assistantMessage.includes("[[WHATSAPP]]")) {
         // מוסיף הפניה לווטסאפ אם יש תשובת "לא יודע" ואין כבר קישור
-        assistantMessage += "\n\nאם ברצונך לקבל מידע נוסף או לדבר עם נציג שירות, ניתן לפנות אלינו בווטסאפ: https://wa.me/972506070260";
+        assistantMessage += "\n\nאם ברצונך לקבל מידע נוסף או לדבר עם נציג שירות, ניתן לפנות אלינו [[WHATSAPP]]";
       }
       
       setMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
@@ -118,7 +118,7 @@ const ChatBox = () => {
       console.error('שגיאה בשליחת הודעה:', error);
       setMessages(prev => [
         ...prev, 
-        { role: 'assistant', content: 'מצטער, נתקלתי בבעיה. אנא נסה שוב מאוחר יותר או פנה אלינו ישירות בווטסאפ: https://wa.me/972506070260' }
+        { role: 'assistant', content: 'מצטער, נתקלתי בבעיה. אנא נסה שוב מאוחר יותר או פנה אלינו ישירות [[WHATSAPP]]' }
       ]);
     } finally {
       setIsLoading(false);
@@ -135,7 +135,44 @@ const ChatBox = () => {
 
   // הוספת פונקציית עזר לעיבוד ההודעות והצגת קישורי וואטסאפ
   const renderMessage = (content) => {
-    // בדיקה אם יש קישור לוואטסאפ בהודעה
+    // בדיקה אם יש תגי וואטסאפ בהודעה
+    if (content.includes("[[WHATSAPP]]")) {
+      // החלפת התג בכפתור וואטסאפ
+      const parts = content.split("[[WHATSAPP]]");
+      
+      return (
+        <>
+          {parts.map((part, index) => (
+            <React.Fragment key={index}>
+              {part}
+              {index < parts.length - 1 && (
+                <Button
+                  variant="contained"
+                  component={Link}
+                  href="https://wa.me/972506070260"
+                  target="_blank"
+                  rel="noopener"
+                  startIcon={<WhatsAppIcon />}
+                  size="small"
+                  sx={{ 
+                    mx: 1, 
+                    my: 0.5,
+                    bgcolor: '#25D366',
+                    '&:hover': {
+                      bgcolor: '#128C7E'
+                    }
+                  }}
+                >
+                  פנה לווטסאפ
+                </Button>
+              )}
+            </React.Fragment>
+          ))}
+        </>
+      );
+    }
+    
+    // בדיקה אם יש קישור לוואטסאפ בהודעה - שומר על הקוד הישן למקרה שיש קישורי וואטסאפ בפורמט הישן
     const whatsappRegex = /(https:\/\/wa\.me\/\d+)/g;
     
     if (whatsappRegex.test(content)) {
@@ -171,7 +208,7 @@ const ChatBox = () => {
                   }
                 }}
               >
-                פנה לוואטסאפ
+                פנה לווטסאפ
               </Button>
             );
           })}
