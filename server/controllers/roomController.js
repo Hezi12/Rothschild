@@ -210,6 +210,13 @@ exports.checkAvailability = async (req, res) => {
       });
     }
     
+    // המרת התאריכים לאובייקטי תאריך וקביעת שעות לחצות (00:00)
+    const checkInDate = new Date(checkIn);
+    checkInDate.setHours(0, 0, 0, 0);
+    
+    const checkOutDate = new Date(checkOut);
+    checkOutDate.setHours(0, 0, 0, 0);
+    
     // אם סופק חדר ספציפי לבדיקה
     if (roomId) {
       const room = await Room.findById(roomId);
@@ -228,18 +235,8 @@ exports.checkAvailability = async (req, res) => {
         $or: [
           // צ'ק-אין בתוך תקופת הזמנה קיימת
           { 
-            checkIn: { $lte: new Date(checkIn) },
-            checkOut: { $gt: new Date(checkIn) }
-          },
-          // צ'ק-אאוט בתוך תקופת הזמנה קיימת
-          { 
-            checkIn: { $lt: new Date(checkOut) },
-            checkOut: { $gte: new Date(checkOut) }
-          },
-          // תקופת ההזמנה מכילה הזמנה קיימת
-          { 
-            checkIn: { $gte: new Date(checkIn) },
-            checkOut: { $lte: new Date(checkOut) }
+            checkIn: { $lt: checkOutDate },
+            checkOut: { $gt: checkInDate }
           }
         ]
       });
@@ -286,16 +283,8 @@ exports.checkAvailability = async (req, res) => {
           status: { $ne: 'canceled' },
           $or: [
             { 
-              checkIn: { $lte: new Date(checkIn) },
-              checkOut: { $gt: new Date(checkIn) }
-            },
-            { 
-              checkIn: { $lt: new Date(checkOut) },
-              checkOut: { $gte: new Date(checkOut) }
-            },
-            { 
-              checkIn: { $gte: new Date(checkIn) },
-              checkOut: { $lte: new Date(checkOut) }
+              checkIn: { $lt: checkOutDate },
+              checkOut: { $gt: checkInDate }
             }
           ]
         });
