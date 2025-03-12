@@ -113,6 +113,8 @@ exports.createRoom = async (req, res) => {
 // @access  Private/Admin
 exports.updateRoom = async (req, res) => {
   try {
+    console.log('נתוני עדכון חדר שהתקבלו:', req.body);
+    
     const room = await Room.findById(req.params.id);
     
     if (!room) {
@@ -133,6 +135,23 @@ exports.updateRoom = async (req, res) => {
       }
     }
     
+    // וידוא שיש מחיר בסיס תקף
+    if (req.body.basePrice === undefined || req.body.basePrice === null) {
+      req.body.basePrice = 400; // ברירת מחדל אם לא צוין
+    }
+    
+    // טיפול במפת מחירים מיוחדים
+    if (req.body.specialPrices && typeof req.body.specialPrices === 'object' && !Array.isArray(req.body.specialPrices)) {
+      // המרת מבנה JSON למפה מונגו
+      const convertedSpecialPrices = {};
+      for (const [key, value] of Object.entries(req.body.specialPrices)) {
+        if (value !== null && value !== undefined) {
+          convertedSpecialPrices[key] = Number(value);
+        }
+      }
+      req.body.specialPrices = convertedSpecialPrices;
+    }
+    
     // עדכון הנתונים
     const updatedRoom = await Room.findByIdAndUpdate(
       req.params.id, 
@@ -145,10 +164,22 @@ exports.updateRoom = async (req, res) => {
       data: updatedRoom
     });
   } catch (error) {
-    console.error('שגיאה בעדכון חדר:', error);
+    console.error('שגיאה מפורטת בעדכון חדר:', error);
+    
+    let errorMessage = 'שגיאת שרת';
+    
+    if (error.name === 'ValidationError') {
+      errorMessage = 'שגיאת אימות נתונים: ' + Object.values(error.errors).map(err => err.message).join(', ');
+    } else if (error.name === 'CastError') {
+      errorMessage = 'ערך לא תקין: ' + error.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
     res.status(500).json({ 
       success: false, 
-      message: 'שגיאת שרת' 
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.toString() : undefined
     });
   }
 };
@@ -349,6 +380,11 @@ exports.updateRoomSpecialPrices = async (req, res) => {
     const roomId = req.params.id;
     const { specialPrices } = req.body;
 
+    console.log('עדכון מחירים מיוחדים:', {
+      roomId,
+      specialPrices
+    });
+
     // וידוא שהחדר קיים
     const room = await Room.findById(roomId);
     if (!room) {
@@ -360,15 +396,25 @@ exports.updateRoomSpecialPrices = async (req, res) => {
 
     // עדכון מחירים מיוחדים
     if (!room.specialPrices) {
-      room.specialPrices = {};
+      room.specialPrices = new Map();
     }
 
     // עדכון או יצירה של מחירים מיוחדים לפי ימי שבוע
     for (const [day, priceInfo] of Object.entries(specialPrices)) {
-      if (priceInfo.enabled && priceInfo.price > 0) {
-        room.specialPrices[day] = priceInfo.price;
-      } else {
-        delete room.specialPrices[day];
+      try {
+        if (priceInfo && priceInfo.enabled && priceInfo.price > 0) {
+          // המרה למספר
+          const price = Number(priceInfo.price);
+          if (isNaN(price)) {
+            console.warn(`המחיר ${priceInfo.price} ליום ${day} אינו מספר תקף`);
+            continue;
+          }
+          room.specialPrices.set(day, price);
+        } else if (room.specialPrices.has(day)) {
+          room.specialPrices.delete(day);
+        }
+      } catch (priceError) {
+        console.error(`שגיאה בעיבוד מחיר מיוחד ליום ${day}:`, priceError);
       }
     }
 
@@ -376,14 +422,26 @@ exports.updateRoomSpecialPrices = async (req, res) => {
 
     res.json({
       success: true,
-      specialPrices: room.specialPrices,
+      specialPrices: Object.fromEntries(room.specialPrices),
       message: 'המחירים המיוחדים עודכנו בהצלחה'
     });
   } catch (error) {
-    console.error('שגיאה בעדכון מחירים מיוחדים:', error);
+    console.error('שגיאה מפורטת בעדכון מחירים מיוחדים:', error);
+    
+    let errorMessage = 'שגיאת שרת';
+    
+    if (error.name === 'ValidationError') {
+      errorMessage = 'שגיאת אימות נתונים: ' + Object.values(error.errors).map(err => err.message).join(', ');
+    } else if (error.name === 'CastError') {
+      errorMessage = 'ערך לא תקין: ' + error.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
     res.status(500).json({ 
       success: false, 
-      message: 'שגיאת שרת' 
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.toString() : undefined
     });
   }
 };
