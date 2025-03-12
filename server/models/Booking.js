@@ -45,7 +45,7 @@ const BookingSchema = new Schema({
   },
   basePrice: {
     type: Number,
-    required: true
+    default: 0
   },
   totalPrice: {
     type: Number,

@@ -161,7 +161,9 @@ exports.createBooking = async (req, res) => {
       roomId,
       checkIn,
       checkOut,
-      guest
+      guest,
+      nights,
+      totalPrice
     });
 
     // בדיקת קלט בסיסית
@@ -192,6 +194,12 @@ exports.createBooking = async (req, res) => {
         message: 'החדר המבוקש לא נמצא'
       });
     }
+
+    console.log('מצא חדר:', {
+      roomId: room._id,
+      roomNumber: room.roomNumber,
+      basePrice: room.basePrice
+    });
 
     // בדיקת זמינות החדר
     const isAvailable = await checkRoomAvailability(roomId, checkInDate, checkOutDate);
@@ -229,6 +237,19 @@ exports.createBooking = async (req, res) => {
       phone: guest.phone || ''
     };
 
+    // חישוב basePrice אם אפשר
+    let basePrice = room.basePrice;
+    if (calculatedNights > 0 && calculatedTotalPrice > 0) {
+      basePrice = Math.floor(calculatedTotalPrice / calculatedNights);
+    }
+
+    console.log('חישובים:', {
+      bookingNumber,
+      calculatedNights, 
+      calculatedTotalPrice,
+      basePrice
+    });
+
     // יצירת הזמנה חדשה
     const booking = new Booking({
       bookingNumber,
@@ -237,6 +258,7 @@ exports.createBooking = async (req, res) => {
       checkIn: checkInDate,
       checkOut: checkOutDate,
       nights: calculatedNights,
+      basePrice: basePrice,
       totalPrice: calculatedTotalPrice,
       guest: guestData,
       status,
