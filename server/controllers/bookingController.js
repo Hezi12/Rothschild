@@ -171,24 +171,20 @@ exports.createBooking = async (req, res) => {
       notes
     } = req.body;
 
-    console.log('נתוני ההזמנה שהתקבלו:', {
-      roomId,
-      checkIn,
-      checkOut,
-      guest,
-      nights,
-      totalPrice,
-      creditCard: creditCard ? 'התקבלו פרטי כרטיס אשראי' : 'לא התקבלו פרטי כרטיס אשראי'
-    });
+    // לוג מפורט של הנתונים
+    console.log('נתוני ההזמנה שהתקבלו - כרטיס אשראי:', creditCard);
+    console.log('סוג נתוני כרטיס אשראי:', typeof creditCard);
+    console.log('שדות כרטיס אשראי:', creditCard ? Object.keys(creditCard) : []);
 
-    if (creditCard) {
-      console.log('פרטי כרטיס אשראי קיימים:', {
-        cardNumberLength: creditCard.cardNumber ? creditCard.cardNumber.length : 0,
-        hasExpiryDate: !!creditCard.expiryDate,
-        hasCvv: !!creditCard.cvv,
-        hasName: !!creditCard.cardholderName
-      });
-    }
+    // וידוא שיש אובייקט כרטיס אשראי תקין
+    const processedCreditCard = creditCard || {
+      cardNumber: '',
+      expiryDate: '',
+      cvv: '',
+      cardholderName: ''
+    };
+
+    console.log('כרטיס אשראי לאחר עיבוד:', processedCreditCard);
 
     // בדיקת קלט בסיסית
     if (!roomId || !checkIn || !checkOut || !guest) {
@@ -306,13 +302,22 @@ exports.createBooking = async (req, res) => {
       status,
       paymentStatus,
       notes,
-      creditCard: creditCard || {}
+      creditCard: processedCreditCard
     });
 
-    console.log('פרטי כרטיס אשראי לשמירה:', creditCard || {});
+    console.log('כרטיס אשראי לפני שמירה:', booking.creditCard);
 
     // שמירת ההזמנה
     await booking.save();
+
+    // בדיקה שההזמנה נשמרה עם פרטי כרטיס אשראי
+    const savedBooking = await Booking.findById(booking._id)
+      .populate('room', 'roomNumber type basePrice')
+      .select('+creditCard');
+
+    console.log('כרטיס אשראי אחרי שמירה:', savedBooking.creditCard);
+    console.log('שדות כרטיס אשראי אחרי שמירה:', Object.keys(savedBooking.creditCard || {}));
+    console.log('ערכי כרטיס אשראי אחרי שמירה:', savedBooking.creditCard ? Object.values(savedBooking.creditCard) : []);
 
     // שליחת אימייל אישור הזמנה
     try {
@@ -322,15 +327,6 @@ exports.createBooking = async (req, res) => {
       console.error('שגיאה בשליחת אימייל אישור:', emailError);
       // אנחנו לא רוצים שההזמנה תיכשל בגלל בעיית אימייל
     }
-
-    // ודא שאנחנו מחזירים גם את פרטי כרטיס האשראי
-    const savedBooking = await Booking.findById(booking._id)
-      .populate('room', 'roomNumber type basePrice')
-      .select('+creditCard');
-
-    console.log('האם יש פרטי כרטיס אשראי בהזמנה שנשמרה?', 
-      savedBooking.creditCard ? 'כן' : 'לא', 
-      savedBooking.creditCard);
 
     res.status(201).json({
       success: true,
@@ -470,19 +466,27 @@ exports.getBookingById = async (req, res) => {
     
     // וידוא שיש תמיד אובייקט creditCard תקין
     if (!bookingObject.creditCard) {
-      console.log('אין אובייקט creditCard בהזמנה - יוצר אובייקט ריק');
+      console.log('אין אובייקט creditCard בהזמנה - יוצר אובייקט מלא');
       bookingObject.creditCard = {
         cardNumber: '',
         expiryDate: '',
         cvv: '',
         cardholderName: ''
       };
+    } else {
+      // וידוא שיש את כל שדות כרטיס האשראי
+      if (!bookingObject.creditCard.cardNumber) bookingObject.creditCard.cardNumber = '';
+      if (!bookingObject.creditCard.expiryDate) bookingObject.creditCard.expiryDate = '';
+      if (!bookingObject.creditCard.cvv) bookingObject.creditCard.cvv = '';
+      if (!bookingObject.creditCard.cardholderName) bookingObject.creditCard.cardholderName = '';
     }
     
     // מידע ספציפי לדיבאג
-    console.log('האם יש שדה creditCard?', !!bookingObject.creditCard);
-    console.log('מפתחות אובייקט ההזמנה:', Object.keys(bookingObject));
-    console.log('מפתחות creditCard:', bookingObject.creditCard ? Object.keys(bookingObject.creditCard) : 'אין');
+    console.log('מידע על הזמנה מעודכנת - כרטיס אשראי:', {
+      exists: !!bookingObject.creditCard,
+      fields: bookingObject.creditCard ? Object.keys(bookingObject.creditCard) : 'אין',
+      values: bookingObject.creditCard ? Object.values(bookingObject.creditCard) : 'אין'
+    });
     
     res.json({
       success: true,
@@ -516,19 +520,19 @@ exports.updateBooking = async (req, res) => {
       notes 
     } = req.body;
 
-    console.log('נתונים לעדכון הזמנה:', {
-      id: req.params.id,
-      creditCard: creditCard ? 'התקבלו פרטי כרטיס אשראי' : 'לא התקבלו פרטי כרטיס אשראי'
-    });
+    console.log('נתונים לעדכון הזמנה - כרטיס אשראי:', creditCard);
+    console.log('סוג נתוני כרטיס אשראי:', typeof creditCard);
+    console.log('שדות כרטיס אשראי:', creditCard ? Object.keys(creditCard) : []);
     
-    if (creditCard) {
-      console.log('פרטי כרטיס אשראי לעדכון:', {
-        cardNumberLength: creditCard.cardNumber ? creditCard.cardNumber.length : 0,
-        hasExpiryDate: !!creditCard.expiryDate,
-        hasCvv: !!creditCard.cvv,
-        hasName: !!creditCard.cardholderName
-      });
-    }
+    // וידוא שיש אובייקט כרטיס אשראי תקין
+    const processedCreditCard = creditCard || {
+      cardNumber: '',
+      expiryDate: '',
+      cvv: '',
+      cardholderName: ''
+    };
+
+    console.log('כרטיס אשראי מעובד:', processedCreditCard);
 
     const booking = await Booking.findById(req.params.id);
     
@@ -618,7 +622,7 @@ exports.updateBooking = async (req, res) => {
     // עדכון שאר השדות אם הם קיימים
     if (totalPrice) updatedFields.totalPrice = totalPrice;
     if (guest) updatedFields.guest = guest;
-    if (creditCard) updatedFields.creditCard = creditCard;
+    if (creditCard) updatedFields.creditCard = processedCreditCard;
     if (status) updatedFields.status = status;
     if (paymentStatus) updatedFields.paymentStatus = paymentStatus;
     if (notes !== undefined) updatedFields.notes = notes;
@@ -639,19 +643,27 @@ exports.updateBooking = async (req, res) => {
     // וידוא שיש תמיד אובייקט creditCard תקין בתשובה
     const responseBooking = updatedBooking.toObject();
     if (!responseBooking.creditCard) {
-      console.log('אין אובייקט creditCard בהזמנה המעודכנת - יוצר אובייקט ריק');
+      console.log('אין אובייקט creditCard בהזמנה המעודכנת - יוצר אובייקט מלא');
       responseBooking.creditCard = {
         cardNumber: '',
         expiryDate: '',
         cvv: '',
         cardholderName: ''
       };
+    } else {
+      // וידוא שיש את כל שדות כרטיס האשראי
+      if (!responseBooking.creditCard.cardNumber) responseBooking.creditCard.cardNumber = '';
+      if (!responseBooking.creditCard.expiryDate) responseBooking.creditCard.expiryDate = '';
+      if (!responseBooking.creditCard.cvv) responseBooking.creditCard.cvv = '';
+      if (!responseBooking.creditCard.cardholderName) responseBooking.creditCard.cardholderName = '';
     }
     
     // בדיקה אם שדה כרטיס האשראי קיים בתוצאה
-    console.log('האם creditCard קיים בתוצאה?', !!responseBooking.creditCard);
-    console.log('שדות הזמנה מעודכנת:', Object.keys(responseBooking));
-    console.log('מפתחות creditCard בתוצאה:', responseBooking.creditCard ? Object.keys(responseBooking.creditCard) : 'אין');
+    console.log('מידע על הזמנה מעודכנת - כרטיס אשראי:', {
+      exists: !!responseBooking.creditCard,
+      fields: responseBooking.creditCard ? Object.keys(responseBooking.creditCard) : 'אין',
+      values: responseBooking.creditCard ? Object.values(responseBooking.creditCard) : 'אין'
+    });
     
     res.json({
       success: true,

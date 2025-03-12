@@ -327,10 +327,20 @@ const BookingsNewPage = () => {
         alert('נא למלא שם בעל הכרטיס');
         return;
       }
+
+      // וידוא כי אובייקט כרטיס האשראי מלא ותקין
+      const creditCardDetails = {
+        cardNumber: formData.creditCard.cardNumber,
+        expiryDate: formData.creditCard.expiryDate,
+        cvv: formData.creditCard.cvv,
+        cardholderName: formData.creditCard.cardholderName
+      };
+      
+      console.log('פרטי כרטיס אשראי לשמירה:', creditCardDetails);
       
       // בניית אובייקט ההזמנה
       const bookingData = {
-        ...formData,
+        roomId: formData.roomId,
         nights,
         checkIn: format(checkIn, 'yyyy-MM-dd'),
         checkOut: format(checkOut, 'yyyy-MM-dd'),
@@ -338,12 +348,11 @@ const BookingsNewPage = () => {
           ...formData.guest,
           name: `${formData.guest.firstName} ${formData.guest.lastName}`.trim()
         },
-        creditCard: {
-          cardNumber: formData.creditCard.cardNumber,
-          expiryDate: formData.creditCard.expiryDate,
-          cvv: formData.creditCard.cvv,
-          cardholderName: formData.creditCard.cardholderName
-        }
+        creditCard: creditCardDetails,
+        isTourist: formData.isTourist,
+        notes: formData.notes,
+        status: formData.status,
+        paymentStatus: 'pending'
       };
       
       // במקרה של הזמנה חדשה, או שלא הוזן מחיר ידנית
@@ -355,10 +364,11 @@ const BookingsNewPage = () => {
         }
       } else if (formData.basePrice) {
         // אם הוזן מחיר ידנית, חשב מחדש את סה"כ
+        bookingData.basePrice = formData.basePrice;
         bookingData.totalPrice = formData.basePrice * nights;
       }
       
-      console.log("Saving booking with credit card details:", bookingData.creditCard);
+      console.log("אובייקט הזמנה לשרת:", JSON.stringify(bookingData));
       
       let response;
       if (selectedBooking) {
@@ -372,7 +382,7 @@ const BookingsNewPage = () => {
             }
           }
         );
-        console.log("Updated booking response:", response.data);
+        console.log("תגובת השרת לעדכון הזמנה:", response.data);
         setError('');
         alert('ההזמנה עודכנה בהצלחה');
       } else {
@@ -386,15 +396,23 @@ const BookingsNewPage = () => {
             }
           }
         );
-        console.log("Created booking response:", response.data);
+        console.log("תגובת השרת ליצירת הזמנה:", response.data);
         setError('');
         alert('ההזמנה נוצרה בהצלחה');
+      }
+      
+      // בדיקה אם הכרטיס אשראי חזר בתשובה מהשרת
+      if (response.data.data.creditCard) {
+        console.log('כרטיס אשראי בתשובה:', response.data.data.creditCard);
+      } else {
+        console.error('חסר מידע כרטיס אשראי בתשובה מהשרת');
       }
       
       handleCloseDialog();
       fetchBookings(); // רענון הזמנות
     } catch (error) {
       console.error('שגיאה בשמירת ההזמנה:', error);
+      console.error('פרטי השגיאה:', error.response?.data);
       setError(error.response?.data?.message || 'שגיאה בשמירת ההזמנה');
       alert(`שגיאה: ${error.response?.data?.message || 'שגיאה בשמירת ההזמנה'}`);
     }

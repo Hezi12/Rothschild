@@ -14,19 +14,23 @@ const CreditCardSchema = new Schema({
   cardNumber: {
     type: String,
     trim: true,
-    default: ''
+    default: '',
+    required: false
   },
   expiryDate: {
     type: String,
-    default: ''
+    default: '',
+    required: false
   },
   cvv: {
     type: String,
-    default: ''
+    default: '',
+    required: false
   },
   cardholderName: {
     type: String,
-    default: ''
+    default: '',
+    required: false
   }
 }, { _id: false }); // מניעת יצירת ID עצמאי
 
@@ -129,7 +133,13 @@ const BookingSchema = new Schema({
   // פרטי כרטיס אשראי - חשוב: שימוש בסכמה נפרדת עם ערכי ברירת מחדל
   creditCard: {
     type: CreditCardSchema,
-    default: () => ({}) // יצירת אובייקט ריק כברירת מחדל
+    default: () => ({
+      cardNumber: '',
+      expiryDate: '',
+      cvv: '',
+      cardholderName: ''
+    }),
+    required: false
   },
   
   // מידע נוסף
@@ -192,7 +202,40 @@ BookingSchema.pre('save', function(next) {
   
   // וידוא שפרטי כרטיס אשראי לא יהיו undefined
   if (!this.creditCard) {
-    this.creditCard = {};
+    this.creditCard = {
+      cardNumber: '',
+      expiryDate: '',
+      cvv: '',
+      cardholderName: ''
+    };
+  } else {
+    // וידוא שכל השדות קיימים וערכיהם מאותחלים
+    this.creditCard.cardNumber = this.creditCard.cardNumber || '';
+    this.creditCard.expiryDate = this.creditCard.expiryDate || '';
+    this.creditCard.cvv = this.creditCard.cvv || '';
+    this.creditCard.cardholderName = this.creditCard.cardholderName || '';
+  }
+  
+  next();
+});
+
+// טיפול מיוחד בעדכון כרטיס אשראי
+BookingSchema.pre('findOneAndUpdate', function(next) {
+  const update = this.getUpdate();
+  
+  // אם יש עדכון לכרטיס אשראי, וודא שכל השדות קיימים
+  if (update.$set && update.$set.creditCard) {
+    const creditCard = update.$set.creditCard;
+    
+    // וידוא שכל השדות קיימים
+    update.$set.creditCard = {
+      cardNumber: creditCard.cardNumber || '',
+      expiryDate: creditCard.expiryDate || '',
+      cvv: creditCard.cvv || '',
+      cardholderName: creditCard.cardholderName || ''
+    };
+    
+    console.log('כרטיס אשראי לאחר טיפול במידלוור:', update.$set.creditCard);
   }
   
   next();
