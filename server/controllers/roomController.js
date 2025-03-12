@@ -488,36 +488,31 @@ exports.checkAvailability = async (req, res) => {
         
         // אם מחפשים לאדם אחד או שניים, אבל כמה חדרים, יש להשאיר יותר מחדר אחד מכל סוג
         if (guests <= 2) {
-          const roomsByType = {};
+          console.log(`מספר אורחים ${guests} <= 2, מפעיל פילטור לחדר אחד לכל סוג`);
+          console.log(`לפני פילטור: ${availableRooms.length} חדרים`);
           
-          // קיבוץ החדרים לפי סוג 
+          // קיבוץ החדרים לפי סוג ובחירת הזול ביותר מכל סוג
+          const roomTypeMap = {};
+          
+          // הקבצת החדרים לפי סוג
           availableRooms.forEach(room => {
-            if (!roomsByType[room.type]) {
-              roomsByType[room.type] = [];
+            // בדיקה אם קיים כבר חדר מסוג זה במפה וגם שהחדר הנוכחי זול יותר
+            if (!roomTypeMap[room.type] || room.totalPrice < roomTypeMap[room.type].totalPrice) {
+              roomTypeMap[room.type] = room;
             }
-            roomsByType[room.type].push(room);
           });
           
-          // מיון כל קבוצת חדרים מאותו סוג לפי מחיר
-          for (const type in roomsByType) {
-            roomsByType[type].sort((a, b) => a.totalPrice - b.totalPrice);
-          }
+          // המרה של מפת החדרים בחזרה למערך
+          filteredRooms = Object.values(roomTypeMap);
           
-          // בניית מערך עם מספר מספיק של חדרים מכל סוג
-          let typeFilteredRooms = [];
-          for (const type in roomsByType) {
-            // לוקח את מספר החדרים הנדרש או את כל החדרים מהסוג הזה אם יש פחות
-            const roomsOfType = roomsByType[type].slice(0, requestedRoomsCount);
-            typeFilteredRooms = [...typeFilteredRooms, ...roomsOfType];
-          }
+          console.log(`לאחר פילטור נשארו ${filteredRooms.length} חדרים, אחד מכל סוג`);
+          console.log('חדרים לאחר פילטור:', filteredRooms.map(r => ({ roomNumber: r.roomNumber, type: r.type, maxGuests: r.maxGuests, totalPrice: r.totalPrice })));
           
-          // מיון סופי לפי מחיר
-          typeFilteredRooms.sort((a, b) => a.totalPrice - b.totalPrice);
+          // מיון לפי מחיר
+          filteredRooms.sort((a, b) => a.totalPrice - b.totalPrice);
           
-          console.log(`לאחר סינון לפי סוג וכמות חדרים נשארו ${typeFilteredRooms.length} חדרים`);
-          console.log('חדרים לאחר סינון לפי סוג:', typeFilteredRooms.map(r => ({ roomNumber: r.roomNumber, type: r.type, maxGuests: r.maxGuests, totalPrice: r.totalPrice })));
-          
-          filteredRooms = typeFilteredRooms;
+          // וידוא שלא מחזירים יותר מחדר אחד מכל סוג
+          console.log(`החזרת ${filteredRooms.length} חדרים מסוננים לקליינט`);
         } else {
           // עבור 3 אורחים ומעלה שצריכים מספר חדרים, צריך לחפש שילובים מתאימים
           console.log(`מחפשים ${requestedRoomsCount} חדרים ל-${guests} אורחים`);
@@ -615,12 +610,14 @@ exports.checkAvailability = async (req, res) => {
         // מיון החדרים עבור 1-2 אורחים כשמחפשים חדר אחד בלבד
         if (guests <= 2) {
           console.log(`מספר אורחים ${guests} <= 2, מפעיל פילטור לחדר אחד לכל סוג`);
+          console.log(`לפני פילטור: ${availableRooms.length} חדרים`);
           
           // קיבוץ החדרים לפי סוג ובחירת הזול ביותר מכל סוג
           const roomTypeMap = {};
           
           // הקבצת החדרים לפי סוג
           availableRooms.forEach(room => {
+            // בדיקה אם קיים כבר חדר מסוג זה במפה וגם שהחדר הנוכחי זול יותר
             if (!roomTypeMap[room.type] || room.totalPrice < roomTypeMap[room.type].totalPrice) {
               roomTypeMap[room.type] = room;
             }
@@ -634,6 +631,9 @@ exports.checkAvailability = async (req, res) => {
           
           // מיון לפי מחיר
           filteredRooms.sort((a, b) => a.totalPrice - b.totalPrice);
+          
+          // וידוא שלא מחזירים יותר מחדר אחד מכל סוג
+          console.log(`החזרת ${filteredRooms.length} חדרים מסוננים לקליינט`);
         } else {
           console.log(`מספר אורחים ${guests} > 2, מפעיל מיון לפי התאמה והתפוסה הקרובה`);
           

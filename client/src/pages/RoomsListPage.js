@@ -547,9 +547,11 @@ const RoomsListPage = () => {
 
   const handleSetPrimaryImage = async (roomId, imageId) => {
     try {
-      const response = await axios.put(
-        `${process.env.REACT_APP_API_URL}/uploads/room/${roomId}/${imageId}/primary`
-      );
+      console.log(`מנסה להגדיר תמונה ראשית: roomId=${roomId}, imageId=${imageId}`);
+      const apiEndpoint = `${process.env.REACT_APP_API_URL}/uploads/room/${roomId}/${imageId}/primary`;
+      console.log(`API Endpoint: ${apiEndpoint}`);
+      
+      const response = await axios.put(apiEndpoint);
       
       if (response.data.success) {
         // עדכון רשימת החדרים עם התמונה הראשית החדשה
@@ -570,6 +572,15 @@ const RoomsListPage = () => {
       }
     } catch (error) {
       console.error('שגיאה בהגדרת תמונה ראשית:', error);
+      
+      // לוג מפורט יותר
+      if (error.response) {
+        console.error('תגובת השרת:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+      }
+      
       toast.error(
         error.response?.data?.message || 
         'שגיאה בהגדרת התמונה הראשית. אנא נסה שוב.'

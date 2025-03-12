@@ -99,11 +99,37 @@ const SearchResultsPage = () => {
         
         console.log('תשובה מהשרת:', response.data);
         
-        // עדכון רשימת החדרים הזמינים
-        setRoomsList(response.data.data || []);
+        let availableRooms = response.data.data || [];
         
-        console.log('מספר חדרים שהתקבלו:', response.data.data?.length || 0);
-        console.log('סוגי חדרים שהתקבלו:', response.data.data?.map(room => ({ 
+        // סינון נוסף בצד הקליינט למקרה שהשרת לא סינן נכון
+        // צריך להיות רק חדר אחד מכל סוג עבור 1-2 אורחים
+        if (guests <= 2 && roomsCount === 1) {
+          console.log('מבצע סינון נוסף בצד הקליינט עבור 1-2 אורחים');
+          
+          // מפה לשמירת החדר הזול ביותר מכל סוג
+          const roomTypeMap = {};
+          
+          // עבור על כל החדרים ושמור את הזול ביותר מכל סוג
+          availableRooms.forEach(room => {
+            if (!roomTypeMap[room.type] || room.totalPrice < roomTypeMap[room.type].totalPrice) {
+              roomTypeMap[room.type] = room;
+            }
+          });
+          
+          // המר את המפה בחזרה למערך
+          availableRooms = Object.values(roomTypeMap);
+          
+          // מיין לפי מחיר
+          availableRooms.sort((a, b) => a.totalPrice - b.totalPrice);
+          
+          console.log('לאחר סינון נוסף בקליינט נשארו:', availableRooms.length, 'חדרים');
+        }
+        
+        // עדכון רשימת החדרים הזמינים
+        setRoomsList(availableRooms);
+        
+        console.log('מספר חדרים שהתקבלו:', availableRooms.length);
+        console.log('סוגי חדרים שהתקבלו:', availableRooms.map(room => ({ 
           roomNumber: room.roomNumber, 
           type: room.type, 
           maxGuests: room.maxGuests,
