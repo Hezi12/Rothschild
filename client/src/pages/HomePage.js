@@ -33,7 +33,9 @@ import {
   Tooltip,
   ImageListItemBar,
   alpha,
-  Stack
+  Stack,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
 import { 
   Hotel as HotelIcon,
@@ -196,7 +198,8 @@ const HomePage = () => {
     checkIn: today,
     checkOut: tomorrow,
     guests: 1,
-    rooms: 1
+    rooms: 1,
+    isTourist: false
   });
   const [guestsMenuAnchor, setGuestsMenuAnchor] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -303,7 +306,8 @@ const HomePage = () => {
           checkIn: bookingData.checkIn,
           checkOut: bookingData.checkOut,
           guests: bookingData.guests,
-          rooms: bookingData.rooms
+          rooms: bookingData.rooms,
+          isTourist: bookingData.isTourist
         } 
       });
     } catch (error) {
@@ -531,6 +535,32 @@ const HomePage = () => {
                       </IconButton>
                     </Box>
                   </Box>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={bookingData.isTourist}
+                        onChange={(e) => setBookingData(prev => ({ ...prev, isTourist: e.target.checked }))}
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" component="span">
+                          אני תייר (פטור ממע״מ)
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          תיירים זרים פטורים ממע״מ בהצגת דרכון בצ׳ק אין. המחירים יוצגו ללא מע״מ (18%).
+                        </Typography>
+                      </Box>
+                    }
+                    sx={{ 
+                      mt: 1, 
+                      alignItems: 'flex-start',
+                      '& .MuiTypography-root': { 
+                        fontSize: isMobile ? '0.8rem' : '0.875rem' 
+                      }
+                    }}
+                  />
                   <Button 
                     variant="contained" 
                     fullWidth 

@@ -105,10 +105,11 @@ const RoomPage = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   
-  // קבלת נתוני החיפוש אם קיימים
+  // קבלת הנתונים מהמצב של הניווט
   const checkIn = location.state?.checkIn;
   const checkOut = location.state?.checkOut;
   const guests = location.state?.guests || 1;
+  const isTourist = location.state?.isTourist || false;
   const fromSearchResults = Boolean(location.state);
 
   const typeToDisplayName = {
@@ -177,13 +178,14 @@ const RoomPage = () => {
   };
 
   const handleBookNow = () => {
-    navigate('/booking', {
-      state: {
+    navigate('/booking', { 
+      state: { 
         roomId: id,
         checkIn,
         checkOut,
-        guests
-      }
+        guests,
+        isTourist
+      } 
     });
   };
 
@@ -477,6 +479,26 @@ const RoomPage = () => {
                       / לילה
                     </Typography>
                   </Typography>
+                  {isTourist ? (
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        display: 'block', 
+                        color: 'success.main',
+                        fontWeight: 'medium'
+                      }}
+                    >
+                      פטור ממע״מ לתיירים
+                    </Typography>
+                  ) : (
+                    <Typography 
+                      variant="caption" 
+                      color="text.secondary"
+                      sx={{ display: 'block' }}
+                    >
+                      כולל מע״מ (18%)
+                    </Typography>
+                  )}
                 </Box>
               </Box>
 

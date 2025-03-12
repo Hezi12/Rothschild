@@ -57,6 +57,7 @@ const BookingPage = () => {
   const initialRoomId = location.state?.selectedRoomId || location.state?.roomId || null;
   const initialGuests = location.state?.guests || 1;
   const initialRooms = location.state?.rooms || 1;
+  const initialIsTourist = location.state?.isTourist || false;
   
   // אם יש תאריכים וחדר, התחל משלב פרטי האורח (שלב 1) במקום משלב בחירת תאריכים (שלב 0)
   const initialStep = (initialCheckIn && initialCheckOut && initialRoomId) ? 1 : 0;
@@ -82,7 +83,7 @@ const BookingPage = () => {
       phone: '',
       email: ''
     },
-    isTourist: false,
+    isTourist: initialIsTourist,
     paymentMethod: 'credit',
     creditCardDetails: {
       cardNumber: '',
@@ -617,18 +618,19 @@ const BookingPage = () => {
                   />
                 }
                 label={
-                  <Typography fontWeight="medium">
-                    אני תייר (פטור ממע״מ)
-                  </Typography>
+                  <Box>
+                    <Typography fontWeight="medium">
+                      אני תייר (פטור ממע״מ)
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary"
+                    >
+                      תיירים מחו"ל זכאים לפטור ממע"מ בהצגת דרכון בצ'ק-אין. המחירים יוצגו ללא מע"מ (18%).
+                    </Typography>
+                  </Box>
                 }
               />
-              <Typography 
-                variant="body2" 
-                color="text.secondary" 
-                sx={{ ml: 4 }}
-              >
-                תיירים מחו"ל זכאים לפטור ממע"מ. המחירים יוצגו ללא מע"מ (18%).
-              </Typography>
             </Grid>
             
             <Grid item xs={12}>
@@ -856,7 +858,6 @@ const BookingPage = () => {
               name="guest.phone"
               value={bookingData.guest.phone}
               onChange={handleChange}
-              placeholder="050-1234567"
               InputProps={{
                 sx: { borderRadius: 1.5 }
               }}
@@ -879,46 +880,29 @@ const BookingPage = () => {
           </Grid>
           
           <Grid item xs={12}>
-            <Paper 
-              variant="outlined" 
-              sx={{ 
-                p: 2, 
-                mt: 1, 
-                borderRadius: 2,
-                borderColor: bookingData.isTourist ? theme.palette.primary.main : theme.palette.divider,
-                backgroundColor: bookingData.isTourist ? `${theme.palette.primary.main}10` : 'transparent',
-                transition: 'all 0.3s ease'
-              }}
-            >
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    name="isTourist"
-                    checked={bookingData.isTourist}
-                    onChange={handleChange}
-                    color="primary"
-                  />
-                }
-                label={
+            <FormControlLabel
+              control={
+                <Checkbox
+                  name="isTourist"
+                  checked={bookingData.isTourist}
+                  onChange={handleChange}
+                  color="primary"
+                />
+              }
+              label={
+                <Box>
                   <Typography fontWeight="medium">
                     אני תייר (פטור ממע״מ)
                   </Typography>
-                }
-              />
-              <Typography 
-                variant="body2" 
-                color="text.secondary" 
-                sx={{ 
-                  ml: 4, 
-                  mt: 0.5,
-                  pr: 1, 
-                  borderRight: `2px solid ${theme.palette.primary.light}` 
-                }}
-              >
-                תיירים מחו"ל זכאים לפטור ממע"מ. לצורך קבלת הפטור יש להציג דרכון זר בתוקף
-                ואישור כניסה לישראל (חותמת ביקורת גבולות) בעת הצ'ק-אין.
-              </Typography>
-            </Paper>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                  >
+                    תיירים מחו"ל זכאים לפטור ממע"מ בהצגת דרכון בצ'ק-אין. המחירים יוצגו ללא מע"מ (18%).
+                  </Typography>
+                </Box>
+              }
+            />
           </Grid>
           
           <Grid item xs={12}>

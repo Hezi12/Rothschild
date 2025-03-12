@@ -64,6 +64,7 @@ const SearchResultsPage = () => {
   const checkOut = location.state?.checkOut;
   const guests = location.state?.guests || 1;
   const roomsCount = location.state?.rooms || 1;
+  const isTourist = location.state?.isTourist || false;
   
   useEffect(() => {
     // אם אין תאריכים, חזור לדף הבית
@@ -81,7 +82,8 @@ const SearchResultsPage = () => {
           checkIn: new Date(checkIn).toISOString(),
           checkOut: new Date(checkOut).toISOString(),
           guests: guests,
-          rooms: roomsCount
+          rooms: roomsCount,
+          isTourist: isTourist
         });
         
         // עדכון רשימת החדרים הזמינים
@@ -95,7 +97,7 @@ const SearchResultsPage = () => {
     };
     
     fetchAvailableRooms();
-  }, [checkIn, checkOut, guests, roomsCount, navigate]);
+  }, [checkIn, checkOut, guests, roomsCount, isTourist, navigate]);
   
   const formatDate = (date) => {
     if (!date) return '';
@@ -116,7 +118,8 @@ const SearchResultsPage = () => {
         checkIn,
         checkOut,
         guests,
-        rooms: roomsCount
+        rooms: roomsCount,
+        isTourist: isTourist
       } 
     });
   };
@@ -154,7 +157,8 @@ const SearchResultsPage = () => {
         checkIn,
         checkOut,
         guests,
-        rooms: selectedRooms.length
+        rooms: selectedRooms.length,
+        isTourist: isTourist
       } 
     });
   };
@@ -672,6 +676,19 @@ const SearchResultsPage = () => {
                         sx={{ fontSize: '0.75rem' }}
                       >
                         מחיר ללילה:
+                        {isTourist && (
+                          <Typography 
+                            component="span" 
+                            sx={{ 
+                              display: 'block', 
+                              fontSize: '0.65rem', 
+                              color: 'success.main',
+                              fontWeight: 'medium'
+                            }}
+                          >
+                            (פטור ממע״מ)
+                          </Typography>
+                        )}
                       </Typography>
                       <Box sx={{ mt: 0.3 }}>
                         <Typography 
@@ -684,6 +701,15 @@ const SearchResultsPage = () => {
                         >
                           ₪{room.nightsTotal ? Math.round(room.nightsTotal / calculateNights()) : room.basePrice}
                         </Typography>
+                        {!isTourist && (
+                          <Typography 
+                            variant="caption" 
+                            color="text.secondary"
+                            sx={{ display: 'block', fontSize: '0.65rem' }}
+                          >
+                            כולל מע״מ (18%)
+                          </Typography>
+                        )}
                       </Box>
                     </Grid>
                     <Grid item xs={6}>
