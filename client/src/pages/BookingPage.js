@@ -154,9 +154,22 @@ const BookingPage = () => {
   // חישוב מספר הלילות
   const calculateNights = () => {
     if (bookingData.checkIn && bookingData.checkOut) {
-      const startDate = new Date(bookingData.checkIn);
-      const endDate = new Date(bookingData.checkOut);
-      return differenceInDays(endDate, startDate);
+      try {
+        const startDate = new Date(bookingData.checkIn);
+        const endDate = new Date(bookingData.checkOut);
+        
+        // וידוא שהתאריכים תקפים
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          console.error('תאריכים לא תקפים:', { checkIn: bookingData.checkIn, checkOut: bookingData.checkOut });
+          return 0;
+        }
+        
+        const nights = differenceInDays(endDate, startDate);
+        return nights > 0 ? nights : 0;
+      } catch (error) {
+        console.error('שגיאה בחישוב מספר הלילות:', error);
+        return 0;
+      }
     }
     return 0;
   };
@@ -201,15 +214,15 @@ const BookingPage = () => {
   useEffect(() => {
     if (bookingData.checkIn && bookingData.checkOut && room) {
       const nights = calculateNights();
-      const basePrice = nights * room.basePrice;
+      const basePrice = nights * (room.basePrice || 0);  // וידוא שיש מחיר בסיס
       const vatAmount = bookingData.isTourist ? 0 : basePrice * 0.17;
       const totalPrice = basePrice + vatAmount;
       
       setCalculations({
-        nights,
-        basePrice,
-        vatAmount,
-        totalPrice
+        nights: nights || 0,
+        basePrice: basePrice || 0,
+        vatAmount: vatAmount || 0,
+        totalPrice: totalPrice || 0
       });
     }
   }, [bookingData.checkIn, bookingData.checkOut, bookingData.isTourist, room]);
@@ -425,11 +438,24 @@ const BookingPage = () => {
         notes: bookingData.notes,
         numberOfNights: calculations.nights,
         numberOfGuests: bookingData.guests,
-        calculatedPrice: calculations.totalPrice
+        calculatedPrice: calculations.totalPrice,
+        // הוספת שדות נדרשים למודל ההזמנה בשרת
+        nights: calculations.nights,
+        totalPrice: isNaN(calculations.totalPrice) ? 0 : calculations.totalPrice // וידוא שהמחיר תמיד מספר תקף
       };
       
       // רישום מידע לצורכי דיבוג
       console.log('שולח הזמנה:', JSON.stringify(bookingPayload, null, 2));
+      console.log('מידע חשוב על החישובים:', { 
+        calculations,
+        roomBasePrice: room?.basePrice,
+        roomId: bookingData.roomId,
+        nights: calculateNights(),
+        checkInDate: bookingData.checkIn,
+        checkOutDate: bookingData.checkOut,
+        isDateCheckInValid: bookingData.checkIn instanceof Date,
+        isDateCheckOutValid: bookingData.checkOut instanceof Date
+      });
       
       try {
         const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingPayload);
@@ -1086,10 +1112,14 @@ const BookingPage = () => {
                   <b>חדר:</b> {typeToDisplayName[room.type] || room.type}
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  <b>צ'ק-אין:</b> {bookingData.checkIn.toLocaleDateString('he-IL')}
+                  <b>צ'ק-אין:</b> {bookingData.checkIn instanceof Date && !isNaN(bookingData.checkIn) 
+                    ? bookingData.checkIn.toLocaleDateString('he-IL') 
+                    : 'לא צוין תאריך תקף'}
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  <b>צ'ק-אאוט:</b> {bookingData.checkOut.toLocaleDateString('he-IL')}
+                  <b>צ'ק-אאוט:</b> {bookingData.checkOut instanceof Date && !isNaN(bookingData.checkOut) 
+                    ? bookingData.checkOut.toLocaleDateString('he-IL') 
+                    : 'לא צוין תאריך תקף'}
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                   <b>לילות:</b> {calculations.nights}
