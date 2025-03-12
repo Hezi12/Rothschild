@@ -199,13 +199,22 @@ const BookingPage = () => {
           }
           
           // עדכון מחירים מהשרת
-          setCalculations({
-            nights: response.data.nights || calculateNights(),
-            basePrice: response.data.basePrice || (room.basePrice * calculateNights()),
-            vatRate: 18,
-            vatAmount: response.data.vatAmount || (bookingData.isTourist ? 0 : (response.data.basePrice || (room.basePrice * calculateNights())) * 0.18),
-            totalPrice: response.data.totalPrice || ((room.basePrice * calculateNights()) + (bookingData.isTourist ? 0 : (room.basePrice * calculateNights()) * 0.18))
-          });
+          if (response.data.isAvailable) {
+            const nights = response.data.nights || calculateNights();
+            const basePrice = response.data.nightsTotal || (nights * (room.basePrice || 400));
+            const vatRate = 18; // אחוז המע"מ
+            const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
+            const totalPrice = basePrice + vatAmount;
+            
+            // עדכון מחירים מהשרת אם זמינים
+            setCalculations({
+              nights: nights || 0,
+              basePrice: basePrice || 0,
+              vatRate: vatRate,
+              vatAmount: vatAmount || 0,
+              totalPrice: isNaN(totalPrice) ? 0 : totalPrice
+            });
+          }
         } catch (error) {
           console.error('שגיאה בבדיקת זמינות:', error);
           setError('שגיאה בבדיקת זמינות החדר. אנא נסה שוב מאוחר יותר.');
@@ -223,22 +232,56 @@ const BookingPage = () => {
   // חישוב מחירים כאשר משתנים תאריכים או סטטוס תייר
   useEffect(() => {
     if (bookingData.checkIn && bookingData.checkOut && room) {
-      const nights = calculateNights();
-      const basePrice = nights * (room.basePrice || 400);  // ברירת מחדל 400 ₪
-      const vatRate = 18; // אחוז המע"מ
-      const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
-      const totalPrice = basePrice + vatAmount;
+      // בדיקת זמינות ומחירים מיוחדים
+      const fetchPrices = async () => {
+        try {
+          const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
+            roomId: bookingData.roomId,
+            checkIn: bookingData.checkIn,
+            checkOut: bookingData.checkOut,
+            isTourist: bookingData.isTourist
+          });
+          
+          if (response.data.isAvailable) {
+            const nights = response.data.nights || calculateNights();
+            const basePrice = response.data.nightsTotal || (nights * (room.basePrice || 400));
+            const vatRate = 18; // אחוז המע"מ
+            const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
+            const totalPrice = basePrice + vatAmount;
+            
+            // עדכון מחירים מהשרת אם זמינים
+            if (response.data.totalPrice) {
+              setCalculations({
+                ...calculations,
+                basePrice: response.data.nightsTotal || response.data.basePrice || calculations.basePrice,
+                vatAmount: response.data.vatAmount || calculations.vatAmount,
+                totalPrice: response.data.totalPrice || calculations.totalPrice,
+                nights: response.data.nights || calculations.nights
+              });
+            }
+          }
+        } catch (error) {
+          console.error('שגיאה בקבלת מחירים:', error);
+          // במקרה של שגיאה, השתמש בחישוב פשוט
+          const nights = calculateNights();
+          const basePrice = nights * (room.basePrice || 400);
+          const vatRate = 18;
+          const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
+          const totalPrice = basePrice + vatAmount;
+          
+          setCalculations({
+            nights: nights || 0,
+            basePrice: basePrice || 0,
+            vatRate: vatRate,
+            vatAmount: vatAmount || 0,
+            totalPrice: isNaN(totalPrice) ? 0 : totalPrice
+          });
+        }
+      };
       
-      // וידוא שכל הערכים הם מספרים תקפים
-      setCalculations({
-        nights: nights || 0,
-        basePrice: basePrice || 0,
-        vatRate: vatRate,
-        vatAmount: vatAmount || 0,
-        totalPrice: isNaN(totalPrice) ? 0 : totalPrice
-      });
+      fetchPrices();
     }
-  }, [bookingData.checkIn, bookingData.checkOut, bookingData.isTourist, room]);
+  }, [bookingData.checkIn, bookingData.checkOut, bookingData.isTourist, bookingData.roomId, room]);
 
   // בדיקת זמינות החדר
   const checkAvailability = async () => {
@@ -276,7 +319,8 @@ const BookingPage = () => {
       if (response.data.totalPrice) {
         setCalculations({
           ...calculations,
-          basePrice: response.data.basePrice || calculations.basePrice,
+          basePrice: response.data.nightsTotal || response.data.basePrice || calculations.basePrice,
+          vatAmount: response.data.vatAmount || calculations.vatAmount,
           totalPrice: response.data.totalPrice || calculations.totalPrice,
           nights: response.data.nights || calculations.nights
         });
@@ -723,7 +767,7 @@ const BookingPage = () => {
                         fontWeight: 'bold'
                       }}
                     >
-                      ₪{room.basePrice || room.price} / לילה
+                      ₪{bookingData.isTourist ? (room.basePrice || room.price) : Math.round((room.basePrice || room.price) * 1.18)} / לילה
                     </Box>
                   </Box>
                   <CardContent sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2 } }}>

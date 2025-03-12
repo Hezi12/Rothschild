@@ -285,7 +285,8 @@ exports.checkAvailability = async (req, res) => {
         basePrice,
         vatRate,
         vatAmount: Math.round(vatAmount * 100) / 100,
-        totalPrice: Math.round(totalPrice * 100) / 100
+        totalPrice: Math.round(totalPrice * 100) / 100,
+        priceWithoutVat: basePrice
       };
     };
 

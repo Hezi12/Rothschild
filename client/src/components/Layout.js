@@ -77,7 +77,7 @@ const Layout = () => {
         color: theme.palette.text.primary
       }}>
         <Toolbar sx={{ 
-          padding: isMobile ? '0.5rem 1rem' : '0.75rem 2rem',
+          padding: isMobile ? '0.5rem 0.75rem' : '0.75rem 2rem',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -107,14 +107,14 @@ const Layout = () => {
                 justifyContent: 'center',
                 bgcolor: theme.palette.primary.main,
                 color: 'white',
-                width: isMobile ? 35 : 42,
-                height: isMobile ? 35 : 42,
+                width: isMobile ? 32 : 42,
+                height: isMobile ? 32 : 42,
                 borderRadius: '50%',
-                mr: 1.5,
+                mr: isMobile ? 1 : 1.5,
                 boxShadow: '0px 3px 10px rgba(0,0,0,0.15)'
               }}
             >
-              <HotelIcon sx={{ fontSize: isMobile ? '1.3rem' : '1.6rem' }} />
+              <HotelIcon sx={{ fontSize: isMobile ? '1.1rem' : '1.6rem' }} />
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
               <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
@@ -122,7 +122,7 @@ const Layout = () => {
                   variant="caption"
                   sx={{ 
                     color: alpha(theme.palette.text.primary, 0.7),
-                    fontSize: { xs: '0.6rem', md: '0.7rem' },
+                    fontSize: { xs: '0.55rem', md: '0.7rem' },
                     fontWeight: 400,
                     mr: 0.5
                   }}
@@ -134,7 +134,7 @@ const Layout = () => {
                   sx={{ 
                     color: theme.palette.primary.dark, 
                     fontWeight: 'bold',
-                    fontSize: { xs: '1.2rem', md: '1.4rem' },
+                    fontSize: { xs: '1rem', md: '1.4rem' },
                     letterSpacing: '0.5px',
                     lineHeight: 1
                   }}
@@ -145,7 +145,7 @@ const Layout = () => {
               <Typography 
                 variant="body2"
                 sx={{ 
-                  fontSize: { xs: '0.65rem', md: '0.75rem' }, 
+                  fontSize: { xs: '0.6rem', md: '0.75rem' }, 
                   color: alpha(theme.palette.text.primary, 0.7),
                   letterSpacing: '1px',
                   fontWeight: 300
@@ -186,21 +186,21 @@ const Layout = () => {
           <Box sx={{ 
             display: 'flex', 
             alignItems: 'center', 
-            gap: { xs: 1, md: 2 }
+            gap: { xs: 1.25, md: 2 }
           }}>
             {/* בגרסה מובייל - הודעה קטנה משולבת */}
             {isMobile && (
               <Chip
                 size="small"
-                icon={<ConstructionIcon style={{ fontSize: '0.9rem' }} />}
+                icon={<ConstructionIcon style={{ fontSize: '0.8rem' }} />}
                 label="בבנייה"
                 sx={{
                   backgroundColor: isBlinking ? alpha('#ff9800', 0.15) : alpha('#ff9800', 0.05),
                   color: '#f57c00',
                   borderColor: '#ff9800',
                   border: '1px dashed',
-                  fontSize: '0.7rem',
-                  height: '24px',
+                  fontSize: '0.65rem',
+                  height: '20px',
                   mr: 0.5,
                   transition: 'background-color 0.5s ease'
                 }}
@@ -267,17 +267,25 @@ const Layout = () => {
 
             {/* במסך נייד, רק אייקון טלפון */}
             {isMobile && (
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                gap: 1.5,  // הגדלת המרווח בין האייקונים
+                alignItems: 'center'
+              }}>
                 <Tooltip title="התקשר אלינו">
                   <IconButton
                     color="primary"
                     component="a"
                     href="tel:0506070260"
-                    size="small"
                     sx={{ 
                       border: `1.5px solid ${theme.palette.primary.main}`,
                       borderRadius: '50%',
-                      p: 1
+                      p: 0.7,  // ירידה קלה בפדינג הפנימי
+                      width: 32,  // הגדרת רוחב קבוע
+                      height: 32,  // הגדרת גובה קבוע
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center'
                     }}
                   >
                     <CallIcon fontSize="small" />
@@ -290,14 +298,20 @@ const Layout = () => {
                     href="https://wa.me/972506070260"
                     target="_blank"
                     rel="noopener noreferrer"
-                    size="small"
                     sx={{ 
                       backgroundColor: '#25D366',
                       color: 'white',
                       borderRadius: '50%',
-                      p: 1,
+                      p: 0.7,  // ירידה קלה בפדינג הפנימי
+                      width: 32,  // הגדרת רוחב קבוע
+                      height: 32,  // הגדרת גובה קבוע
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      boxShadow: '0 2px 6px rgba(37, 211, 102, 0.4)',
                       '&:hover': { 
-                        backgroundColor: '#1fb655'
+                        backgroundColor: '#1fb655',
+                        boxShadow: '0 4px 8px rgba(37, 211, 102, 0.5)'
                       }
                     }}
                   >
@@ -315,33 +329,41 @@ const Layout = () => {
                 aria-haspopup="true"
                 onClick={handleMenu}
                 color="primary"
-                size={isMobile ? "small" : "medium"}
                 sx={{
                   bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  width: isMobile ? 32 : 40,
+                  height: isMobile ? 32 : 40,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
                   '&:hover': {
                     bgcolor: alpha(theme.palette.primary.main, 0.2)
                   },
                   transition: 'all 0.3s ease'
                 }}
               >
-                <AccountCircle />
+                <AccountCircle fontSize={isMobile ? "small" : "medium"} />
               </IconButton>
             ) : (
               <Tooltip title="התחברות">
                 <IconButton 
                   color="primary" 
                   component={Link} 
-                  to="/login" 
-                  size={isMobile ? "small" : "medium"}
+                  to="/login"
                   sx={{
                     bgcolor: alpha(theme.palette.primary.main, 0.05),
+                    width: isMobile ? 32 : 40,
+                    height: isMobile ? 32 : 40,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
                     '&:hover': {
                       bgcolor: alpha(theme.palette.primary.main, 0.15)
                     },
                     transition: 'all 0.3s ease'
                   }}
                 >
-                  <AccountCircle />
+                  <AccountCircle fontSize={isMobile ? "small" : "medium"} />
                 </IconButton>
               </Tooltip>
             )}

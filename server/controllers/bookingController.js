@@ -138,8 +138,10 @@ const calculateVatAndTotalPrice = (basePrice, isTourist = false, vatRate = 18) =
   const totalPrice = basePrice + vatAmount;
   
   return {
+    basePrice,
     vatAmount: Math.round(vatAmount * 100) / 100, // עיגול לשתי ספרות אחרי הנקודה
-    totalPrice: Math.round(totalPrice * 100) / 100 // עיגול לשתי ספרות אחרי הנקודה
+    totalPrice: Math.round(totalPrice * 100) / 100, // עיגול לשתי ספרות אחרי הנקודה
+    priceWithoutVat: basePrice
   };
 };
 
@@ -261,7 +263,7 @@ exports.createBooking = async (req, res) => {
 
     // חישוב מע"מ ומחיר סופי
     const basePriceTotal = basePrice * calculatedNights;
-    const { vatAmount, totalPrice: finalTotalPrice } = calculateVatAndTotalPrice(
+    const { vatAmount, totalPrice: totalPriceWithVat } = calculateVatAndTotalPrice(
       basePriceTotal, 
       isTourist
     );
@@ -272,7 +274,7 @@ exports.createBooking = async (req, res) => {
       basePrice,
       basePriceTotal,
       vatAmount,
-      totalPrice: isTourist ? basePriceTotal : finalTotalPrice,
+      totalPrice: isTourist ? basePriceTotal : totalPriceWithVat,
       isTourist
     });
 
@@ -287,7 +289,7 @@ exports.createBooking = async (req, res) => {
       basePrice: basePrice,
       vatRate: 18,
       vatAmount: vatAmount,
-      totalPrice: isTourist ? basePriceTotal : finalTotalPrice,
+      totalPrice: isTourist ? basePriceTotal : totalPriceWithVat,
       isTourist: isTourist,
       guest: guestData,
       status,

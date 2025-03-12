@@ -699,7 +699,9 @@ const SearchResultsPage = () => {
                             fontSize: '1.1rem'
                           }}
                         >
-                          ₪{room.nightsTotal ? Math.round(room.nightsTotal / calculateNights()) : room.basePrice}
+                          ₪{isTourist 
+                            ? (room.nightsTotal ? Math.round(room.nightsTotal / calculateNights()) : room.basePrice) 
+                            : (room.totalPrice ? Math.round(room.totalPrice / calculateNights()) : Math.round((room.basePrice || 0) * 1.18))}
                         </Typography>
                         {!isTourist && (
                           <Typography 

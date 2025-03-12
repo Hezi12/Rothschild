@@ -214,7 +214,7 @@ const DayCell = ({ day, currentMonth, selectedDate, bookings, onSelectDate, onBo
             size="small"
           />
         ))}
-      </Box>
+    </Box>
     </StyledDay>
   );
 };
@@ -316,7 +316,7 @@ const BookingCalendarNew = () => {
   const fetchRooms = async () => {
     try {
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`);
-      if (response.data.success) {
+        if (response.data.success) {
         setRooms(response.data.data);
       }
     } catch (error) {
@@ -395,15 +395,15 @@ const BookingCalendarNew = () => {
             
             <Typography variant="h6" sx={{ mx: 2 }}>
               {format(currentMonth, 'MMMM yyyy', { locale: he })}
-            </Typography>
+              </Typography>
             
             <IconButton onClick={nextMonth}>
               <KeyboardArrowLeftIcon />
             </IconButton>
           </Box>
           
-          <Button
-            variant="contained"
+          <Button 
+            variant="contained" 
             color="primary"
             startIcon={<AddIcon />}
             onClick={handleOpenNewBooking}
@@ -411,7 +411,7 @@ const BookingCalendarNew = () => {
             הזמנה חדשה
           </Button>
         </Box>
-
+        
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
             <CircularProgress />
@@ -439,11 +439,11 @@ const BookingCalendarNew = () => {
             <Grid container spacing={1}>
               {calendarDays.map((day, index) => (
                 <Grid item xs key={index}>
-                  <DayCell
+                    <DayCell
                     day={day}
                     currentMonth={currentMonth}
                     selectedDate={selectedDate}
-                    bookings={bookings}
+                      bookings={bookings}
                     onSelectDate={handleDateSelect}
                     onBookingClick={handleBookingClick}
                   />
@@ -453,7 +453,7 @@ const BookingCalendarNew = () => {
           </>
         )}
       </Paper>
-
+      
       {/* דיאלוג פרטי הזמנה */}
       <BookingDetailsDialog
         open={bookingDetailsOpen}

@@ -474,7 +474,7 @@ const RoomPage = () => {
                     color="primary.main" 
                     sx={{ fontWeight: 'bold' }}
                   >
-                    ₪{room.basePrice}
+                    ₪{isTourist ? room.basePrice : Math.round(room.basePrice * 1.18)}
                     <Typography component="span" variant="body2" sx={{ ml: 0.5 }}>
                       / לילה
                     </Typography>

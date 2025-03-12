@@ -36,19 +36,8 @@ import {
   Stack,
   FormControlLabel,
   Checkbox,
-  InputAdornment,
-  AppBar,
-  Toolbar,
-  Drawer,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemButton,
-  ListItemIcon,
   RadioGroup,
-  Radio,
-  FormControl,
-  FormLabel
+  Radio
 } from '@mui/material';
 import { 
   Hotel as HotelIcon,
@@ -454,222 +443,195 @@ const HomePage = () => {
               />
             </LocalizationProvider>
           </Grid>
-          <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
-            <FormControl component="fieldset">
-              <RadioGroup
-                row
-                value={bookingData.isTourist ? "tourist" : "resident"}
-                onChange={(e) => setBookingData(prev => ({ 
-                  ...prev, 
-                  isTourist: e.target.value === "tourist" 
-                }))}
-                sx={{ textAlign: 'center' }}
-              >
-                <FormControlLabel 
-                  value="resident" 
-                  control={<Radio color="primary" />} 
-                  label={
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="body2" sx={{ fontWeight: bookingData.isTourist ? 'normal' : 'bold' }}>
-                        תושב ישראל
-                      </Typography>
-                      <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                        המחירים כוללים מע"מ (18%)
-                      </Typography>
-                    </Box>
-                  }
-                  sx={{
-                    mr: 2,
-                    ml: 2,
-                    py: 1,
-                    px: 2,
-                    border: 1,
-                    borderColor: bookingData.isTourist ? 'grey.300' : 'primary.main',
-                    borderRadius: 1,
-                    bgcolor: bookingData.isTourist ? 'background.paper' : alpha(theme.palette.primary.main, 0.05),
-                    '&:hover': {
-                      bgcolor: bookingData.isTourist ? alpha(theme.palette.primary.main, 0.02) : alpha(theme.palette.primary.main, 0.07)
-                    },
-                    '& .MuiTypography-root': { 
-                      color: bookingData.isTourist ? 'text.primary' : 'primary.main'
-                    }
-                  }}
-                />
-                <FormControlLabel 
-                  value="tourist" 
-                  control={<Radio color="primary" />} 
-                  label={
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="body2" sx={{ fontWeight: bookingData.isTourist ? 'bold' : 'normal' }}>
-                        תייר
-                      </Typography>
-                      <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                        פטור ממע"מ בהצגת דרכון בצ'ק אין
-                      </Typography>
-                    </Box>
-                  }
-                  sx={{
-                    mr: 2,
-                    ml: 2,
-                    py: 1,
-                    px: 2,
-                    border: 1,
-                    borderColor: bookingData.isTourist ? 'primary.main' : 'grey.300',
-                    borderRadius: 1,
-                    bgcolor: bookingData.isTourist ? alpha(theme.palette.primary.main, 0.05) : 'background.paper',
-                    '&:hover': {
-                      bgcolor: bookingData.isTourist ? alpha(theme.palette.primary.main, 0.07) : alpha(theme.palette.primary.main, 0.02)
-                    },
-                    '& .MuiTypography-root': { 
-                      color: bookingData.isTourist ? 'primary.main' : 'text.primary'
-                    }
-                  }}
-                />
-              </RadioGroup>
-            </FormControl>
-          </Grid>
-          <Grid container spacing={2} sx={{ mb: 1 }}>
-            <Grid item xs={12} sm={6} md={6}>
-              <Box>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={handleGuestsMenuOpen}
-                  endIcon={<ArrowDropDownIcon />}
-                  size={isMobile ? "small" : "medium"}
-                  sx={{ 
-                    height: isMobile ? 40 : 56, 
-                    justifyContent: 'space-between', 
-                    px: 2,
-                    borderRadius: 2,
-                    borderWidth: '1.5px',
-                    fontWeight: 500,
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      borderWidth: '1.5px',
-                      boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.1)}`
-                    }
-                  }}
-                >
-                  <Typography variant="body1" fontWeight="medium">
-                    {`${bookingData.guests} אורחים, ${bookingData.rooms} חדרים`}
-                  </Typography>
-                </Button>
-                <Menu
-                  id="guests-menu"
-                  anchorEl={guestsMenuAnchor}
-                  open={Boolean(guestsMenuAnchor)}
-                  onClose={handleGuestsMenuClose}
-                  anchorOrigin={{
-                    vertical: 'bottom',
-                    horizontal: 'right',
-                  }}
-                  transformOrigin={{
-                    vertical: 'top',
-                    horizontal: 'right',
-                  }}
-                  sx={{ mt: 1 }}
-                  PaperProps={{
-                    style: {
-                      width: isMobile ? '90%' : '300px',
-                      padding: '16px',
-                      borderRadius: '12px',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.08)'
-                    }
-                  }}
-                >
-                  <Box sx={{ p: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <Typography>אורחים</Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', p: 0.5, borderRadius: 2, bgcolor: 'background.paper' }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleGuestsRoomsChange('guests', Math.max(1, bookingData.guests - 1))}
-                          sx={{ color: theme.palette.primary.main }}
-                        >
-                          <RemoveIcon fontSize="small" />
-                        </IconButton>
-                        <Typography sx={{ mx: 2, minWidth: '24px', textAlign: 'center', fontWeight: 'medium' }}>
-                          {bookingData.guests}
-                        </Typography>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleGuestsRoomsChange('guests', bookingData.guests + 1)}
-                          sx={{ color: theme.palette.primary.main }}
-                        >
-                          <AddIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography>חדרים</Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', p: 0.5, borderRadius: 2, bgcolor: 'background.paper' }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleGuestsRoomsChange('rooms', Math.max(1, bookingData.rooms - 1))}
-                          sx={{ color: theme.palette.primary.main }}
-                        >
-                          <RemoveIcon fontSize="small" />
-                        </IconButton>
-                        <Typography sx={{ mx: 2, minWidth: '24px', textAlign: 'center', fontWeight: 'medium' }}>
-                          {bookingData.rooms}
-                        </Typography>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleGuestsRoomsChange('rooms', Math.min(10, bookingData.rooms + 1))}
-                          sx={{ color: theme.palette.primary.main }}
-                        >
-                          <AddIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    </Box>
-                    <Button 
-                      variant="contained" 
-                      fullWidth 
-                      sx={{ 
-                        mt: 2, 
-                        borderRadius: '50px',
-                        py: 1,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                      }} 
-                      onClick={handleGuestsMenuClose}
-                    >
-                      אישור
-                    </Button>
-                  </Box>
-                </Menu>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={6} md={6}>
+          <Grid item xs={6} sm={6} md={3}>
+            <Box>
               <Button
-                variant="contained"
-                color="primary"
+                variant="outlined"
                 fullWidth
-                startIcon={<SearchIcon />}
-                onClick={handleCheckAvailability}
-                disabled={searchLoading}
+                onClick={handleGuestsMenuOpen}
+                endIcon={<ArrowDropDownIcon />}
                 size={isMobile ? "small" : "medium"}
                 sx={{ 
                   height: isMobile ? 40 : 56, 
+                  justifyContent: 'space-between', 
+                  px: 2,
                   borderRadius: 2,
-                  fontWeight: 'bold',
-                  boxShadow: '0 6px 12px rgba(25, 118, 210, 0.2)',
+                  borderWidth: '1.5px',
+                  fontWeight: 500,
                   transition: 'all 0.3s ease',
-                  backgroundColor: theme.palette.primary.main,
                   '&:hover': {
-                    backgroundColor: theme.palette.primary.dark,
-                    boxShadow: '0 8px 16px rgba(25, 118, 210, 0.3)',
-                    transform: 'translateY(-2px)'
+                    borderWidth: '1.5px',
+                    boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.1)}`
                   }
                 }}
               >
-                {searchLoading ? (
-                  <CircularProgress size={24} color="inherit" />
-                ) : (
-                  'חפש זמינות'
-                )}
+                <Typography variant="body1" fontWeight="medium">
+                  {`${bookingData.guests} אורחים, ${bookingData.rooms} חדרים`}
+                </Typography>
               </Button>
-            </Grid>
+              <Menu
+                id="guests-menu"
+                anchorEl={guestsMenuAnchor}
+                open={Boolean(guestsMenuAnchor)}
+                onClose={handleGuestsMenuClose}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                sx={{ mt: 1 }}
+                PaperProps={{
+                  style: {
+                    width: isMobile ? '90%' : '300px',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.08)'
+                  }
+                }}
+              >
+                <Box sx={{ p: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography>אורחים</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', p: 0.5, borderRadius: 2, bgcolor: 'background.paper' }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleGuestsRoomsChange('guests', Math.max(1, bookingData.guests - 1))}
+                        sx={{ color: theme.palette.primary.main }}
+                      >
+                        <RemoveIcon fontSize="small" />
+                      </IconButton>
+                      <Typography sx={{ mx: 2, minWidth: '24px', textAlign: 'center', fontWeight: 'medium' }}>
+                        {bookingData.guests}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleGuestsRoomsChange('guests', bookingData.guests + 1)}
+                        sx={{ color: theme.palette.primary.main }}
+                      >
+                        <AddIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography>חדרים</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', p: 0.5, borderRadius: 2, bgcolor: 'background.paper' }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleGuestsRoomsChange('rooms', Math.max(1, bookingData.rooms - 1))}
+                        sx={{ color: theme.palette.primary.main }}
+                      >
+                        <RemoveIcon fontSize="small" />
+                      </IconButton>
+                      <Typography sx={{ mx: 2, minWidth: '24px', textAlign: 'center', fontWeight: 'medium' }}>
+                        {bookingData.rooms}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleGuestsRoomsChange('rooms', Math.min(10, bookingData.rooms + 1))}
+                        sx={{ color: theme.palette.primary.main }}
+                      >
+                        <AddIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                  
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 'medium' }}>
+                      סטטוס מבקר:
+                    </Typography>
+                    <RadioGroup
+                      row
+                      value={bookingData.isTourist ? 'tourist' : 'israeli'}
+                      onChange={(e) => setBookingData(prev => ({ ...prev, isTourist: e.target.value === 'tourist' }))}
+                      sx={{ 
+                        '& .MuiFormControlLabel-root': { 
+                          marginLeft: 0, 
+                          marginRight: 0 
+                        }
+                      }}
+                    >
+                      <FormControlLabel
+                        value="israeli"
+                        control={<Radio size="small" />}
+                        label={
+                          <Box>
+                            <Typography variant="body2" component="span">
+                              תושב ישראל
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              מחירים כוללים מע״מ (18%)
+                            </Typography>
+                          </Box>
+                        }
+                        sx={{ flex: 1, alignItems: 'flex-start' }}
+                      />
+                      <FormControlLabel
+                        value="tourist"
+                        control={<Radio size="small" />}
+                        label={
+                          <Box>
+                            <Typography variant="body2" component="span">
+                              תייר
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              פטור ממע״מ בהצגת דרכון בצ׳ק אין
+                            </Typography>
+                          </Box>
+                        }
+                        sx={{ flex: 1, alignItems: 'flex-start' }}
+                      />
+                    </RadioGroup>
+                  </Box>
+                  
+                  <Button 
+                    variant="contained" 
+                    fullWidth 
+                    sx={{ 
+                      mt: 2, 
+                      borderRadius: '50px',
+                      py: 1,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }} 
+                    onClick={handleGuestsMenuClose}
+                  >
+                    אישור
+                  </Button>
+                </Box>
+              </Menu>
+            </Box>
+          </Grid>
+          <Grid item xs={6} sm={6} md={3}>
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              startIcon={<SearchIcon />}
+              onClick={handleCheckAvailability}
+              disabled={searchLoading}
+              size={isMobile ? "small" : "medium"}
+              sx={{ 
+                height: isMobile ? 40 : 56, 
+                borderRadius: 2,
+                fontWeight: 'bold',
+                boxShadow: '0 6px 12px rgba(25, 118, 210, 0.2)',
+                transition: 'all 0.3s ease',
+                backgroundColor: theme.palette.primary.main,
+                '&:hover': {
+                  backgroundColor: theme.palette.primary.dark,
+                  boxShadow: '0 8px 16px rgba(25, 118, 210, 0.3)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
+              {searchLoading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                'חפש זמינות'
+              )}
+            </Button>
           </Grid>
         </Grid>
 
@@ -688,7 +650,17 @@ const HomePage = () => {
           </Alert>
         )}
 
-        <Box sx={{ mt: 3, textAlign: 'center', pt: 1 }}>
+        <Box sx={{ 
+          mt: 3, 
+          pt: 1, 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: { xs: 'center', sm: 'space-between' }, 
+          alignItems: 'center',
+          gap: 2
+        }}>
+          <Box sx={{ width: { xs: 0, sm: '200px' }, flexShrink: 0 }}></Box>
+          
           <Typography 
             variant="body2" 
             color="text.secondary"
@@ -699,13 +671,70 @@ const HomePage = () => {
               borderRadius: 4,
               display: 'inline-block',
               px: 3,
-              backgroundColor: alpha(theme.palette.primary.main, 0.03)
+              backgroundColor: alpha(theme.palette.primary.main, 0.03),
+              textAlign: 'center',
+              order: { xs: 1, sm: 'unset' },
+              margin: { xs: '0 auto', sm: '0 auto' },
+              flex: 1
             }}
           >
             <Typography component="span" variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
               מחירים מיוחדים להזמנות דרך האתר
             </Typography>
           </Typography>
+          
+          <RadioGroup
+            row
+            value={bookingData.isTourist ? 'tourist' : 'israeli'}
+            onChange={(e) => setBookingData(prev => ({ ...prev, isTourist: e.target.value === 'tourist' }))}
+            sx={{ 
+              flexWrap: 'nowrap',
+              '& .MuiFormControlLabel-root': { 
+                marginLeft: 0, 
+                marginRight: 0 
+              },
+              order: { xs: 2, sm: 'unset' },
+              width: { xs: '100%', sm: 'auto' },
+              flexShrink: 0,
+              minWidth: { sm: '200px' }
+            }}
+          >
+            <FormControlLabel
+              value="israeli"
+              control={<Radio color="primary" size="small" />}
+              label={
+                <Box>
+                  <Typography variant="body2" component="span">
+                    תושב ישראל
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                    מחירים כוללים מע״מ (18%)
+                  </Typography>
+                </Box>
+              }
+              sx={{ 
+                mr: { xs: 1, sm: 3 },
+                minWidth: { xs: '120px', sm: 'auto' }
+              }}
+            />
+            <FormControlLabel
+              value="tourist"
+              control={<Radio color="primary" size="small" />}
+              label={
+                <Box>
+                  <Typography variant="body2" component="span">
+                    תייר
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                    פטור ממע״מ בהצגת דרכון בצ׳ק אין
+                  </Typography>
+                </Box>
+              }
+              sx={{ 
+                minWidth: { xs: '120px', sm: 'auto' }
+              }}
+            />
+          </RadioGroup>
         </Box>
       </Paper>
 
