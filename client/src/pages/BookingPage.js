@@ -424,26 +424,24 @@ const BookingPage = () => {
     try {
       setLoading(true);
       
-      // יצירת אובייקט המכיל את הנתונים בפורמט הישן (שם מלא במקום שם פרטי ושם משפחה)
+      // בניית אובייקט ההזמנה לשליחה לשרת
       const bookingPayload = {
         roomId: bookingData.roomId,
         guest: {
-          name: `${bookingData.guest.firstName} ${bookingData.guest.lastName}`, // איחוד שם פרטי ושם משפחה
+          firstName: bookingData.guest.firstName,
+          lastName: bookingData.guest.lastName,
+          name: `${bookingData.guest.firstName} ${bookingData.guest.lastName}`,
           phone: bookingData.guest.phone,
           email: bookingData.guest.email
         },
         checkIn: bookingData.checkIn instanceof Date && !isNaN(bookingData.checkIn) ? bookingData.checkIn.toISOString() : bookingData.checkIn,
         checkOut: bookingData.checkOut instanceof Date && !isNaN(bookingData.checkOut) ? bookingData.checkOut.toISOString() : bookingData.checkOut,
-        isTourist: bookingData.isTourist,
-        paymentMethod: 'credit', // קיבוע לסוג תשלום בכרטיס אשראי
-        creditCardDetails: bookingData.creditCardDetails,
         notes: bookingData.notes,
-        numberOfNights: calculations.nights,
-        numberOfGuests: bookingData.guests,
-        calculatedPrice: calculations.totalPrice,
-        // הוספת שדות נדרשים למודל ההזמנה בשרת
+        // שדות חובה למודל ההזמנה בשרת
         nights: calculations.nights,
-        totalPrice: isNaN(calculations.totalPrice) ? 0 : calculations.totalPrice // וידוא שהמחיר תמיד מספר תקף
+        totalPrice: isNaN(calculations.totalPrice) ? 0 : calculations.totalPrice, // וידוא שהמחיר תמיד מספר תקף
+        status: 'confirmed',
+        paymentStatus: 'pending'
       };
       
       // רישום מידע לצורכי דיבוג
@@ -464,7 +462,14 @@ const BookingPage = () => {
         console.log('ההזמנה נוצרה בהצלחה:', response.data);
         
         // עדכון מספר ההזמנה והמעבר לשלב הסיום
-        setBookingId(response.data.bookingNumber);
+        if (response.data.data && response.data.data.bookingNumber) {
+          setBookingId(response.data.data.bookingNumber);
+        } else if (response.data.bookingNumber) {
+          setBookingId(response.data.bookingNumber);
+        } else {
+          console.log('מספר הזמנה לא נמצא בתגובת השרת:', response.data);
+          setBookingId('הזמנה נוצרה בהצלחה');
+        }
         
         toast.success('ההזמנה נשלחה בהצלחה!');
         setActiveStep(steps.length);
