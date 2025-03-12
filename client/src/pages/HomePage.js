@@ -35,7 +35,20 @@ import {
   alpha,
   Stack,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  InputAdornment,
+  AppBar,
+  Toolbar,
+  Drawer,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemButton,
+  ListItemIcon,
+  RadioGroup,
+  Radio,
+  FormControl,
+  FormLabel
 } from '@mui/material';
 import { 
   Hotel as HotelIcon,
@@ -441,6 +454,71 @@ const HomePage = () => {
               />
             </LocalizationProvider>
           </Grid>
+          <Grid item xs={12} sm={12} md={12} sx={{ mt: 1, mb: 1 }}>
+            <FormControl component="fieldset" sx={{ width: '100%' }}>
+              <RadioGroup
+                row
+                value={bookingData.isTourist ? "tourist" : "resident"}
+                onChange={(e) => setBookingData(prev => ({ 
+                  ...prev, 
+                  isTourist: e.target.value === "tourist" 
+                }))}
+                sx={{ 
+                  justifyContent: 'center',
+                  '& .MuiFormControlLabel-root': {
+                    mx: 2,
+                    px: 1,
+                    py: 0.5,
+                    borderRadius: 1,
+                    border: '1px solid',
+                    borderColor: theme => alpha(theme.palette.primary.main, 0.1),
+                    bgcolor: theme => alpha(theme.palette.background.paper, 0.8),
+                  },
+                  '& .Mui-checked + .MuiFormControlLabel-label': {
+                    fontWeight: 'bold',
+                    color: 'primary.main'
+                  }
+                }}
+              >
+                <FormControlLabel 
+                  value="resident" 
+                  control={<Radio color="primary" />} 
+                  label={
+                    <Box sx={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      fontSize: isMobile ? '0.8rem' : '0.85rem' 
+                    }}>
+                      <Typography variant="body2" component="span" sx={{ fontWeight: 'medium' }}>
+                        תושב ישראל
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        המחירים כוללים מע״מ (18%)
+                      </Typography>
+                    </Box>
+                  }
+                />
+                <FormControlLabel 
+                  value="tourist" 
+                  control={<Radio color="primary" />} 
+                  label={
+                    <Box sx={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      fontSize: isMobile ? '0.8rem' : '0.85rem' 
+                    }}>
+                      <Typography variant="body2" component="span" sx={{ fontWeight: 'medium' }}>
+                        תייר
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        פטור ממע״מ בהצגת דרכון בצ׳ק אין
+                      </Typography>
+                    </Box>
+                  }
+                />
+              </RadioGroup>
+            </FormControl>
+          </Grid>
           <Grid item xs={6} sm={6} md={3}>
             <Box>
               <Button
@@ -535,32 +613,6 @@ const HomePage = () => {
                       </IconButton>
                     </Box>
                   </Box>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={bookingData.isTourist}
-                        onChange={(e) => setBookingData(prev => ({ ...prev, isTourist: e.target.checked }))}
-                        color="primary"
-                      />
-                    }
-                    label={
-                      <Box>
-                        <Typography variant="body2" component="span">
-                          אני תייר (פטור ממע״מ)
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          תיירים זרים פטורים ממע״מ בהצגת דרכון בצ׳ק אין. המחירים יוצגו ללא מע״מ (18%).
-                        </Typography>
-                      </Box>
-                    }
-                    sx={{ 
-                      mt: 1, 
-                      alignItems: 'flex-start',
-                      '& .MuiTypography-root': { 
-                        fontSize: isMobile ? '0.8rem' : '0.875rem' 
-                      }
-                    }}
-                  />
                   <Button 
                     variant="contained" 
                     fullWidth 
