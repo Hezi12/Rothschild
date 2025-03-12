@@ -613,8 +613,8 @@ const SearchResultsPage = () => {
                   <CardMedia
                     component="img"
                     height={180}
-                    image={room.images[0].url}
-                    alt={`תמונה של ${room.name}`}
+                    image={room.images.find(img => img.isPrimary)?.url || room.images[0].url}
+                    alt={`תמונה של ${room.name || typeToDisplayName[room.type] || 'חדר'}`}
                     sx={{ objectFit: 'cover' }}
                   />
                 ) : (

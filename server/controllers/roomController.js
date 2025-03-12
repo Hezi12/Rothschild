@@ -464,7 +464,11 @@ exports.checkAvailability = async (req, res) => {
             description: room.description,
             basePrice: room.basePrice,
             amenities: room.amenities,
-            images: room.images,
+            images: room.images.map(img => ({
+              _id: img._id,
+              url: img.url,
+              isPrimary: img.isPrimary
+            })),
             maxGuests: room.maxOccupancy,
             hasSpecialPrices: hasSpecialPrices,
             nightsTotal: totalNightsPrice,

@@ -36,15 +36,15 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB
+    fileSize: 10 * 1024 * 1024 // 10MB
   },
   fileFilter: fileFilter
 });
 
 // @route   POST /api/uploads/room/:roomId
-// @desc    העלאת תמונה לחדר
+// @desc    העלאת תמונה או תמונות לחדר
 // @access  Private/Admin
-router.post('/room/:roomId', [protect, admin, upload.single('image')], async (req, res) => {
+router.post('/room/:roomId', [protect, admin, upload.array('images', 10)], async (req, res) => {
   try {
     const roomId = req.params.roomId;
     
@@ -58,55 +58,62 @@ router.post('/room/:roomId', [protect, admin, upload.single('image')], async (re
       });
     }
     
-    // אם אין קובץ
-    if (!req.file) {
+    // אם אין קבצים
+    if (!req.files || req.files.length === 0) {
       return res.status(400).json({ 
         success: false, 
-        message: 'נא להעלות קובץ תמונה' 
+        message: 'נא להעלות לפחות קובץ תמונה אחד' 
       });
     }
     
-    // העלאה ל-Cloudinary
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: 'rothschild79/rooms',
-      use_filename: true
-    });
+    const uploadedImages = [];
+    const isFirstUpload = room.images.length === 0;
     
-    // בדיקה אם זו התמונה הראשונה, אם כן - היא תהיה ראשית
-    const isFirstImage = room.images.length === 0;
-    
-    // הוספת התמונה לחדר
-    room.images.push({
-      url: result.secure_url,
-      publicId: result.public_id,
-      isPrimary: isFirstImage // אם זו התמונה הראשונה, היא תהיה ראשית
-    });
+    // העלאת כל התמונות ל-Cloudinary
+    for (let i = 0; i < req.files.length; i++) {
+      const file = req.files[i];
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: 'rothschild79/rooms',
+        use_filename: true
+      });
+      
+      // הוספת התמונה לחדר
+      const newImage = {
+        url: result.secure_url,
+        publicId: result.public_id,
+        isPrimary: isFirstUpload && i === 0 // התמונה הראשונה תהיה ראשית אם אין עדיין תמונות
+      };
+      
+      room.images.push(newImage);
+      uploadedImages.push({
+        _id: room.images[room.images.length - 1]._id,
+        url: result.secure_url,
+        publicId: result.public_id,
+        isPrimary: newImage.isPrimary
+      });
+      
+      // מחיקת הקובץ הזמני
+      fs.unlink(file.path, (err) => {
+        if (err) console.error('שגיאה במחיקת קובץ זמני:', err);
+      });
+    }
     
     // שמירת השינויים
     await room.save();
     
-    // מחיקת הקובץ הזמני - הועבר לכאן במקום בבלוק finally
-    if (req.file) {
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error('שגיאה במחיקת קובץ זמני:', err);
-      });
-    }
-    
     res.json({
       success: true,
-      data: {
-        _id: room.images[room.images.length - 1]._id, // החזרת ה-id של התמונה שנוספה
-        url: result.secure_url,
-        publicId: result.public_id,
-        isPrimary: isFirstImage
-      }
+      message: `${req.files.length} תמונות הועלו בהצלחה`,
+      data: uploadedImages
     });
   } catch (error) {
-    console.error('שגיאה בהעלאת תמונה:', error);
-    // מחיקת הקובץ הזמני גם במקרה של שגיאה
-    if (req.file) {
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error('שגיאה במחיקת קובץ זמני:', err);
+    console.error('שגיאה בהעלאת תמונות:', error);
+    // מחיקת כל הקבצים הזמניים גם במקרה של שגיאה
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        fs.unlink(file.path, (err) => {
+          if (err) console.error('שגיאה במחיקת קובץ זמני:', err);
+        });
       });
     }
     res.status(500).json({ 

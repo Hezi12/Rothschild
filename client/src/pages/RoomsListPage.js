@@ -455,27 +455,45 @@ const RoomsListPage = () => {
   };
 
   const handleUploadImage = async (roomId, event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
     
-    // בדיקת סוג הקובץ
+    // בדיקת סוג הקבצים וגודלם
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      toast.error('סוג קובץ לא נתמך. אנא העלה תמונה בפורמט JPEG, PNG, GIF או WebP');
-      return;
+    const invalidFiles = [];
+    const validFiles = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      // בדיקת סוג הקובץ
+      if (!validTypes.includes(file.type)) {
+        invalidFiles.push(`${file.name} (סוג קובץ לא נתמך)`);
+        continue;
+      }
+      
+      // בדיקת גודל הקובץ (מקסימום 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        invalidFiles.push(`${file.name} (גודל קובץ גדול מדי)`);
+        continue;
+      }
+      
+      validFiles.push(file);
     }
     
-    // בדיקת גודל הקובץ (מקסימום 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('גודל הקובץ גדול מדי. אנא העלה תמונה קטנה מ-5MB');
-      return;
+    // הודעה על קבצים לא תקינים
+    if (invalidFiles.length > 0) {
+      toast.error(`הקבצים הבאים לא יועלו:\n${invalidFiles.join('\n')}`);
+      if (validFiles.length === 0) return;
     }
     
     try {
       setImageUploading(true);
       
       const formData = new FormData();
-      formData.append('image', file);
+      validFiles.forEach(file => {
+        formData.append('images', file);
+      });
       
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/uploads/room/${roomId}`,
@@ -488,24 +506,24 @@ const RoomsListPage = () => {
       );
       
       if (response.data.success) {
-        // עדכון רשימת החדרים עם התמונה החדשה
+        // עדכון רשימת החדרים עם התמונות החדשות
         setRooms(rooms.map(room => {
           if (room._id === roomId) {
             return {
               ...room,
-              images: [...room.images, response.data.data]
+              images: [...room.images, ...response.data.data]
             };
           }
           return room;
         }));
         
-        toast.success('התמונה הועלתה בהצלחה');
+        toast.success(`${validFiles.length} תמונות הועלו בהצלחה`);
       }
     } catch (error) {
-      console.error('שגיאה בהעלאת תמונה:', error);
+      console.error('שגיאה בהעלאת תמונות:', error);
       toast.error(
         error.response?.data?.message || 
-        'שגיאה בהעלאת התמונה. אנא נסה שוב.'
+        'שגיאה בהעלאת התמונות. אנא נסה שוב.'
       );
     } finally {
       setImageUploading(false);
@@ -1146,11 +1164,12 @@ const RoomsListPage = () => {
               disabled={imageUploading}
               startIcon={imageUploading ? <CircularProgress size={20} /> : <AddIcon />}
             >
-              העלאת תמונה חדשה
+              העלאת תמונות חדשות
               <input
                 type="file"
                 hidden
                 accept="image/*"
+                multiple
                 onChange={(e) => {
                   if (roomForImages) {
                     handleUploadImage(roomForImages._id, e);
