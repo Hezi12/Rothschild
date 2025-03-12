@@ -181,7 +181,7 @@ const RoomsListPage = () => {
     setCurrentRoom({
       ...room,
       amenities: room.amenities ? room.amenities.join(', ') : '',
-      internalName: '',
+      internalName: room.internalName || room.roomNumber.toString(),
     });
     
     loadSpecialPrices();
