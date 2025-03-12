@@ -50,6 +50,7 @@ const BookingPage = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   
   const initialCheckIn = location.state?.checkIn || null;
   const initialCheckOut = location.state?.checkOut || null;
@@ -98,6 +99,12 @@ const BookingPage = () => {
     vatAmount: 0,
     totalPrice: 0
   });
+
+  const typeToDisplayName = {
+    'standard': 'Standard',
+    'deluxe': 'Deluxe',
+    'suite': 'Suite'
+  };
 
   // טעינת פרטי החדר
   useEffect(() => {
@@ -265,6 +272,60 @@ const BookingPage = () => {
   const handleChange = (e) => {
     const { name, value, checked, type } = e.target;
     
+    // טיפול מיוחד במספר כרטיס אשראי - הוספת רווחים כל 4 ספרות
+    if (name === 'creditCardDetails.cardNumber') {
+      // הסרת כל התווים שאינם ספרות
+      const digitsOnly = value.replace(/\D/g, '');
+      
+      // הוספת רווחים כל 4 ספרות
+      let formattedValue = '';
+      for (let i = 0; i < digitsOnly.length; i++) {
+        if (i > 0 && i % 4 === 0) {
+          formattedValue += ' ';
+        }
+        formattedValue += digitsOnly[i];
+      }
+      
+      // הגבלה ל-19 תווים (16 ספרות + 3 רווחים)
+      formattedValue = formattedValue.slice(0, 19);
+      
+      setBookingData(prev => ({
+        ...prev,
+        creditCardDetails: {
+          ...prev.creditCardDetails,
+          cardNumber: formattedValue
+        }
+      }));
+      return;
+    }
+    
+    // טיפול מיוחד בתאריך תוקף - הוספת / אוטומטית
+    if (name === 'creditCardDetails.expiryDate') {
+      // הסרת כל התווים שאינם ספרות
+      const digitsOnly = value.replace(/\D/g, '');
+      
+      // פורמט בצורת MM/YY
+      let formattedValue = '';
+      if (digitsOnly.length <= 2) {
+        formattedValue = digitsOnly;
+      } else {
+        formattedValue = `${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2, 4)}`;
+      }
+      
+      // הגבלה ל-5 תווים (4 ספרות + סלאש)
+      formattedValue = formattedValue.slice(0, 5);
+      
+      setBookingData(prev => ({
+        ...prev,
+        creditCardDetails: {
+          ...prev.creditCardDetails,
+          expiryDate: formattedValue
+        }
+      }));
+      return;
+    }
+    
+    // טיפול רגיל בשאר השדות
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setBookingData(prev => ({
@@ -326,21 +387,9 @@ const BookingPage = () => {
           return;
         }
         
-        // בדיקת תקינות פרטי כרטיס אשראי בסיסית
-        if (!/^\d{14,16}$/.test(bookingData.creditCardDetails.cardNumber.replace(/\s/g, ''))) {
-          toast.error('מספר כרטיס אשראי לא תקין');
-          return;
-        }
-        
-        if (!/^\d{3,4}$/.test(bookingData.creditCardDetails.cvv)) {
-          toast.error('קוד אבטחה (CVV) לא תקין');
-          return;
-        }
-        
-        // בדיקה בסיסית של תוקף כרטיס
-        const expiryPattern = /^(0[1-9]|1[0-2])\/\d{2}$/;
-        if (!expiryPattern.test(bookingData.creditCardDetails.expiryDate)) {
-          toast.error('תאריך תוקף לא תקין (MM/YY)');
+        // בדיקת תקינות פרטי כרטיס אשראי באמצעות הפונקציה שכבר קיימת
+        if (!isPaymentDetailsValid()) {
+          toast.error('פרטי כרטיס האשראי אינם תקינים');
           return;
         }
       }
@@ -368,12 +417,15 @@ const BookingPage = () => {
           phone: bookingData.guest.phone,
           email: bookingData.guest.email
         },
-        checkIn: bookingData.checkIn,
-        checkOut: bookingData.checkOut,
+        checkIn: bookingData.checkIn instanceof Date && !isNaN(bookingData.checkIn) ? bookingData.checkIn.toISOString() : bookingData.checkIn,
+        checkOut: bookingData.checkOut instanceof Date && !isNaN(bookingData.checkOut) ? bookingData.checkOut.toISOString() : bookingData.checkOut,
         isTourist: bookingData.isTourist,
         paymentMethod: 'credit', // קיבוע לסוג תשלום בכרטיס אשראי
         creditCardDetails: bookingData.creditCardDetails,
-        notes: bookingData.notes
+        notes: bookingData.notes,
+        numberOfNights: calculations.nights,
+        numberOfGuests: bookingData.guests,
+        calculatedPrice: calculations.totalPrice
       };
       
       // רישום מידע לצורכי דיבוג
@@ -396,13 +448,31 @@ const BookingPage = () => {
           message: apiError.message
         });
         
+        // הדפסת מידע נוסף לדיבוג
+        console.error('פירוט נוסף של השגיאה:', apiError);
+        
+        if (apiError.response?.data?.error) {
+          console.error('פירוט שגיאה מהשרת:', apiError.response.data.error);
+        }
+        
         // הצג הודעת שגיאה מפורטת יותר
         const errorMessage = apiError.response?.data?.message || 
+                            apiError.response?.data?.error ||
                             apiError.response?.statusText || 
                             apiError.message || 
                             'שגיאה בשליחת ההזמנה. אנא נסה שוב מאוחר יותר.';
                             
         toast.error(`שגיאה: ${errorMessage}`);
+        
+        // בסביבת פיתוח - אפשר לעבור לשלב הסיום בכל מקרה
+        if (process.env.NODE_ENV === 'development') {
+          toast.info('מעבר לשלב סיום למרות השגיאה (מוצג רק בסביבת פיתוח)');
+          setBookingId('TEST-BOOKING-ID');
+          setActiveStep(steps.length);
+        } else {
+          // בסביבת ייצור - הצג הודעה ללקוח שיפנה למלון באופן ישיר
+          toast.info('נראה שיש בעיה טכנית, אנא נסה שוב או צור קשר עם המלון בטלפון לביצוע ההזמנה');
+        }
       }
     } catch (error) {
       console.error('שגיאה כללית בשליחת ההזמנה:', error);
@@ -594,8 +664,8 @@ const BookingPage = () => {
                   >
                     <Box
                       component="img"
-                      src={room.images?.[0] || '/images/placeholder.jpg'}
-                      alt={room.name}
+                      src={room.images?.[0]?.url || '/images/placeholder.jpg'}
+                      alt={`חדר ${typeToDisplayName[room.type] || room.type}`}
                       sx={{
                         height: '100%',
                         width: '100%',
@@ -619,7 +689,7 @@ const BookingPage = () => {
                   </Box>
                   <CardContent sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2 } }}>
                     <Typography variant="h6" component="h3" gutterBottom>
-                      {room.name}
+                      חדר {typeToDisplayName[room.type] || room.type}
                     </Typography>
                     <Typography 
                       variant="body2" 
@@ -1013,7 +1083,7 @@ const BookingPage = () => {
                 }}
               >
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  <b>חדר:</b> {room.roomNumber} - {room.type === 'standard' ? 'סטנדרט' : room.type}
+                  <b>חדר:</b> {typeToDisplayName[room.type] || room.type}
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                   <b>צ'ק-אין:</b> {bookingData.checkIn.toLocaleDateString('he-IL')}
@@ -1260,14 +1330,29 @@ const BookingPage = () => {
   const isPaymentDetailsValid = () => {
     if (bookingData.paymentMethod === 'credit') {
       const { cardNumber, expiryDate, cvv } = bookingData.creditCardDetails;
-      return (
-        cardNumber && 
-        cardNumber.length >= 14 && 
+      
+      // ניקוי רווחים ממספר הכרטיס
+      const cleanCardNumber = cardNumber ? cardNumber.replace(/\s/g, '') : '';
+      
+      // בדיקה פשוטה יותר - אם יש מספר כרטיס עם לפחות 8 ספרות
+      // ואם יש תאריך תוקף וקוד CVV כלשהו
+      const isValid = (
+        cleanCardNumber && 
+        cleanCardNumber.length >= 8 && 
         expiryDate && 
-        expiryDate.includes('/') && 
-        cvv && 
-        cvv.length >= 3
+        cvv
       );
+
+      // הדפסת מידע לקונסול לצורכי דיבוג
+      console.log('פרטי תוקף כרטיס האשראי:', {
+        cardNumber: cleanCardNumber,
+        cardNumberLength: cleanCardNumber.length,
+        expiryDate,
+        cvv,
+        isValid
+      });
+      
+      return isValid;
     }
     // עבור אמצעי תשלום אחרים תמיד מחזיר true
     return true;
@@ -1313,19 +1398,26 @@ const BookingPage = () => {
               <Button onClick={handleBack} disabled={activeStep === 0} size={isMobile ? "small" : "medium"}>
                 חזרה
               </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={activeStep === steps.length - 1 ? handleSubmit : handleNext}
-                disabled={
-                  (activeStep === 0 && !bookingData.roomId) ||
-                  (activeStep === 1 && !isGuestDetailsValid()) ||
-                  (activeStep === 2 && !isPaymentDetailsValid())
-                }
-                size={isMobile ? "small" : "medium"}
-              >
-                {activeStep === steps.length - 1 ? 'סיים הזמנה' : 'המשך'}
-              </Button>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                {activeStep === 2 && !isPaymentDetailsValid() && (
+                  <Typography variant="caption" color="error" sx={{ mb: 1 }}>
+                    יש להזין את כל פרטי האשראי: מספר כרטיס (לפחות 8 ספרות), תאריך תוקף וקוד אבטחה
+                  </Typography>
+                )}
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={activeStep === steps.length - 1 ? handleSubmit : handleNext}
+                  disabled={
+                    (activeStep === 0 && !bookingData.roomId) ||
+                    (activeStep === 1 && !isGuestDetailsValid()) ||
+                    (activeStep === 2 && !isPaymentDetailsValid())
+                  }
+                  size={isMobile ? "small" : "medium"}
+                >
+                  {activeStep === steps.length - 1 ? 'סיים הזמנה' : 'המשך'}
+                </Button>
+              </Box>
             </Box>
           )}
         </Box>

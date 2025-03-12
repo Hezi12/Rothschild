@@ -456,7 +456,7 @@ const BookingsNewPage = () => {
                     <MenuItem value="">הכל</MenuItem>
                     {rooms.map((room) => (
                       <MenuItem key={room._id} value={room._id}>
-                        {room.roomNumber} - {room.type}
+                        {room.internalName || `חדר ${room.roomNumber}`}
                       </MenuItem>
                     ))}
                   </Select>
@@ -559,7 +559,7 @@ const BookingsNewPage = () => {
                       >
                         <TableCell>{booking.bookingNumber}</TableCell>
                         <TableCell>
-                          {booking.room?.roomNumber} - {booking.room?.type}
+                          {booking.room?.internalName || `חדר ${booking.room?.roomNumber}`}
                         </TableCell>
                         <TableCell>
                           <Tooltip title={`טלפון: ${booking.guest.phone || 'לא צוין'}\nאימייל: ${booking.guest.email || 'לא צוין'}`}>
@@ -655,7 +655,7 @@ const BookingsNewPage = () => {
                     <MenuItem value="">בחר חדר</MenuItem>
                     {rooms.map((room) => (
                       <MenuItem key={room._id} value={room._id}>
-                        {room.roomNumber} - {room.type} ({room.basePrice} ₪)
+                        {room.internalName || `חדר ${room.roomNumber}`}
                       </MenuItem>
                     ))}
                   </Select>

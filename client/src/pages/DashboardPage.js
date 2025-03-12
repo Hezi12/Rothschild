@@ -204,7 +204,7 @@ const DashboardPage = () => {
                     </ListItemIcon>
                     <ListItemText
                       primary={booking.guest.name}
-                      secondary={`חדר ${booking.room.roomNumber} | צ'ק-אין: ${formatDate(booking.checkIn)} | צ'ק-אאוט: ${formatDate(booking.checkOut)}`}
+                      secondary={`חדר ${booking.room.internalName || booking.room.roomNumber} | צ'ק-אין: ${formatDate(booking.checkIn)} | צ'ק-אאוט: ${formatDate(booking.checkOut)}`}
                     />
                   </ListItem>
                   <Divider variant="inset" component="li" />

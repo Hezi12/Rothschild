@@ -111,6 +111,12 @@ const RoomPage = () => {
   const guests = location.state?.guests || 1;
   const fromSearchResults = Boolean(location.state);
 
+  const typeToDisplayName = {
+    'standard': 'Standard',
+    'deluxe': 'Deluxe',
+    'suite': 'Suite'
+  };
+
   useEffect(() => {
     const fetchRoom = async () => {
       try {
@@ -250,7 +256,7 @@ const RoomPage = () => {
               mt: 1
             }}
           >
-            {room.name}
+            חדר {typeToDisplayName[room.type] || room.type}
           </Typography>
           
           <Box sx={{ 

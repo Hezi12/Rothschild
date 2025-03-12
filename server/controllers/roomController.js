@@ -61,7 +61,7 @@ exports.createRoom = async (req, res) => {
     return res.status(400).json({ success: false, errors: errors.array() });
   }
 
-  const { roomNumber, type, basePrice, maxOccupancy, description, amenities } = req.body;
+  const { roomNumber, internalName, type, basePrice, maxOccupancy, description, amenities } = req.body;
 
   try {
     // בדיקה אם כבר קיים חדר עם אותו מספר
@@ -77,6 +77,7 @@ exports.createRoom = async (req, res) => {
     // יצירת חדר חדש
     const room = new Room({
       roomNumber,
+      internalName: internalName || roomNumber.toString(),
       type,
       basePrice,
       maxOccupancy,
@@ -110,7 +111,7 @@ exports.updateRoom = async (req, res) => {
     return res.status(400).json({ success: false, errors: errors.array() });
   }
 
-  const { roomNumber, type, basePrice, maxOccupancy, description, amenities, isActive } = req.body;
+  const { roomNumber, internalName, type, basePrice, maxOccupancy, description, amenities, isActive } = req.body;
 
   try {
     let room = await Room.findById(req.params.id);
@@ -136,6 +137,7 @@ exports.updateRoom = async (req, res) => {
     
     // עדכון פרטי החדר
     room.roomNumber = roomNumber || room.roomNumber;
+    room.internalName = internalName || room.internalName;
     room.type = type || room.type;
     room.basePrice = basePrice || room.basePrice;
     room.maxOccupancy = maxOccupancy || room.maxOccupancy;

@@ -6,6 +6,13 @@ const RoomSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  internalName: {
+    type: String,
+    required: true,
+    default: function() {
+      return this.roomNumber.toString(); // ברירת מחדל תהיה מספר החדר כמחרוזת
+    }
+  },
   type: {
     type: String,
     required: true,

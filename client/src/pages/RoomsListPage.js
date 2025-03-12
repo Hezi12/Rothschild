@@ -180,7 +180,8 @@ const RoomsListPage = () => {
     
     setCurrentRoom({
       ...room,
-      amenities: room.amenities ? room.amenities.join(', ') : ''
+      amenities: room.amenities ? room.amenities.join(', ') : '',
+      internalName: '',
     });
     
     loadSpecialPrices();
@@ -535,6 +536,7 @@ const RoomsListPage = () => {
               onClick={() => {
                 setCurrentRoom({
                   roomNumber: '',
+                  internalName: '',
                   type: 'standard',
                   basePrice: '',
                   maxOccupancy: 2,
@@ -583,7 +585,7 @@ const RoomsListPage = () => {
                   
                   <Box sx={{ mb: 2 }}>
                     <Typography gutterBottom variant="h5" component="div">
-                      חדר {room.roomNumber}
+                      {room.internalName ? `חדר ${room.internalName}` : `חדר ${room.roomNumber}`}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       {room.description.substring(0, 100)}
@@ -677,6 +679,18 @@ const RoomsListPage = () => {
             fullWidth
             variant="outlined"
             value={currentRoom?.roomNumber || ''}
+            onChange={handleInputChange}
+            sx={{ mb: 2 }}
+          />
+          
+          <TextField
+            margin="dense"
+            name="internalName"
+            label="שם פנימי (יוצג רק למנהלים)"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={currentRoom?.internalName || ''}
             onChange={handleInputChange}
             sx={{ mb: 2 }}
           />

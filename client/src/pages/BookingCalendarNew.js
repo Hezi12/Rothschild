@@ -61,7 +61,7 @@ const RoomCell = ({ room }) => {
       }}
     >
       <Typography variant="subtitle2" fontWeight="bold">
-        {room.name}
+        {room.internalName || `חדר ${room.roomNumber}`}
       </Typography>
       <Typography variant="caption" color="text.secondary">
         {room.maxGuests} אורחים | {room.basePrice} ₪

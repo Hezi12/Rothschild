@@ -185,6 +185,12 @@ const SearchResultsPage = () => {
     return formatDate(cancellationDate);
   };
   
+  const typeToDisplayName = {
+    'standard': 'Standard',
+    'deluxe': 'Deluxe',
+    'suite': 'Suite'
+  };
+  
   return (
     <Box sx={{ 
       py: 3,
@@ -398,36 +404,27 @@ const SearchResultsPage = () => {
                           >
                             <ListItemAvatar sx={{ minWidth: '45px' }}>
                               <Avatar 
-                                src={room.images && room.images[0]?.url} 
-                                alt={room.name}
-                                variant="rounded"
-                                sx={{ width: 32, height: 32, ml: 1.5 }}
+                                sx={{ 
+                                  width: 30, 
+                                  height: 30,
+                                  bgcolor: theme.palette.primary.main
+                                }}
                               >
                                 <HotelIcon fontSize="small" />
                               </Avatar>
                             </ListItemAvatar>
                             <ListItemText 
-                              primary={room.name} 
-                              primaryTypographyProps={{ fontSize: '0.85rem', fontWeight: 'medium' }}
-                              secondary={
-                                <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.3 }}>
-                                  <Typography component="span" sx={{ fontSize: '0.8rem', color: theme.palette.primary.main, fontWeight: 'bold' }}>
-                                    ₪{room.basePrice}
-                                  </Typography>
-                                  <Box component="span" sx={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    color: 'text.primary',
-                                    fontWeight: 'medium',
-                                    fontSize: '0.75rem'
-                                  }}>
-                                    {Array.from({ length: room.maxGuests || guests }).map((_, index) => (
-                                      <PersonIcon key={index} sx={{ fontSize: '0.85rem', color: theme.palette.primary.main }} />
-                                    ))}
-                                    <span style={{ marginRight: '2px' }}>{room.maxGuests || guests}</span>
-                                  </Box>
-                                </Box>
+                              primary={
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  חדר {typeToDisplayName[room.type] || room.type}
+                                </Typography>
                               }
+                              secondary={
+                                <Typography variant="caption" color="text.secondary">
+                                  {room.basePrice * calculateNights()} ₪ ({room.basePrice} ₪ × {calculateNights()} לילות)
+                                </Typography>
+                              }
+                              sx={{ margin: 0 }}
                             />
                             <IconButton 
                               size="small" 
@@ -596,7 +593,7 @@ const SearchResultsPage = () => {
                       display: 'inline-block'
                     }}
                   >
-                    {room.name}
+                    {typeToDisplayName[room.type] || room.name}
                   </Typography>
                   
                   <Box sx={{ display: 'flex', gap: 0.7, flexWrap: 'wrap', mb: 1.2 }}>
