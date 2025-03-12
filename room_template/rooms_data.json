@@ -1,0 +1,128 @@
+[
+  {
+    "roomNumber": 1,
+    "internalName": "1",
+    "type": "standard",
+    "basePrice": 450,
+    "maxOccupancy": 2,
+    "description": "חדר סטנדרט נעים ומזמין. כולל מיטה זוגית נוחה, חדר רחצה פרטי, ונוף לרחוב. מתאים לזוגות או ליחידים.",
+    "amenities": ["מיזוג אוויר", "טלוויזיה", "מקרר", "מקלחת", "Wi-Fi", "מייבש שיער", "מגבות"],
+    "isActive": true,
+    "specialPrices": {
+      "friday": 650, 
+      "saturday": 650
+    }
+  },
+  {
+    "roomNumber": 2,
+    "internalName": "2",
+    "type": "deluxe",
+    "basePrice": 550,
+    "maxOccupancy": 2,
+    "description": "חדר דה-לוקס מרווח עם מיטה זוגית גדולה ופינת ישיבה. חדר רחצה עם אמבטיה ומקלחת. נוף נעים וריהוט יוקרתי.",
+    "amenities": ["מיזוג אוויר", "טלוויזיה חכמה", "מקרר", "אמבטיה", "מקלחת", "Wi-Fi", "מייבש שיער", "חלוק רחצה", "מגבות", "פינת ישיבה"],
+    "isActive": true,
+    "specialPrices": {
+      "friday": 750, 
+      "saturday": 750
+    }
+  },
+  {
+    "roomNumber": 3,
+    "internalName": "3",
+    "type": "suite",
+    "basePrice": 750,
+    "maxOccupancy": 3,
+    "description": "סוויטה מפוארת עם חדר שינה נפרד וסלון מרווח. כוללת מיטה זוגית גדולה, ספה נפתחת, פינת אוכל ונוף מרהיב. חדר רחצה מפואר עם ג'קוזי.",
+    "amenities": ["מיזוג אוויר", "טלוויזיה חכמה", "מיני-בר", "ג'קוזי", "מקלחת", "Wi-Fi", "מייבש שיער", "חלוק רחצה", "מגבות", "פינת ישיבה", "פינת אוכל", "מכונת קפה"],
+    "isActive": true,
+    "specialPrices": {
+      "friday": 950, 
+      "saturday": 950
+    }
+  },
+  {
+    "roomNumber": 4,
+    "internalName": "4",
+    "type": "standard",
+    "basePrice": 450,
+    "maxOccupancy": 2,
+    "description": "חדר סטנדרט פינתי ושקט, עם מיטה זוגית נוחה וחדר רחצה פרטי. עיצוב חמים ואינטימי המתאים במיוחד לזוגות.",
+    "amenities": ["מיזוג אוויר", "טלוויזיה", "מקרר", "מקלחת", "Wi-Fi", "מייבש שיער", "מגבות"],
+    "isActive": true,
+    "specialPrices": {
+      "friday": 650, 
+      "saturday": 650
+    }
+  },
+  {
+    "roomNumber": 5,
+    "internalName": "5",
+    "type": "deluxe",
+    "basePrice": 550,
+    "maxOccupancy": 2,
+    "description": "חדר דה-לוקס מרווח עם מיטה זוגית גדולה ופינת עבודה נוחה. חדר רחצה מפואר עם מקלחת גדולה. נוף מרהיב לעיר.",
+    "amenities": ["מיזוג אוויר", "טלוויזיה חכמה", "מקרר", "מקלחת", "Wi-Fi", "מייבש שיער", "חלוק רחצה", "מגבות", "פינת עבודה"],
+    "isActive": true,
+    "specialPrices": {
+      "friday": 750, 
+      "saturday": 750
+    }
+  },
+  {
+    "roomNumber": 7,
+    "internalName": "7",
+    "type": "standard",
+    "basePrice": 450,
+    "maxOccupancy": 2,
+    "description": "חדר סטנדרט עם מיטה זוגית נוחה, חדר רחצה פרטי ואווירה ביתית. נוף לחצר פנימית שקטה ונעימה.",
+    "amenities": ["מיזוג אוויר", "טלוויזיה", "מקרר", "מקלחת", "Wi-Fi", "מייבש שיער", "מגבות"],
+    "isActive": true,
+    "specialPrices": {
+      "friday": 650, 
+      "saturday": 650
+    }
+  },
+  {
+    "roomNumber": 8,
+    "internalName": "8",
+    "type": "deluxe",
+    "basePrice": 550,
+    "maxOccupancy": 2,
+    "description": "חדר דה-לוקס מרווח במיוחד עם מיטת קינג סייז ופינת ישיבה נעימה. חדר רחצה מפואר עם אמבטיה עומדת. נוף לרחוב השדרה.",
+    "amenities": ["מיזוג אוויר", "טלוויזיה חכמה", "מקרר", "אמבטיה", "מקלחת", "Wi-Fi", "מייבש שיער", "חלוק רחצה", "מגבות", "פינת ישיבה"],
+    "isActive": true,
+    "specialPrices": {
+      "friday": 750, 
+      "saturday": 750
+    }
+  },
+  {
+    "roomNumber": 9,
+    "internalName": "9",
+    "type": "suite",
+    "basePrice": 750,
+    "maxOccupancy": 3,
+    "description": "סוויטה מפוארת עם חדר שינה וסלון. מיטה זוגית גדולה ומפנקת, ספה נפתחת, פינת אוכל וחדר רחצה יוקרתי עם ג'קוזי כפול. נוף פנורמי מרהיב.",
+    "amenities": ["מיזוג אוויר", "טלוויזיה חכמה", "מיני-בר", "ג'קוזי", "מקלחת", "Wi-Fi", "מייבש שיער", "חלוק רחצה", "מגבות", "פינת ישיבה", "פינת אוכל", "מכונת קפה"],
+    "isActive": true,
+    "specialPrices": {
+      "friday": 950, 
+      "saturday": 950
+    }
+  },
+  {
+    "roomNumber": 10,
+    "internalName": "10",
+    "type": "standard",
+    "basePrice": 450,
+    "maxOccupancy": 2,
+    "description": "חדר סטנדרט נעים ומזמין. כולל מיטה זוגית נוחה, חדר רחצה פרטי, ונוף לחצר. מתאים לזוגות או ליחידים.",
+    "amenities": ["מיזוג אוויר", "טלוויזיה", "מקרר", "מקלחת", "Wi-Fi", "מייבש שיער", "מגבות"],
+    "isActive": true,
+    "specialPrices": {
+      "friday": 650, 
+      "saturday": 650
+    }
+  }
+] 

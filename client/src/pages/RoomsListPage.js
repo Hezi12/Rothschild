@@ -83,6 +83,127 @@ const RoomsListPage = () => {
   // טעינת חדרים
   useEffect(() => {
     fetchRooms();
+    
+    // בדיקה האם יש צורך להוסיף את חדר 13
+    const addRoom13 = async () => {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`);
+        if (response.data.success) {
+          // בדיקה אם חדר 13 כבר קיים
+          const room13Exists = response.data.data.some(room => 
+            Number(room.roomNumber) === 13 || room.internalName === "13"
+          );
+          
+          if (!room13Exists) {
+            console.log('מוסיף חדר 13...');
+            // הוספת חדר 13
+            const newRoom = {
+              roomNumber: 13,
+              internalName: "13",
+              type: "simple",
+              basePrice: 350,
+              maxOccupancy: 3,
+              description: "חדר פשוט עם מרפסת. חדר נעים ומרווח הכולל מקרר ומיקרוגל. ניתן להוסיף מיטת יחיד נוספת.",
+              amenities: ["מרפסת", "מקרר", "מיקרוגל", "טלוויזיה", "מזגן", "WiFi"],
+              isActive: true
+            };
+            
+            const addResponse = await axios.post(`${process.env.REACT_APP_API_URL}/rooms`, newRoom);
+            
+            if (addResponse.data.success) {
+              toast.success("חדר 13 נוסף בהצלחה!");
+              // טעינה מחדש של רשימת החדרים
+              fetchRooms();
+            }
+          }
+        }
+      } catch (error) {
+        console.error('שגיאה בבדיקת/הוספת חדר 13:', error);
+      }
+    };
+    
+    // בדיקה האם יש צורך להוסיף את חדר 21
+    const addRoom21 = async () => {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`);
+        if (response.data.success) {
+          // בדיקה אם חדר 21 כבר קיים
+          const room21Exists = response.data.data.some(room => 
+            Number(room.roomNumber) === 21 || room.internalName === "21"
+          );
+          
+          if (!room21Exists) {
+            console.log('מוסיף חדר 21...');
+            // הוספת חדר 21
+            const newRoom = {
+              roomNumber: 21,
+              internalName: "21",
+              type: "standard",
+              basePrice: 350,
+              maxOccupancy: 3,
+              description: "חדר סטנדרט עם מרפסת ואמבטיה. חדר נעים ומרווח הכולל מקרר ומיקרוגל. ניתן להוסיף מיטת יחיד נוספת.",
+              amenities: ["מרפסת", "אמבטיה", "מקרר", "מיקרוגל", "טלוויזיה", "מזגן", "WiFi"],
+              isActive: true
+            };
+            
+            const addResponse = await axios.post(`${process.env.REACT_APP_API_URL}/rooms`, newRoom);
+            
+            if (addResponse.data.success) {
+              toast.success("חדר 21 נוסף בהצלחה!");
+              // טעינה מחדש של רשימת החדרים
+              fetchRooms();
+            }
+          }
+        }
+      } catch (error) {
+        console.error('שגיאה בבדיקת/הוספת חדר 21:', error);
+      }
+    };
+    
+    // בדיקה האם יש צורך להוסיף את חדר 17
+    const addRoom17 = async () => {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`);
+        if (response.data.success) {
+          // בדיקה אם חדר 17 כבר קיים
+          const room17Exists = response.data.data.some(room => 
+            Number(room.roomNumber) === 17 || room.internalName === "17"
+          );
+          
+          if (!room17Exists) {
+            console.log('מוסיף חדר 17...');
+            // הוספת חדר 17
+            const newRoom = {
+              roomNumber: 17,
+              internalName: "17",
+              type: "standard",
+              basePrice: 380,
+              maxOccupancy: 4,
+              description: "חדר סטנדרט עם ספה נפתחת למיטה זוגית. מתאים למשפחות, מרווח ונעים עם אפשרות לארח עד 4 אנשים. החדר כולל מקרר ומיקרוגל.",
+              amenities: ["ספה נפתחת", "מקרר", "מיקרוגל", "טלוויזיה", "מזגן", "WiFi"],
+              isActive: true
+            };
+            
+            const addResponse = await axios.post(`${process.env.REACT_APP_API_URL}/rooms`, newRoom);
+            
+            if (addResponse.data.success) {
+              toast.success("חדר 17 נוסף בהצלחה!");
+              // טעינה מחדש של רשימת החדרים
+              fetchRooms();
+            }
+          }
+        }
+      } catch (error) {
+        console.error('שגיאה בבדיקת/הוספת חדר 17:', error);
+      }
+    };
+    
+    // הפעלת הפונקציה להוספת חדר 13
+    addRoom13();
+    // הפעלת הפונקציה להוספת חדר 21
+    addRoom21();
+    // הפעלת הפונקציה להוספת חדר 17
+    addRoom17();
   }, []);
 
   const fetchRooms = async () => {
@@ -357,7 +478,7 @@ const RoomsListPage = () => {
       formData.append('image', file);
       
       const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/rooms/${roomId}/images`,
+        `${process.env.REACT_APP_API_URL}/uploads/room/${roomId}`,
         formData,
         {
           headers: {
@@ -398,7 +519,7 @@ const RoomsListPage = () => {
     
     try {
       const response = await axios.delete(
-        `${process.env.REACT_APP_API_URL}/rooms/${roomId}/images/${imageId}`
+        `${process.env.REACT_APP_API_URL}/uploads/room/${roomId}/${imageId}`
       );
       
       if (response.data.success) {
@@ -427,7 +548,7 @@ const RoomsListPage = () => {
   const handleSetPrimaryImage = async (roomId, imageId) => {
     try {
       const response = await axios.put(
-        `${process.env.REACT_APP_API_URL}/rooms/${roomId}/images/${imageId}/primary`
+        `${process.env.REACT_APP_API_URL}/uploads/room/${roomId}/${imageId}/primary`
       );
       
       if (response.data.success) {
@@ -590,7 +711,8 @@ const RoomsListPage = () => {
                       <Grid item xs={6}>
                         <Typography variant="body2" color="text.secondary">
                           <BedIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
-                          {room.type === 'standard' ? 'סטנדרט' : 
+                          {room.type === 'simple' ? 'פשוט' :
+                           room.type === 'standard' ? 'סטנדרט' : 
                            room.type === 'deluxe' ? 'דה-לוקס' : 'סוויטה'}
                         </Typography>
                       </Grid>
@@ -695,6 +817,7 @@ const RoomsListPage = () => {
               onChange={handleInputChange}
               label="סוג חדר"
             >
+              <MenuItem value="simple">פשוט</MenuItem>
               <MenuItem value="standard">סטנדרט</MenuItem>
               <MenuItem value="deluxe">דה-לוקס</MenuItem>
               <MenuItem value="suite">סוויטה</MenuItem>

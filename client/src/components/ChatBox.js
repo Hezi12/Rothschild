@@ -84,6 +84,71 @@ const ChatBox = () => {
         return;
       }
       
+      // בדיקה אם השאלה היא על זמינות חדרים או חדרים פנויים לסופ"ש
+      const availabilityQuestion = input.trim().match(/חדרים פנויים|זמינות חדרים|חדר פנוי|סופ"ש|סופש|חדרים לסוף שבוע|פנוי ל|זמין ל|להזמין חדר/i);
+      
+      if (availabilityQuestion) {
+        // שליחת בקשה לבדיקת זמינות חדרים מהשרת
+        try {
+          // בדיקת תאריך הסופ"ש הקרוב
+          const today = new Date();
+          const dayOfWeek = today.getDay(); // 0 = ראשון, 6 = שבת
+          
+          // חישוב התאריך של יום שישי הקרוב
+          const nextFriday = new Date(today);
+          nextFriday.setDate(today.getDate() + ((5 - dayOfWeek + 7) % 7));
+          
+          // חישוב התאריך של יום ראשון אחרי שישי הקרוב (צ'ק-אאוט)
+          const nextSunday = new Date(nextFriday);
+          nextSunday.setDate(nextFriday.getDate() + 2);
+          
+          // בדיקת זמינות לסופ"ש הקרוב
+          const availabilityResponse = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
+            checkIn: nextFriday.toISOString(),
+            checkOut: nextSunday.toISOString(),
+            guests: 2,
+            rooms: 1,
+            isTourist: false
+          });
+          
+          if (availabilityResponse.data.success) {
+            const availableRooms = availabilityResponse.data.data || [];
+            
+            if (availableRooms.length === 0) {
+              // אין חדרים זמינים
+              setMessages(prev => [...prev, { 
+                role: 'assistant', 
+                content: `לצערי, אין חדרים פנויים לסופ"ש הקרוב (${nextFriday.toLocaleDateString('he-IL')} - ${nextSunday.toLocaleDateString('he-IL')}). \n\nאם תרצה לבדוק תאריכים אחרים, אשמח לעזור או שניתן ליצור קשר ישירות עם המלונית [[WHATSAPP]]` 
+              }]);
+            } else {
+              // יש חדרים זמינים
+              const roomsText = availableRooms.length === 1 ? 'חדר אחד' : availableRooms.length + ' חדרים';
+              let responseText = `יש כרגע ${roomsText} פנויים לסופ"ש הקרוב (${nextFriday.toLocaleDateString('he-IL')} - ${nextSunday.toLocaleDateString('he-IL')}):\n\n`;
+              
+              // פירוט החדרים הזמינים
+              availableRooms.forEach((room, index) => {
+                const roomType = 
+                  room.type === 'simple' ? 'פשוט' :
+                  room.type === 'standard' ? 'סטנדרט' : 
+                  room.type === 'deluxe' ? 'דה-לוקס' : 'סוויטה';
+                  
+                responseText += `${index + 1}. חדר ${roomType} - ${room.basePrice}₪ ללילה - מתאים לעד ${room.maxGuests} אורחים\n`;
+              });
+              
+              responseText += `\nאפשר להזמין עכשיו באתר או ליצור קשר לשאלות נוספות [[WHATSAPP]]`;
+              
+              setMessages(prev => [...prev, { role: 'assistant', content: responseText }]);
+            }
+            
+            setIsLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.error('שגיאה בבדיקת זמינות חדרים:', error);
+          // אם יש שגיאה, נמשיך לטיפול הרגיל ונשלח את השאלה לשרת
+        }
+      }
+      
       // בדיקה אם השאלה היא מחוץ לתחום הידע של הצ'אט (לא קשורה למלון)
       const unknownTopicsRegex = /(פוליטיקה|ספורט|רכבים|בורסה|השקעות|מניות|קריפטו|ביטקוין|אוכל|מסעדות|קולנוע|סרטים|מוזיקה|שירים|אלקטרוניקה|מחשבים|טכנולוגיה|חדשות)/i;
       const unknownQuestionMatch = input.trim().match(unknownTopicsRegex);
@@ -110,7 +175,23 @@ const ChatBox = () => {
       const dontKnowRegex = /(אין לי מידע|איני יודע|לא יודע|אין לי תשובה|מצטער, אין לי|אין בידי|לא מכיר|איני מכיר)/i;
       if (dontKnowRegex.test(assistantMessage) && !assistantMessage.includes("[[WHATSAPP]]")) {
         // מוסיף הפניה לווטסאפ אם יש תשובת "לא יודע" ואין כבר קישור
-        assistantMessage += "\n\nאם ברצונך לקבל מידע נוסף או לדבר עם נציג שירות, ניתן לפנות אלינו [[WHATSAPP]]";
+        assistantMessage += "\n\nאם ברצונך לקבל מידע נוסף או לדבר עם נציג שירות, ניתן לפנות אלינו בווטסאפ: [[WHATSAPP]]";
+      }
+      
+      // מוריד כל אזכור של מייל ומחליף בווטסאפ
+      assistantMessage = assistantMessage.replace(/info@rothschild79\.co\.il|מייל|אימייל|שלח אלינו|לשלוח לנו|ליצור קשר במייל|לשלוח הודעה/gi, match => {
+        if (match.includes('@')) {
+          return 'בווטסאפ [[WHATSAPP]]';
+        }
+        return match;
+      });
+      
+      // וידוא שאין אזכור של שליחת מייל ללא ווטסאפ
+      if (assistantMessage.includes('מייל') || assistantMessage.includes('אימייל')) {
+        // אם יש אזכור של מייל אבל אין אזכור של ווטסאפ, נוסיף קישור לווטסאפ
+        if (!assistantMessage.includes("[[WHATSAPP]]")) {
+          assistantMessage += "\n\nלפנייה מהירה, ניתן לפנות אלינו בווטסאפ: [[WHATSAPP]]";
+        }
       }
       
       setMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);

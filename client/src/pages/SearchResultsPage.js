@@ -62,7 +62,8 @@ const SearchResultsPage = () => {
   // קבלת הנתונים מהמצב של הניווט
   const checkIn = location.state?.checkIn;
   const checkOut = location.state?.checkOut;
-  const guests = location.state?.guests || 1;
+  const guestsParam = location.state?.guests;
+  const guests = Number(guestsParam) || 1;
   const roomsCount = location.state?.rooms || 1;
   const isTourist = location.state?.isTourist || false;
   
@@ -77,6 +78,16 @@ const SearchResultsPage = () => {
       try {
         setLoading(true);
         
+        console.log('שולח בקשה לבדיקת זמינות עם הפרמטרים:', {
+          checkIn: new Date(checkIn).toISOString(),
+          checkOut: new Date(checkOut).toISOString(),
+          guests: guests,
+          rooms: roomsCount,
+          isTourist: isTourist
+        });
+        
+        console.log('סוג של guests:', typeof guests, 'ערך:', guests);
+        
         // שליחת בקשה לבדיקת זמינות אמיתית מול השרת
         const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
           checkIn: new Date(checkIn).toISOString(),
@@ -86,8 +97,18 @@ const SearchResultsPage = () => {
           isTourist: isTourist
         });
         
+        console.log('תשובה מהשרת:', response.data);
+        
         // עדכון רשימת החדרים הזמינים
         setRoomsList(response.data.data || []);
+        
+        console.log('מספר חדרים שהתקבלו:', response.data.data?.length || 0);
+        console.log('סוגי חדרים שהתקבלו:', response.data.data?.map(room => ({ 
+          roomNumber: room.roomNumber, 
+          type: room.type, 
+          maxGuests: room.maxGuests,
+          totalPrice: room.totalPrice
+        })));
       } catch (error) {
         console.error('שגיאה בטעינת חדרים זמינים:', error);
         setError('שגיאה בטעינת החדרים הזמינים. אנא נסה שוב מאוחר יותר.');

@@ -303,12 +303,23 @@ const HomePage = () => {
     setSearchLoading(true);
 
     try {
+      const guests = Number(bookingData.guests) || 1;
+      const rooms = Number(bookingData.rooms) || 1;
+      
+      console.log('נתוני חיפוש:', {
+        checkIn: bookingData.checkIn,
+        checkOut: bookingData.checkOut,
+        guests: guests,
+        rooms: rooms,
+        isTourist: bookingData.isTourist
+      });
+      
       navigate('/search-results', { 
         state: { 
           checkIn: bookingData.checkIn,
           checkOut: bookingData.checkOut,
-          guests: bookingData.guests,
-          rooms: bookingData.rooms,
+          guests: guests,
+          rooms: rooms,
           isTourist: bookingData.isTourist
         } 
       });

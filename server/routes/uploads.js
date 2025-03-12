@@ -85,9 +85,17 @@ router.post('/room/:roomId', [protect, admin, upload.single('image')], async (re
     // שמירת השינויים
     await room.save();
     
+    // מחיקת הקובץ הזמני - הועבר לכאן במקום בבלוק finally
+    if (req.file) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error('שגיאה במחיקת קובץ זמני:', err);
+      });
+    }
+    
     res.json({
       success: true,
       data: {
+        _id: room.images[room.images.length - 1]._id, // החזרת ה-id של התמונה שנוספה
         url: result.secure_url,
         publicId: result.public_id,
         isPrimary: isFirstImage
@@ -95,6 +103,12 @@ router.post('/room/:roomId', [protect, admin, upload.single('image')], async (re
     });
   } catch (error) {
     console.error('שגיאה בהעלאת תמונה:', error);
+    // מחיקת הקובץ הזמני גם במקרה של שגיאה
+    if (req.file) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error('שגיאה במחיקת קובץ זמני:', err);
+      });
+    }
     res.status(500).json({ 
       success: false, 
       message: 'שגיאת שרת' 
@@ -147,23 +161,29 @@ router.post('/gallery', [protect, admin, upload.single('image')], async (req, re
     // שמירת השינויים
     await gallery.save();
     
+    // מחיקת הקובץ הזמני - הועבר לכאן במקום בבלוק finally
+    if (req.file) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error('שגיאה במחיקת קובץ זמני:', err);
+      });
+    }
+    
     res.json({
       success: true,
       data: gallery.images[gallery.images.length - 1]
     });
   } catch (error) {
     console.error('שגיאה בהעלאת תמונה לגלריה:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'שגיאת שרת' 
-    });
-  } finally {
-    // מחיקת הקובץ הזמני
+    // מחיקת הקובץ הזמני גם במקרה של שגיאה
     if (req.file) {
       fs.unlink(req.file.path, (err) => {
         if (err) console.error('שגיאה במחיקת קובץ זמני:', err);
       });
     }
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת' 
+    });
   }
 });
 
