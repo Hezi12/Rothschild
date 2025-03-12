@@ -27,6 +27,24 @@ const BlockedDateSchema = new Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  // שדה חדש - מזהה הזמנה קשורה (אם יש)
+  bookingId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Booking',
+    default: null
+  },
+  // מקור חיצוני (אם יש)
+  externalSource: {
+    type: String,
+    default: null
+  },
+  // פרטי אורח (למקרה של סנכרון מ-booking.com)
+  guestDetails: {
+    name: String,
+    email: String,
+    phone: String,
+    notes: String
   }
 });
 
@@ -37,6 +55,11 @@ BlockedDateSchema.pre('save', function(next) {
   }
   next();
 });
+
+// אינדקס לחיפוש מהיר
+BlockedDateSchema.index({ room: 1, startDate: 1, endDate: 1 });
+// אינדקס לחיפוש לפי הזמנה
+BlockedDateSchema.index({ bookingId: 1 });
 
 const BlockedDate = mongoose.model('BlockedDate', BlockedDateSchema);
 module.exports = BlockedDate; 

@@ -181,20 +181,26 @@ const BookingPage = () => {
       const checkRoomAvailability = async () => {
         try {
           setCheckingAvailability(true);
-          // במציאות היינו מבצעים בדיקה מול השרת
-          // לצורך הדוגמה אנחנו מניחים שהחדר זמין
           
-          // חישוב מחירים
-          const nights = calculateNights();
-          const basePrice = nights * room.basePrice;
-          const vatAmount = bookingData.isTourist ? 0 : basePrice * 0.17;
-          const totalPrice = basePrice + vatAmount;
+          // בדיקת זמינות אמיתית מול השרת
+          const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
+            roomId: initialRoomId,
+            checkIn: initialCheckIn,
+            checkOut: initialCheckOut
+          });
           
+          if (!response.data.isAvailable) {
+            setError('החדר אינו זמין בתאריכים שנבחרו. אנא בחר תאריכים אחרים.');
+            navigate('/');
+            return;
+          }
+          
+          // עדכון מחירים מהשרת
           setCalculations({
-            nights,
-            basePrice,
-            vatAmount,
-            totalPrice
+            nights: response.data.nights || calculateNights(),
+            basePrice: response.data.basePrice || (room.basePrice * calculateNights()),
+            vatAmount: bookingData.isTourist ? 0 : (response.data.basePrice || (room.basePrice * calculateNights())) * 0.17,
+            totalPrice: response.data.totalPrice || ((room.basePrice * calculateNights()) + (bookingData.isTourist ? 0 : (room.basePrice * calculateNights()) * 0.17))
           });
         } catch (error) {
           console.error('שגיאה בבדיקת זמינות:', error);
@@ -243,34 +249,29 @@ const BookingPage = () => {
     try {
       setCheckingAvailability(true);
       
-      // במציאות היינו בודקים מול השרת האם החדר זמין בתאריכים שנבחרו
-      // לדוגמה:
-      // const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
-      //   roomId: bookingData.roomId,
-      //   checkIn: bookingData.checkIn,
-      //   checkOut: bookingData.checkOut
-      // });
+      // בדיקת זמינות אמיתית מול השרת
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
+        roomId: bookingData.roomId,
+        checkIn: bookingData.checkIn,
+        checkOut: bookingData.checkOut
+      });
       
-      // עבור הדוגמה, נניח שהחדר תמיד זמין
-      const isAvailable = true;
+      const isAvailable = response.data.isAvailable;
       
       if (!isAvailable) {
         toast.error('החדר אינו זמין בתאריכים שנבחרו. אנא בחר תאריכים אחרים.');
         return false;
       }
       
-      // חישוב מחירים
-      const nights = calculateNights();
-      const basePrice = nights * room.basePrice;
-      const vatAmount = bookingData.isTourist ? 0 : basePrice * 0.17;
-      const totalPrice = basePrice + vatAmount;
-      
-      setCalculations({
-        nights,
-        basePrice,
-        vatAmount,
-        totalPrice
-      });
+      // עדכון מחירים מהשרת אם זמינים
+      if (response.data.totalPrice) {
+        setCalculations({
+          ...calculations,
+          basePrice: response.data.basePrice || calculations.basePrice,
+          totalPrice: response.data.totalPrice || calculations.totalPrice,
+          nights: response.data.nights || calculations.nights
+        });
+      }
       
       return true;
     } catch (error) {

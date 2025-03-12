@@ -5,6 +5,7 @@ const { startOfDay, endOfDay, parseISO, format, addHours } = require('date-fns')
 const { validationResult } = require('express-validator');
 const { sendBookingConfirmation } = require('../utils/emailService');
 const DynamicPrice = require('../models/DynamicPrice');
+const BlockedDate = require('../models/BlockedDate');
 
 /**
  * בקר חדש ומשופר להזמנות, ללא תלות במודל תאריכים חסומים
@@ -145,7 +146,7 @@ exports.createBooking = async (req, res) => {
       source
     } = req.body;
     
-    if (!roomId || !checkIn || !checkOut || !guest || !guest.name) {
+    if (!roomId || !checkIn || !checkOut || !guest || !guest.name || !guest.email) {
       return res.status(400).json({
         success: false,
         message: 'חסרים שדות חובה'
@@ -206,6 +207,51 @@ exports.createBooking = async (req, res) => {
     });
     
     await booking.save();
+    
+    // יצירת חסימת תאריכים אוטומטית עבור ההזמנה
+    try {
+      // מחיקת חסימות קיימות שעלולות להתנגש (אם יש)
+      const overlappingBlockedDates = await BlockedDate.find({
+        room: roomId,
+        $or: [
+          { 
+            startDate: { $lte: checkInDate },
+            endDate: { $gt: checkInDate }
+          },
+          { 
+            startDate: { $lt: checkOutDate },
+            endDate: { $gte: checkOutDate }
+          },
+          { 
+            startDate: { $gte: checkInDate },
+            endDate: { $lte: checkOutDate }
+          }
+        ]
+      });
+      
+      // מחיקת חסימות מתנגשות
+      if (overlappingBlockedDates.length > 0) {
+        console.log(`נמצאו ${overlappingBlockedDates.length} חסימות חופפות לתאריכי ההזמנה החדשה. מוחק אותן...`);
+        for (const blockedDate of overlappingBlockedDates) {
+          await BlockedDate.findByIdAndDelete(blockedDate._id);
+        }
+      }
+      
+      // יצירת חסימה חדשה עבור ההזמנה
+      const newBlockedDate = new BlockedDate({
+        room: roomId,
+        startDate: checkInDate,
+        endDate: checkOutDate,
+        reason: `הזמנה #${bookingNumber} - ${guest.name}`,
+        bookingId: booking._id
+      });
+      
+      await newBlockedDate.save();
+      console.log(`נוצרה חסימת תאריכים עבור הזמנה #${bookingNumber} מ-${format(checkInDate, 'yyyy-MM-dd')} עד ${format(checkOutDate, 'yyyy-MM-dd')}`);
+    } catch (blockError) {
+      console.error('שגיאה ביצירת חסימת תאריכים:', blockError);
+      // לא מחזירים שגיאה ללקוח אם יצירת החסימה נכשלה, רק מתעדים את השגיאה
+    }
     
     // שליחת אימייל אישור הזמנה ללקוח
     try {
@@ -431,6 +477,27 @@ exports.updateBooking = async (req, res) => {
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         updateData.nights = diffDays;
       }
+      
+      // עדכון חסימת התאריכים אם השתנו התאריכים או החדר
+      try {
+        // מחיקת חסימות קיימות
+        await BlockedDate.deleteMany({ bookingId });
+        
+        // יצירת חסימה חדשה
+        const newBlockedDate = new BlockedDate({
+          room: roomId,
+          startDate: checkInDate,
+          endDate: checkOutDate,
+          reason: `הזמנה #${booking.bookingNumber} - ${booking.guest.name} (מעודכן)`,
+          bookingId: bookingId
+        });
+        
+        await newBlockedDate.save();
+        console.log(`עודכנה חסימת תאריכים עבור הזמנה #${booking.bookingNumber}`);
+      } catch (blockError) {
+        console.error('שגיאה בעדכון חסימת תאריכים:', blockError);
+        // לא מחזירים שגיאה ללקוח אם עדכון החסימה נכשל, רק מתעדים את השגיאה
+      }
     }
     
     // אם השתנה החדר
@@ -486,6 +553,15 @@ exports.deleteBooking = async (req, res) => {
         success: false,
         message: 'ההזמנה לא נמצאה'
       });
+    }
+    
+    // מחיקת חסימות תאריכים הקשורות להזמנה
+    try {
+      const deleteResult = await BlockedDate.deleteMany({ bookingId });
+      console.log(`נמחקו ${deleteResult.deletedCount} חסימות תאריכים הקשורות להזמנה ${bookingId}`);
+    } catch (blockError) {
+      console.error('שגיאה במחיקת חסימות תאריכים:', blockError);
+      // לא מחזירים שגיאה ללקוח אם מחיקת החסימות נכשלה, רק מתעדים את השגיאה
     }
     
     res.json({
