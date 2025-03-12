@@ -207,6 +207,15 @@ exports.createBooking = async (req, res) => {
     
     await booking.save();
     
+    // שליחת אימייל אישור הזמנה ללקוח
+    try {
+      await sendBookingConfirmation(booking, room);
+      console.log(`נשלח אימייל אישור הזמנה ללקוח: ${guest.email}`);
+    } catch (emailError) {
+      console.error('שגיאה בשליחת אימייל אישור הזמנה:', emailError);
+      // לא מחזירים שגיאה ללקוח אם שליחת האימייל נכשלה, רק מתעדים את השגיאה
+    }
+    
     res.status(201).json({
       success: true,
       message: 'ההזמנה נוצרה בהצלחה',

@@ -16,6 +16,13 @@ const transporter = nodemailer.createTransport({
  */
 const sendBookingConfirmation = async (booking, room) => {
   try {
+    console.log('מתחיל שליחת אימייל אישור הזמנה:', {
+      bookingId: booking._id,
+      bookingNumber: booking.bookingNumber,
+      guestEmail: booking.guest.email,
+      guestName: booking.guest.name
+    });
+    
     const checkIn = new Date(booking.checkIn).toLocaleDateString('he-IL');
     const checkOut = new Date(booking.checkOut).toLocaleDateString('he-IL');
     
@@ -121,10 +128,20 @@ const sendBookingConfirmation = async (booking, room) => {
     
     // שליחת המייל
     const info = await transporter.sendMail(mailOptions);
-    console.log('אימייל אישור הזמנה נשלח: %s', info.messageId);
+    console.log('אימייל אישור הזמנה נשלח בהצלחה: %s, לכתובת: %s', info.messageId, booking.guest.email);
     return true;
   } catch (error) {
     console.error('שגיאה בשליחת אימייל:', error);
+    console.error('פרטי השגיאה:', {
+      error: error.message,
+      stack: error.stack, 
+      booking: booking ? {
+        id: booking._id,
+        guest: booking.guest,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut
+      } : 'לא סופק אובייקט הזמנה'
+    });
     return false;
   }
 };
