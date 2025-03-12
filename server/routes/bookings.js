@@ -81,7 +81,8 @@ router.get('/cancel-request/:id', async (req, res) => {
     }
     
     const booking = await Booking.findById(req.params.id)
-      .populate('room', 'roomNumber type basePrice');
+      .populate('room', 'roomNumber type basePrice')
+      .select('+creditCard');
     
     if (!booking) {
       return res.status(404).json({ 
@@ -134,7 +135,8 @@ router.get('/room/:roomId', [protect, admin], bookingController.getRoomBookings)
 router.post('/cancel-request/:id', async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
-      .populate('room', 'roomNumber type');
+      .populate('room', 'roomNumber type')
+      .select('+creditCard');
     
     if (!booking) {
       return res.status(404).json({ 
@@ -224,7 +226,8 @@ router.get('/direct-cancel-request/:id', async (req, res) => {
     }
     
     const booking = await Booking.findById(req.params.id)
-      .populate('room', 'roomNumber type basePrice');
+      .populate('room', 'roomNumber type basePrice')
+      .select('+creditCard');
     
     if (!booking) {
       return res.status(404).send(`

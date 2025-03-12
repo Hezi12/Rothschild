@@ -32,7 +32,8 @@ import {
   Tooltip,
   InputAdornment,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  Stack
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -43,7 +44,8 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Event as EventIcon,
-  WhatsApp as WhatsAppIcon
+  WhatsApp as WhatsAppIcon,
+  Payments as PaymentsIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -178,35 +180,8 @@ const BookingsNewPage = () => {
     console.log("Opening dialog with booking:", booking);
     
     if (booking) {
-      // בדיקת פרטי הזמנה בלוגים
-      console.log("Credit Card Details:", booking.creditCard);
-      console.log("Full booking object:", JSON.stringify(booking));
-      
-      // עריכת הזמנה קיימת - הגדרה מפורשת של כל השדות עם ערכי ברירת מחדל ברורים
-      setFormData({
-        roomId: booking.room._id,
-        checkIn: new Date(booking.checkIn),
-        checkOut: new Date(booking.checkOut),
-        guest: { 
-          firstName: booking.guest.firstName || '',
-          lastName: booking.guest.lastName || '',
-          phone: booking.guest.phone || '',
-          email: booking.guest.email || ''
-        },
-        creditCard: {
-          // טיפול מדויק בשדות כרטיס אשראי
-          cardNumber: booking.creditCard && booking.creditCard.cardNumber ? booking.creditCard.cardNumber : '',
-          expiryDate: booking.creditCard && booking.creditCard.expiryDate ? booking.creditCard.expiryDate : '',
-          cvv: booking.creditCard && booking.creditCard.cvv ? booking.creditCard.cvv : '',
-          cardholderName: booking.creditCard && booking.creditCard.cardholderName ? booking.creditCard.cardholderName : ''
-        },
-        isTourist: booking.isTourist,
-        notes: booking.notes || '',
-        status: booking.status,
-        basePrice: booking.basePrice,
-        totalPrice: booking.totalPrice
-      });
-      setSelectedBooking(booking);
+      // במקום לפתוח ישירות את החלון, קוראים לפונקציה שמביאה את הפרטים מהשרת
+      fetchBookingDetails(booking._id);
     } else {
       // הזמנה חדשה
       setFormData({
@@ -530,61 +505,56 @@ const BookingsNewPage = () => {
     window.open(`https://wa.me/${formattedNumber}`, '_blank');
   };
   
-  // פונקציה לבדיקת נתוני ההזמנה מהשרת
+  // פונקציה חדשה לטעינת פרטי הזמנה מהשרת
   const fetchBookingDetails = async (bookingId) => {
     try {
-      console.log("Fetching booking details for id:", bookingId);
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings/${bookingId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+      console.log("Fetching booking details for ID:", bookingId);
+      
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/bookings/${bookingId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
         }
+      );
+      
+      const booking = response.data.data;
+      console.log("Fetched booking details:", booking);
+      console.log("Credit Card Details from API:", booking.creditCard);
+      
+      // כעת מגדירים את הטופס עם הנתונים המלאים מהשרת
+      setFormData({
+        roomId: booking.room._id,
+        checkIn: new Date(booking.checkIn),
+        checkOut: new Date(booking.checkOut),
+        guest: { 
+          firstName: booking.guest.firstName || '',
+          lastName: booking.guest.lastName || '',
+          phone: booking.guest.phone || '',
+          email: booking.guest.email || ''
+        },
+        creditCard: {
+          // טיפול מדויק בשדות כרטיס אשראי
+          cardNumber: booking.creditCard?.cardNumber || '',
+          expiryDate: booking.creditCard?.expiryDate || '',
+          cvv: booking.creditCard?.cvv || '',
+          cardholderName: booking.creditCard?.cardholderName || ''
+        },
+        isTourist: booking.isTourist || false,
+        notes: booking.notes || '',
+        status: booking.status || 'confirmed',
+        basePrice: booking.basePrice || 0,
+        totalPrice: booking.totalPrice || 0
       });
       
-      console.log("Fetched booking details response:", response);
-      console.log("Raw booking data:", response.data.data);
-      console.log("Credit Card details received:", response.data.data.creditCard);
-      
-      // אם אין פרטי כרטיס אשראי או שהם חסרים
-      if (!response.data.data.creditCard) {
-        console.warn("No credit card data found in booking");
-      }
-      
-      if (response.data.data.creditCard) {
-        const { cardNumber, expiryDate, cvv, cardholderName } = response.data.data.creditCard;
-        console.log("Credit card fields:", { cardNumber, expiryDate, cvv, cardholderName });
-        
-        // בדיקה אם כל שדות הכרטיס קיימים
-        if (!cardNumber && !expiryDate && !cvv && !cardholderName) {
-          console.warn("Credit card object exists but all fields are empty!");
-        }
-      }
-      
-      return response.data.data;
+      setSelectedBooking(booking);
     } catch (error) {
-      console.error('שגיאה בטעינת פרטי ההזמנה:', error);
-      setError('שגיאה בטעינת פרטי ההזמנה');
-      return null;
-    }
-  };
-
-  // עדכון הפונקציה שפותחת את הדיאלוג
-  const handleOpenEditDialog = async (booking) => {
-    console.log("Opening edit dialog for booking:", booking);
-    
-    if (booking) {
-      // שליפת פרטי הזמנה עדכניים מהשרת
-      console.log("Will refresh booking data for ID:", booking._id);
-      const refreshedBooking = await fetchBookingDetails(booking._id);
+      console.error("שגיאה בטעינת פרטי ההזמנה:", error);
+      alert(`שגיאה בטעינת פרטי ההזמנה: ${error.response?.data?.message || error.message}`);
       
-      if (refreshedBooking) {
-        console.log("Using refreshed booking data");
-        handleOpenDialog(refreshedBooking);
-      } else {
-        console.log("Using original booking data");
-        handleOpenDialog(booking);
-      }
-    } else {
-      handleOpenDialog(null);
+      // במקרה של שגיאה, סוגרים את החלון
+      setOpenDialog(false);
     }
   };
   
@@ -806,31 +776,35 @@ const BookingsNewPage = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Tooltip title="ערוך">
-                              <IconButton 
-                                color="primary" 
-                                size="small"
-                                onClick={() => handleOpenEditDialog(booking)}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            
-                            <Tooltip title="בטל">
-                              <IconButton
-                                color="error"
-                                size="small"
-                                onClick={() => {
-                                  setSelectedBooking(booking);
-                                  setOpenDeleteDialog(true);
-                                }}
-                                disabled={booking.status === 'canceled'}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
+                          <Stack direction="row" spacing={1}>
+                            <IconButton 
+                              color="primary" 
+                              size="small"
+                              onClick={() => handleOpenDialog(booking)}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton 
+                              color="error" 
+                              size="small"
+                              onClick={() => {
+                                setSelectedBooking(booking);
+                                setOpenDeleteDialog(true);
+                              }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton 
+                              color="info" 
+                              size="small"
+                              onClick={() => {
+                                setSelectedBooking(booking);
+                                setOpenPaymentDialog(true);
+                              }}
+                            >
+                              <PaymentsIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     ))

@@ -402,6 +402,7 @@ exports.getBookings = async (req, res) => {
     // ביצוע השאילתה עם יחס
     const bookings = await Booking.find(query)
       .populate('room', 'roomNumber type basePrice')
+      .select('+creditCard')
       .sort(sort)
       .skip(skip)
       .limit(parseInt(limit));
@@ -431,7 +432,8 @@ exports.getBookings = async (req, res) => {
 exports.getBookingById = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
-      .populate('room', 'roomNumber type basePrice');
+      .populate('room', 'roomNumber type basePrice')
+      .select('+creditCard');
     
     if (!booking) {
       return res.status(404).json({
@@ -439,6 +441,9 @@ exports.getBookingById = async (req, res) => {
         message: 'ההזמנה לא נמצאה'
       });
     }
+    
+    // בדיקה האם פרטי כרטיס האשראי קיימים בתשובה
+    console.log('Credit card details in response:', booking.creditCard);
     
     res.json({
       success: true,
@@ -834,6 +839,7 @@ exports.getBookingsStats = async (req, res) => {
 exports.getRoomBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({ room: req.params.roomId })
+      .select('+creditCard')
       .sort({ checkIn: 1 });
     
     res.json({

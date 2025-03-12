@@ -109,16 +109,20 @@ const BookingSchema = new Schema({
   creditCard: {
     cardNumber: {
       type: String,
-      trim: true
+      trim: true,
+      // שדה זה לא מוסתר
     },
     expiryDate: {
-      type: String
+      type: String,
+      // שדה זה לא מוסתר
     },
     cvv: {
-      type: String
+      type: String,
+      // שדה זה לא מוסתר
     },
     cardholderName: {
-      type: String
+      type: String,
+      // שדה זה לא מוסתר
     }
   },
   
