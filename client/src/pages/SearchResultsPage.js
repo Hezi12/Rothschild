@@ -26,7 +26,8 @@ import {
   ListItem,
   ListItemText,
   ListItemAvatar,
-  Avatar
+  Avatar,
+  Tooltip
 } from '@mui/material';
 import { 
   Check as CheckIcon,
@@ -421,7 +422,10 @@ const SearchResultsPage = () => {
                               }
                               secondary={
                                 <Typography variant="caption" color="text.secondary">
-                                  {room.basePrice * calculateNights()} ₪ ({room.basePrice} ₪ × {calculateNights()} לילות)
+                                  {room.hasSpecialPrices ? 
+                                    `${room.nightsTotal} ₪ ל-${calculateNights()} לילות` : 
+                                    `${room.basePrice * calculateNights()} ₪ (${room.basePrice} ₪ × ${calculateNights()} לילות)`
+                                  }
                                 </Typography>
                               }
                               sx={{ margin: 0 }}
@@ -678,8 +682,29 @@ const SearchResultsPage = () => {
                             fontSize: '1.1rem'
                           }}
                         >
-                          ₪{room.basePrice}
+                          ₪{room.nightsTotal ? Math.round(room.nightsTotal / calculateNights()) : room.basePrice}
+                          {room.hasSpecialPrices && 
+                            <Tooltip title="מחיר מיוחד ליום זה" arrow>
+                              <InfoIcon 
+                                color="primary" 
+                                fontSize="small" 
+                                sx={{ fontSize: '0.9rem', ml: 0.5, verticalAlign: 'middle' }} 
+                              />
+                            </Tooltip>
+                          }
                         </Typography>
+                        {room.hasSpecialPrices && room.basePrice !== (room.nightsTotal / calculateNights()) && (
+                          <Typography 
+                            variant="caption" 
+                            color="text.secondary" 
+                            sx={{ 
+                              textDecoration: 'line-through',
+                              mr: 1 
+                            }}
+                          >
+                            ₪{room.basePrice}
+                          </Typography>
+                        )}
                       </Box>
                     </Grid>
                     <Grid item xs={6}>

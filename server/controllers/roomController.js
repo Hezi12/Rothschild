@@ -288,6 +288,45 @@ exports.checkAvailability = async (req, res) => {
         totalPrice: Math.round(totalPrice * 100) / 100
       };
     };
+
+    // פונקציה לחישוב מחיר לפי ימי שבוע ומחירים מיוחדים
+    const calculatePriceWithSpecialPrices = (room, checkInDate, nights) => {
+      let totalNightsPrice = 0;
+      let hasSpecialPrices = false;
+      
+      // בדיקה אם יש מחירים מיוחדים לפי ימי שבוע
+      if (room.specialPrices && room.specialPrices.size > 0) {
+        console.log('נמצאו מחירים מיוחדים לחדר:', Object.fromEntries(room.specialPrices));
+        
+        // חישוב מחיר לכל לילה בנפרד לפי היום בשבוע
+        const currentDate = new Date(checkInDate);
+        for (let i = 0; i < nights; i++) {
+          const dayOfWeek = currentDate.getDay(); // 0 = ראשון, 6 = שבת
+          const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+          const dayName = dayNames[dayOfWeek];
+          
+          // בדיקה אם יש מחיר מיוחד ליום זה
+          if (room.specialPrices.has(dayName)) {
+            const specialPrice = room.specialPrices.get(dayName);
+            console.log(`מחיר מיוחד ליום ${dayName} (${i+1}/${nights}): ${specialPrice}₪`);
+            totalNightsPrice += specialPrice;
+            hasSpecialPrices = true;
+          } else {
+            console.log(`מחיר רגיל ליום ${dayName} (${i+1}/${nights}): ${room.basePrice}₪`);
+            totalNightsPrice += room.basePrice;
+          }
+          
+          // קידום היום ב-24 שעות
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      } else {
+        // אם אין מחירים מיוחדים, השתמש במחיר הבסיסי כפול מספר הלילות
+        console.log('לא נמצאו מחירים מיוחדים, משתמש במחיר בסיס:', room.basePrice);
+        totalNightsPrice = room.basePrice * nights;
+      }
+      
+      return { totalNightsPrice, hasSpecialPrices };
+    };
     
     // אם סופק חדר ספציפי לבדיקה
     if (roomId) {
@@ -327,40 +366,10 @@ exports.checkAvailability = async (req, res) => {
         });
       }
       
-      // אם אין הזמנות חופפות, החדר זמין
-      // חישוב מחיר (כולל/לא כולל מע"מ בהתאם למעמד התייר)
-      let totalNightsPrice = 0;
+      // חישוב מחיר עם מחירים מיוחדים
+      const { totalNightsPrice, hasSpecialPrices } = calculatePriceWithSpecialPrices(room, checkInDate, nights);
       
-      // בדיקה אם יש מחירים מיוחדים לפי ימי שבוע
-      if (room.specialPrices && room.specialPrices.size > 0) {
-        console.log('נמצאו מחירים מיוחדים לחדר:', Object.fromEntries(room.specialPrices));
-        
-        // חישוב מחיר לכל לילה בנפרד לפי היום בשבוע
-        const currentDate = new Date(checkInDate);
-        for (let i = 0; i < nights; i++) {
-          const dayOfWeek = currentDate.getDay(); // 0 = ראשון, 6 = שבת
-          const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-          const dayName = dayNames[dayOfWeek];
-          
-          // בדיקה אם יש מחיר מיוחד ליום זה
-          if (room.specialPrices.has(dayName)) {
-            const specialPrice = room.specialPrices.get(dayName);
-            console.log(`מחיר מיוחד ליום ${dayName} (${i+1}/${nights}): ${specialPrice}₪`);
-            totalNightsPrice += specialPrice;
-          } else {
-            console.log(`מחיר רגיל ליום ${dayName} (${i+1}/${nights}): ${room.basePrice}₪`);
-            totalNightsPrice += room.basePrice;
-          }
-          
-          // קידום היום ב-24 שעות
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-      } else {
-        // אם אין מחירים מיוחדים, השתמש במחיר הבסיסי כפול מספר הלילות
-        console.log('לא נמצאו מחירים מיוחדים, משתמש במחיר בסיס:', room.basePrice);
-        totalNightsPrice = room.basePrice * nights;
-      }
-      
+      // חישוב מחיר סופי עם מע"מ
       const priceDetails = calculateVatAndTotalPrice(totalNightsPrice, isTourist);
       
       return res.json({
@@ -376,29 +385,25 @@ exports.checkAvailability = async (req, res) => {
         nights,
         basePrice: room.basePrice,
         nightsTotal: totalNightsPrice,
-        hasSpecialPrices: room.specialPrices && room.specialPrices.size > 0,
+        hasSpecialPrices: hasSpecialPrices,
         vatRate: priceDetails.vatRate,
         vatAmount: priceDetails.vatAmount,
-        totalPrice: priceDetails.totalPrice,
-        isTourist
+        totalPrice: priceDetails.totalPrice
       });
     } else {
-      // אם לא סופק מזהה חדר, בדוק את כל החדרים הזמינים
-      const allRooms = await Room.find({ isActive: true });
+      // אם לא סופק חדר ספציפי, בדוק את כל החדרים הזמינים
+      const rooms = await Room.find({ isActive: true });
+      
+      // בדיקת זמינות כל החדרים
       const availableRooms = [];
-
-      // בדיקה עבור כל חדר
-      for (const room of allRooms) {
-        // תנאי סינון נוספים - לפי כמות מקס של אורחים
-        if (guests && room.maxOccupancy < guests) {
-          continue; // דלג על חדרים שלא תואמים למספר האורחים
-        }
-
-        // בדיקה אם יש הזמנות חופפות לחדר
+      
+      for (const room of rooms) {
+        // בדיקה אם החדר פנוי
         const overlappingBookings = await Booking.find({
           room: room._id,
           status: { $ne: 'canceled' },
           $or: [
+            // צ'ק-אין בתוך תקופת הזמנה קיימת
             { 
               checkIn: { $lt: checkOutDate },
               checkOut: { $gt: checkInDate }
@@ -408,13 +413,34 @@ exports.checkAvailability = async (req, res) => {
         
         // אם אין הזמנות חופפות, החדר זמין
         if (overlappingBookings.length === 0) {
-          availableRooms.push(room);
+          // חישוב מחיר עם מחירים מיוחדים
+          const { totalNightsPrice, hasSpecialPrices } = calculatePriceWithSpecialPrices(room, checkInDate, nights);
+          
+          // חישוב מחיר סופי עם מע"מ
+          const priceDetails = calculateVatAndTotalPrice(totalNightsPrice, isTourist);
+          
+          // הוספת החדר לרשימת החדרים הזמינים
+          availableRooms.push({
+            _id: room._id,
+            roomNumber: room.roomNumber,
+            type: room.type,
+            name: room.name,
+            description: room.description,
+            basePrice: room.basePrice,
+            amenities: room.amenities,
+            images: room.images,
+            maxGuests: room.maxOccupancy,
+            hasSpecialPrices: hasSpecialPrices,
+            nightsTotal: totalNightsPrice,
+            vatRate: priceDetails.vatRate,
+            vatAmount: priceDetails.vatAmount,
+            totalPrice: priceDetails.totalPrice
+          });
         }
       }
       
       return res.json({
         success: true,
-        count: availableRooms.length,
         data: availableRooms
       });
     }
@@ -422,7 +448,7 @@ exports.checkAvailability = async (req, res) => {
     console.error('שגיאה בבדיקת זמינות:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'שגיאת שרת' 
+      message: 'שגיאת שרת'
     });
   }
 };
