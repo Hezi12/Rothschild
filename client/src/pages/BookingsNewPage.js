@@ -175,8 +175,14 @@ const BookingsNewPage = () => {
   
   // פונקציות לניהול טפסים
   const handleOpenDialog = (booking = null) => {
+    console.log("Opening dialog with booking:", booking);
+    
     if (booking) {
-      // עריכת הזמנה קיימת
+      // בדיקת פרטי הזמנה בלוגים
+      console.log("Credit Card Details:", booking.creditCard);
+      console.log("Full booking object:", JSON.stringify(booking));
+      
+      // עריכת הזמנה קיימת - הגדרה מפורשת של כל השדות עם ערכי ברירת מחדל ברורים
       setFormData({
         roomId: booking.room._id,
         checkIn: new Date(booking.checkIn),
@@ -188,10 +194,11 @@ const BookingsNewPage = () => {
           email: booking.guest.email || ''
         },
         creditCard: {
-          cardNumber: booking.creditCard ? booking.creditCard.cardNumber || '' : '',
-          expiryDate: booking.creditCard ? booking.creditCard.expiryDate || '' : '',
-          cvv: booking.creditCard ? booking.creditCard.cvv || '' : '',
-          cardholderName: booking.creditCard ? booking.creditCard.cardholderName || '' : ''
+          // טיפול מדויק בשדות כרטיס אשראי
+          cardNumber: booking.creditCard && booking.creditCard.cardNumber ? booking.creditCard.cardNumber : '',
+          expiryDate: booking.creditCard && booking.creditCard.expiryDate ? booking.creditCard.expiryDate : '',
+          cvv: booking.creditCard && booking.creditCard.cvv ? booking.creditCard.cvv : '',
+          cardholderName: booking.creditCard && booking.creditCard.cardholderName ? booking.creditCard.cardholderName : ''
         },
         isTourist: booking.isTourist,
         notes: booking.notes || '',
@@ -526,19 +533,30 @@ const BookingsNewPage = () => {
   // פונקציה לבדיקת נתוני ההזמנה מהשרת
   const fetchBookingDetails = async (bookingId) => {
     try {
-      console.log("fetching booking details for id:", bookingId);
+      console.log("Fetching booking details for id:", bookingId);
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings/${bookingId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
       
-      console.log("Fetched booking details:", response.data.data);
+      console.log("Fetched booking details response:", response);
+      console.log("Raw booking data:", response.data.data);
       console.log("Credit Card details received:", response.data.data.creditCard);
       
-      // וידוא שנתוני כרטיס האשראי קיימים
+      // אם אין פרטי כרטיס אשראי או שהם חסרים
       if (!response.data.data.creditCard) {
         console.warn("No credit card data found in booking");
+      }
+      
+      if (response.data.data.creditCard) {
+        const { cardNumber, expiryDate, cvv, cardholderName } = response.data.data.creditCard;
+        console.log("Credit card fields:", { cardNumber, expiryDate, cvv, cardholderName });
+        
+        // בדיקה אם כל שדות הכרטיס קיימים
+        if (!cardNumber && !expiryDate && !cvv && !cardholderName) {
+          console.warn("Credit card object exists but all fields are empty!");
+        }
       }
       
       return response.data.data;
@@ -555,6 +573,7 @@ const BookingsNewPage = () => {
     
     if (booking) {
       // שליפת פרטי הזמנה עדכניים מהשרת
+      console.log("Will refresh booking data for ID:", booking._id);
       const refreshedBooking = await fetchBookingDetails(booking._id);
       
       if (refreshedBooking) {
