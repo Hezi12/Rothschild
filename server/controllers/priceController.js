@@ -118,6 +118,16 @@ exports.bulkUpdatePrices = async (req, res) => {
   }
 
   const { roomIds, startDate, endDate, price, daysOfWeek, specialPrices } = req.body;
+  
+  // לוג מפורט של הנתונים שהתקבלו
+  console.log('bulkUpdatePrices נתונים שהתקבלו:', {
+    roomIds,
+    startDate,
+    endDate,
+    price,
+    daysOfWeek,
+    specialPrices: JSON.stringify(specialPrices)
+  });
 
   try {
     // וידוא שהפרמטרים תקינים
@@ -156,6 +166,14 @@ exports.bulkUpdatePrices = async (req, res) => {
       });
     }
 
+    // וידוא שה-specialPrices קיים ותקין
+    if (!specialPrices || typeof specialPrices !== 'object') {
+      return res.status(400).json({
+        success: false,
+        message: 'פורמט מחירים מיוחדים לא תקין'
+      });
+    }
+
     // מערך תוצאות לשמירת כל המחירים שעודכנו
     const updatedPrices = [];
 
@@ -181,8 +199,12 @@ exports.bulkUpdatePrices = async (req, res) => {
           let currentPrice = price;
           
           // אם ניתנו מחירים ספציפיים לימים, השתמש בהם
-          if (specialPrices && specialPrices[dayOfWeek] !== undefined) {
-            currentPrice = specialPrices[dayOfWeek];
+          // המפתח יכול להיות מחרוזת או מספר
+          const dayKey = dayOfWeek.toString();
+          
+          if (specialPrices && (specialPrices[dayOfWeek] !== undefined || specialPrices[dayKey] !== undefined)) {
+            currentPrice = specialPrices[dayOfWeek] !== undefined ? specialPrices[dayOfWeek] : specialPrices[dayKey];
+            console.log(`יום ${dayOfWeek}, מחיר מיוחד: ${currentPrice}`);
           }
           
           // וידוא שהמחיר הוא מספר חיובי
@@ -197,6 +219,8 @@ exports.bulkUpdatePrices = async (req, res) => {
             
             await dynamicPrice.save();
             updatedPrices.push(dynamicPrice);
+          } else {
+            console.log(`דילוג על יום ${dayOfWeek} כי המחיר אינו תקין: ${currentPrice}`);
           }
         }
         
@@ -214,7 +238,7 @@ exports.bulkUpdatePrices = async (req, res) => {
     console.error('שגיאה בעדכון גורף של מחירים:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'שגיאת שרת' 
+      message: `שגיאת שרת: ${error.message}` 
     });
   }
 };
