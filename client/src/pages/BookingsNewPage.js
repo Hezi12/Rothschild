@@ -177,7 +177,7 @@ const BookingsNewPage = () => {
   
   // פונקציות לניהול טפסים
   const handleOpenDialog = (booking = null) => {
-    console.log("Opening dialog with booking:", booking);
+    console.log("פותח חלון עם הזמנה:", booking);
     
     if (booking) {
       // במקום לפתוח ישירות את החלון, קוראים לפונקציה שמביאה את הפרטים מהשרת
@@ -207,8 +207,8 @@ const BookingsNewPage = () => {
         totalPrice: 0
       });
       setSelectedBooking(null);
+      setOpenDialog(true);
     }
-    setOpenDialog(true);
   };
   
   const handleCloseDialog = () => {
@@ -508,7 +508,7 @@ const BookingsNewPage = () => {
   // פונקציה חדשה לטעינת פרטי הזמנה מהשרת
   const fetchBookingDetails = async (bookingId) => {
     try {
-      console.log("Fetching booking details for ID:", bookingId);
+      console.log("מביא פרטי הזמנה עבור מזהה:", bookingId);
       
       const response = await axios.get(
         `${process.env.REACT_APP_API_URL}/bookings/${bookingId}`,
@@ -520,36 +520,54 @@ const BookingsNewPage = () => {
       );
       
       const booking = response.data.data;
-      console.log("Fetched booking details (full object):", JSON.stringify(booking));
+      console.log("פרטי הזמנה מהשרת (אובייקט מלא):", booking);
       
       // בדיקה מעמיקה של שדה כרטיס האשראי
-      console.log("Credit Card value:", booking.creditCard);
-      console.log("Credit Card type:", typeof booking.creditCard);
-      console.log("Credit Card fields:", booking.creditCard ? Object.keys(booking.creditCard) : "no fields");
+      console.log("מידע על כרטיס אשראי:", {
+        value: booking.creditCard,
+        type: typeof booking.creditCard,
+        exists: !!booking.creditCard,
+        isObject: booking.creditCard && typeof booking.creditCard === 'object',
+        keys: booking.creditCard ? Object.keys(booking.creditCard) : [],
+        hasCardNumber: booking.creditCard && booking.creditCard.cardNumber,
+        fields: {
+          cardNumber: booking.creditCard?.cardNumber,
+          expiryDate: booking.creditCard?.expiryDate,
+          cvv: booking.creditCard?.cvv,
+          cardholderName: booking.creditCard?.cardholderName
+        }
+      });
       
-      // אם אין שדה כרטיס אשראי, נדווח על כך
-      if (!booking.creditCard) {
-        console.error("האובייקט 'booking' לא כולל את השדה 'creditCard'");
-        alert("שגיאה: חסרים פרטי כרטיס אשראי בהזמנה. יש ליצור הזמנה חדשה עם פרטי כרטיס אשראי.");
+      // יצירת אובייקט כרטיס אשראי אם הוא לא קיים
+      const creditCard = booking.creditCard || {
+        cardNumber: '',
+        expiryDate: '',
+        cvv: '',
+        cardholderName: ''
+      };
+      
+      if (!booking.creditCard || Object.keys(booking.creditCard).length === 0) {
+        console.warn("חסרים פרטי כרטיס אשראי בהזמנה");
+        alert("שים לב: לא קיימים פרטי כרטיס אשראי להזמנה זו. אנא הוסף אותם.");
       }
       
       // כעת מגדירים את הטופס עם הנתונים המלאים מהשרת
       setFormData({
-        roomId: booking.room._id,
-        checkIn: new Date(booking.checkIn),
-        checkOut: new Date(booking.checkOut),
+        roomId: booking.room?._id || '',
+        checkIn: booking.checkIn ? new Date(booking.checkIn) : null,
+        checkOut: booking.checkOut ? new Date(booking.checkOut) : null,
         guest: { 
-          firstName: booking.guest.firstName || '',
-          lastName: booking.guest.lastName || '',
-          phone: booking.guest.phone || '',
-          email: booking.guest.email || ''
+          firstName: booking.guest?.firstName || '',
+          lastName: booking.guest?.lastName || '',
+          phone: booking.guest?.phone || '',
+          email: booking.guest?.email || ''
         },
         creditCard: {
           // טיפול מדויק בשדות כרטיס אשראי
-          cardNumber: booking.creditCard?.cardNumber || '',
-          expiryDate: booking.creditCard?.expiryDate || '',
-          cvv: booking.creditCard?.cvv || '',
-          cardholderName: booking.creditCard?.cardholderName || ''
+          cardNumber: creditCard.cardNumber || '',
+          expiryDate: creditCard.expiryDate || '',
+          cvv: creditCard.cvv || '',
+          cardholderName: creditCard.cardholderName || ''
         },
         isTourist: booking.isTourist || false,
         notes: booking.notes || '',
@@ -559,12 +577,12 @@ const BookingsNewPage = () => {
       });
       
       setSelectedBooking(booking);
+      
+      // פתיחת החלון רק לאחר שהנתונים נטענו
+      setOpenDialog(true);
     } catch (error) {
       console.error("שגיאה בטעינת פרטי ההזמנה:", error);
       alert(`שגיאה בטעינת פרטי ההזמנה: ${error.response?.data?.message || error.message}`);
-      
-      // במקרה של שגיאה, סוגרים את החלון
-      setOpenDialog(false);
     }
   };
   

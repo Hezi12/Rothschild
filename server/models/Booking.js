@@ -9,6 +9,27 @@ const Schema = mongoose.Schema;
  * 3. מבנה הגיוני יותר של שדות
  */
 
+// סכמה ייעודית לפרטי כרטיס אשראי
+const CreditCardSchema = new Schema({
+  cardNumber: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  expiryDate: {
+    type: String,
+    default: ''
+  },
+  cvv: {
+    type: String,
+    default: ''
+  },
+  cardholderName: {
+    type: String,
+    default: ''
+  }
+}, { _id: false }); // מניעת יצירת ID עצמאי
+
 const BookingSchema = new Schema({
   // מידע בסיסי
   bookingNumber: {
@@ -105,25 +126,10 @@ const BookingSchema = new Schema({
     notes: String
   },
   
-  // פרטי כרטיס אשראי
+  // פרטי כרטיס אשראי - חשוב: שימוש בסכמה נפרדת עם ערכי ברירת מחדל
   creditCard: {
-    cardNumber: {
-      type: String,
-      trim: true,
-      // שדה זה לא מוסתר
-    },
-    expiryDate: {
-      type: String,
-      // שדה זה לא מוסתר
-    },
-    cvv: {
-      type: String,
-      // שדה זה לא מוסתר
-    },
-    cardholderName: {
-      type: String,
-      // שדה זה לא מוסתר
-    }
+    type: CreditCardSchema,
+    default: () => ({}) // יצירת אובייקט ריק כברירת מחדל
   },
   
   // מידע נוסף
@@ -182,6 +188,11 @@ BookingSchema.pre('save', function(next) {
   // בדיקה שצ'ק-אאוט אחרי צ'ק-אין
   if (this.checkOut <= this.checkIn) {
     return next(new Error('תאריך צ\'ק-אאוט חייב להיות לאחר תאריך צ\'ק-אין'));
+  }
+  
+  // וידוא שפרטי כרטיס אשראי לא יהיו undefined
+  if (!this.creditCard) {
+    this.creditCard = {};
   }
   
   next();
