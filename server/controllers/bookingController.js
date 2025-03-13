@@ -716,6 +716,35 @@ exports.deleteBooking = async (req, res) => {
   }
 };
 
+// מחיקה מוחלטת של הזמנה
+exports.hardDeleteBooking = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    
+    // מחיקה מוחלטת של ההזמנה מהמסד נתונים
+    const deletedBooking = await Booking.findByIdAndDelete(bookingId);
+    
+    if (!deletedBooking) {
+      return res.status(404).json({
+        success: false,
+        message: 'ההזמנה לא נמצאה'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'ההזמנה נמחקה לצמיתות בהצלחה'
+    });
+  } catch (error) {
+    console.error('שגיאה במחיקת ההזמנה לצמיתות:', error);
+    res.status(500).json({
+      success: false,
+      message: 'אירעה שגיאה במחיקת ההזמנה לצמיתות',
+      error: error.message
+    });
+  }
+};
+
 // עדכון סטטוס תשלום
 exports.updatePaymentStatus = async (req, res) => {
   try {

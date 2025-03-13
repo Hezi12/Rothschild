@@ -28,6 +28,11 @@ router
   .route('/:id/payment-status')
   .put(protect, bookingController.updatePaymentStatus);
 
+// מחיקה מוחלטת של הזמנה
+router
+  .route('/:id/hard-delete')
+  .delete(protect, admin, bookingController.hardDeleteBooking);
+
 // סטטיסטיקות
 router
   .route('/stats')

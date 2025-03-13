@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -33,7 +33,8 @@ import {
   InputAdornment,
   FormControlLabel,
   Checkbox,
-  Stack
+  Stack,
+  Link
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -45,14 +46,19 @@ import {
   Cancel as CancelIcon,
   Event as EventIcon,
   WhatsApp as WhatsAppIcon,
-  Payments as PaymentsIcon
+  Payments as PaymentsIcon,
+  Launch as LaunchIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { AuthContext } from '../context/AuthContext';
 
 // מסך ניהול הזמנות חדש ומשופר
 const BookingsNewPage = () => {
+  // הקשר אימות
+  const { isAdmin } = useContext(AuthContext);
+  
   // סטייטים
   const [bookings, setBookings] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -61,6 +67,7 @@ const BookingsNewPage = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
+  const [openHardDeleteDialog, setOpenHardDeleteDialog] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [formData, setFormData] = useState({
     roomId: '',
@@ -436,6 +443,27 @@ const BookingsNewPage = () => {
       console.error('שגיאה בביטול ההזמנה:', error);
       setError(error.response?.data?.message || 'שגיאה בביטול ההזמנה');
       alert(`שגיאה: ${error.response?.data?.message || 'שגיאה בביטול ההזמנה'}`);
+    }
+  };
+  
+  const handleHardDeleteBooking = async () => {
+    if (!selectedBooking) return;
+    
+    try {
+      await axios.delete(`${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}/hard-delete`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      setOpenHardDeleteDialog(false);
+      setSelectedBooking(null);
+      fetchBookings(); // רענון הזמנות
+      alert('ההזמנה נמחקה לצמיתות בהצלחה');
+    } catch (error) {
+      console.error('שגיאה במחיקת ההזמנה לצמיתות:', error);
+      setError(error.response?.data?.message || 'שגיאה במחיקת ההזמנה לצמיתות');
+      alert(`שגיאה: ${error.response?.data?.message || 'שגיאה במחיקת ההזמנה לצמיתות'}`);
     }
   };
   
@@ -850,6 +878,20 @@ const BookingsNewPage = () => {
                             >
                               <PaymentsIcon fontSize="small" />
                             </IconButton>
+                            {isAdmin() && (
+                              <Tooltip title="מחיקה לצמיתות">
+                                <IconButton 
+                                  color="secondary" 
+                                  size="small"
+                                  onClick={() => {
+                                    setSelectedBooking(booking);
+                                    setOpenHardDeleteDialog(true);
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" sx={{ color: 'red' }} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
                           </Stack>
                         </TableCell>
                       </TableRow>
@@ -1072,9 +1114,23 @@ const BookingsNewPage = () => {
               
               {/* חלק 3: פרטי כרטיס אשראי */}
               <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5, fontWeight: 'bold' }}>
-                  פרטי כרטיס אשראי
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5, fontWeight: 'bold' }}>
+                    פרטי כרטיס אשראי
+                  </Typography>
+                  <Tooltip title="מערכת ניהול כרטיסי אשראי CreditGuard">
+                    <IconButton 
+                      color="primary" 
+                      size="small" 
+                      component={Link} 
+                      href="https://console.creditguard.co.il/html/mainFrames.html" 
+                      target="_blank"
+                      sx={{ ml: 1, mt: 0.5 }}
+                    >
+                      <LaunchIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
                 <Divider sx={{ mb: 1 }} />
               </Grid>
               
@@ -1212,6 +1268,36 @@ const BookingsNewPage = () => {
           <DialogActions>
             <Button onClick={() => setOpenPaymentDialog(false)} color="inherit">
               סגור
+            </Button>
+          </DialogActions>
+        </Dialog>
+        
+        {/* דיאלוג מחיקה לצמיתות */}
+        <Dialog open={openHardDeleteDialog} onClose={() => setOpenHardDeleteDialog(false)}>
+          <DialogTitle sx={{ bgcolor: 'error.main', color: 'white' }}>
+            מחיקה לצמיתות
+          </DialogTitle>
+          <DialogContent>
+            <Typography sx={{ mt: 2, mb: 1 }}>
+              <strong>אזהרה חמורה!</strong>
+            </Typography>
+            <Typography>
+              האם אתה בטוח שברצונך למחוק לצמיתות את ההזמנה {selectedBooking?.bookingNumber}?
+            </Typography>
+            <Typography sx={{ mt: 2, color: 'error.main' }}>
+              פעולה זו תמחק את ההזמנה באופן מוחלט מהמערכת ואינה ניתנת לשחזור!
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenHardDeleteDialog(false)} color="inherit">
+              ביטול
+            </Button>
+            <Button
+              onClick={handleHardDeleteBooking}
+              variant="contained"
+              color="error"
+            >
+              מחק לצמיתות
             </Button>
           </DialogActions>
         </Dialog>

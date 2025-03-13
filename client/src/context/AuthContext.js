@@ -14,6 +14,18 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // טעינת נתוני משתמש מ-localStorage
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+    } catch (error) {
+      console.error('שגיאה בטעינת נתוני משתמש מ-localStorage:', error);
+    }
+  }, []);
+
   // הגדרת טוקן בכותרות הבקשה
   useEffect(() => {
     if (token) {
@@ -67,8 +79,9 @@ export const AuthProvider = ({ children }) => {
       
       const { token, user } = response.data;
       
-      // שמירת הטוקן ב-localStorage
+      // שמירת הטוקן ופרטי המשתמש ב-localStorage
       localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
       setToken(token);
       setUser(user);
       
@@ -85,6 +98,7 @@ export const AuthProvider = ({ children }) => {
   // התנתקות
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setToken(null);
     setUser(null);
   };
