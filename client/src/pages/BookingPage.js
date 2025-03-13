@@ -1169,9 +1169,24 @@ const BookingPage = () => {
                   borderLeft: `2px solid ${alpha(theme.palette.primary.main, 0.3)}` 
                 }}
               >
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  <b>חדר:</b> {typeToDisplayName[room.type] || room.type}
-                </Typography>
+                {bookingData.selectedRooms && bookingData.selectedRooms.length > 1 ? (
+                  <>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                      נבחרו {bookingData.selectedRooms.length} חדרים:
+                    </Typography>
+                    {availableRooms.map((roomItem, index) => (
+                      <Box key={roomItem._id} sx={{ mb: 1, pl: 1 }}>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}>
+                          <b>חדר {index + 1}:</b> {typeToDisplayName[roomItem.type] || roomItem.type}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </>
+                ) : (
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    <b>חדר:</b> {typeToDisplayName[room.type] || room.type}
+                  </Typography>
+                )}
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                   <b>צ'ק-אין:</b> {bookingData.checkIn instanceof Date && !isNaN(bookingData.checkIn) 
                     ? bookingData.checkIn.toLocaleDateString('he-IL') 
@@ -1257,7 +1272,21 @@ const BookingPage = () => {
               >
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                   <b>מחיר בסיס:</b> {bookingData.basePrice.toFixed(2)} ₪
+                  {bookingData.selectedRooms && bookingData.selectedRooms.length > 1 ? 
+                    ` (עבור ${bookingData.selectedRooms.length} חדרים)` : ''}
                 </Typography>
+                
+                {bookingData.selectedRooms && bookingData.selectedRooms.length > 1 && availableRooms.length > 0 && (
+                  <Box sx={{ pl: 2, mb: 1, borderLeft: '1px dashed rgba(0,0,0,0.1)' }}>
+                    {availableRooms.map((roomItem, index) => (
+                      <Typography key={roomItem._id} variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                        חדר {index + 1} ({typeToDisplayName[roomItem.type] || roomItem.type}): 
+                        {((roomItem.basePrice || 400) * bookingData.nights).toFixed(2)} ₪
+                      </Typography>
+                    ))}
+                  </Box>
+                )}
+                
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                   <b>מע"מ ({bookingData.isTourist ? 'פטור' : '18%'}):</b> {bookingData.vat.toFixed(2)} ₪
                 </Typography>
@@ -1268,6 +1297,8 @@ const BookingPage = () => {
                   color: theme.palette.primary.main
                 }}>
                   סה"כ לתשלום: {bookingData.totalPrice.toFixed(2)} ₪
+                  {bookingData.selectedRooms && bookingData.selectedRooms.length > 1 ? 
+                    ` (עבור ${bookingData.selectedRooms.length} חדרים)` : ''}
                 </Typography>
                 {bookingData.isTourist && (
                   <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
