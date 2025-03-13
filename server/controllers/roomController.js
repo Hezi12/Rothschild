@@ -450,7 +450,12 @@ exports.createMultiRoomBooking = asyncHandler(async (req, res, next) => {
     paymentMethod,
     creditCard,
     isTourist,
-    totalPrice
+    totalPrice,
+    basePrice,
+    vatAmount,
+    nights,
+    status = 'confirmed',
+    notes
   } = req.body;
   
   // בדיקת תקינות נתונים
@@ -474,26 +479,46 @@ exports.createMultiRoomBooking = asyncHandler(async (req, res, next) => {
       return next(new ErrorResponse(`חדר אחד או יותר אינו זמין בתאריכים שנבחרו`, 400));
     }
     
+    // חישוב מספר לילות אם לא סופק
+    const calculatedNights = nights || Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
+
+    // חישוב מחירים אם לא סופקו
+    const rooms = await Promise.all(roomIds.map(id => Room.findById(id)));
+    const calculatedBasePrice = basePrice || rooms.reduce((sum, room) => sum + (room ? room.basePrice * calculatedNights : 0), 0);
+    const calculatedVatAmount = vatAmount || (isTourist ? 0 : calculatedBasePrice * 0.18);
+    const calculatedTotalPrice = totalPrice || calculatedBasePrice + calculatedVatAmount;
+    
+    // יצירת מספר הזמנה ייחודי
+    const bookingNumber = await require('../controllers/bookingController').generateBookingNumber();
+    
     // יצירת הזמנה מרובת חדרים
     const multiBooking = {
       rooms: roomIds,
-      checkIn,
-      checkOut,
+      isMultiRoomBooking: true,
+      totalRooms: roomIds.length,
+      bookingNumber,
+      checkIn: new Date(checkIn),
+      checkOut: new Date(checkOut),
+      nights: calculatedNights,
       guest,
-      paymentMethod,
+      paymentMethod: paymentMethod || 'credit',
       creditCard,
-      isTourist,
-      totalPrice,
-      status: 'confirmed',
-      bookingDate: new Date(),
-      bookingNumber: `MB-${Date.now().toString().slice(-8)}`
+      isTourist: !!isTourist,
+      basePrice: calculatedBasePrice,
+      vatRate: 18,
+      vatAmount: calculatedVatAmount,
+      totalPrice: calculatedTotalPrice,
+      status: status || 'confirmed',
+      notes: notes || '',
+      bookingDate: new Date()
     };
     
     const booking = await Booking.create(multiBooking);
     
     res.status(201).json({
       success: true,
-      data: booking
+      data: booking,
+      bookingNumber: booking.bookingNumber
     });
   } catch (err) {
     return next(new ErrorResponse(`שגיאה ביצירת הזמנה מרובת חדרים: ${err.message}`, 500));

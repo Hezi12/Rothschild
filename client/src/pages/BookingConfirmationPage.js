@@ -158,9 +158,21 @@ const BookingConfirmationPage = () => {
             </Typography>
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body1">מחיר בסיס:</Typography>
+                <Typography variant="body1">
+                  {bookingInfo.isMultiRoomBooking || bookingInfo.totalRooms > 1 ? 
+                    `מחיר בסיס (${bookingInfo.totalRooms || bookingInfo.rooms?.length || 1} חדרים ל-${bookingInfo.nights} לילות):` : 
+                    `מחיר בסיס (${bookingInfo.nights} לילות):`}
+                </Typography>
                 <Typography variant="body1">₪{bookingInfo.basePrice?.toFixed(2) || 0}</Typography>
               </Box>
+              {(bookingInfo.isMultiRoomBooking || bookingInfo.totalRooms > 1 || bookingInfo.rooms?.length > 1) && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, pl: 2, fontSize: '0.9rem', color: 'text.secondary' }}>
+                  <Typography variant="body2">מחיר ממוצע לחדר:</Typography>
+                  <Typography variant="body2">
+                    ₪{((bookingInfo.basePrice || 0) / (bookingInfo.totalRooms || bookingInfo.rooms?.length || 1)).toFixed(2)}
+                  </Typography>
+                </Box>
+              )}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body1">
                   מע"מ ({bookingInfo.isTourist ? 'פטור' : '18%'}):
@@ -169,9 +181,18 @@ const BookingConfirmationPage = () => {
               </Box>
               <Divider sx={{ my: 1 }} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="h6" color="primary">סה"כ:</Typography>
+                <Typography variant="h6" color="primary">
+                  {bookingInfo.isMultiRoomBooking || bookingInfo.totalRooms > 1 || bookingInfo.rooms?.length > 1 ? 
+                    `סה"כ לתשלום (${bookingInfo.totalRooms || bookingInfo.rooms?.length || 1} חדרים):` : 
+                    'סה"כ לתשלום:'}
+                </Typography>
                 <Typography variant="h6" color="primary">₪{bookingInfo.totalPrice?.toFixed(2) || 0}</Typography>
               </Box>
+              {bookingInfo.isTourist && (
+                <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary' }}>
+                  * פטור ממע"מ לתיירים בהצגת דרכון בצ'ק-אין
+                </Typography>
+              )}
             </Paper>
           </Box>
           

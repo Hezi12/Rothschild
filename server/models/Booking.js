@@ -44,7 +44,33 @@ const BookingSchema = new Schema({
   room: {
     type: Schema.Types.ObjectId,
     ref: 'Room',
-    required: true
+    required: function() {
+      // שדה חובה רק אם אין מספר חדרים
+      return !this.rooms || this.rooms.length === 0;
+    }
+  },
+  // תמיכה בהזמנת מספר חדרים
+  rooms: {
+    type: [{
+      type: Schema.Types.ObjectId,
+      ref: 'Room'
+    }],
+    default: undefined
+  },
+  // האם זוהי הזמנה של מספר חדרים
+  isMultiRoomBooking: {
+    type: Boolean,
+    default: false 
+  },
+  // מספר החדרים המוזמנים
+  totalRooms: {
+    type: Number,
+    default: function() {
+      if (this.rooms && this.rooms.length > 0) {
+        return this.rooms.length;
+      }
+      return 1;
+    }
   },
   status: {
     type: String,

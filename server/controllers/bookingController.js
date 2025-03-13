@@ -37,6 +37,9 @@ const generateBookingNumber = async () => {
   }
 };
 
+// מייצא את הפונקציה לשימוש במודולים אחרים
+exports.generateBookingNumber = generateBookingNumber;
+
 // @desc    פונקציית עזר לבדיקת זמינות חדר
 // @access  Private (helper function)
 const checkRoomAvailability = async (roomId, checkInDate, checkOutDate, excludeBookingId = null) => {
