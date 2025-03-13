@@ -4,6 +4,9 @@ const Room = require('../models/Room');
 const Booking = require('../models/Booking');
 const DynamicPrice = require('../models/DynamicPrice');
 const cloudinary = require('../config/cloudinary');
+const { isAvailable } = require('../utils/availability');
+const asyncHandler = require('../middleware/async');
+const ErrorResponse = require('../utils/errorResponse');
 
 // פונקציה לחישוב מחיר עם מחירים מיוחדים
 const calculatePriceWithSpecialPrices = (room, checkInDate, nights) => {
@@ -312,362 +315,190 @@ exports.deleteRoom = async (req, res) => {
 // @desc    בדיקת זמינות חדר בתאריכים מסוימים
 // @route   POST /api/rooms/check-availability
 // @access  Public
-exports.checkAvailability = async (req, res) => {
+exports.checkAvailability = asyncHandler(async (req, res, next) => {
+  const { roomId, checkIn, checkOut, isTourist } = req.body;
+  
+  // בדיקת תקינות נתונים
+  if (!roomId || !checkIn || !checkOut) {
+    return next(new ErrorResponse('נא לספק את כל הפרטים הנדרשים', 400));
+  }
+  
   try {
-    const { roomId, checkIn, checkOut, guests: guestsParam, rooms: roomsParam, isTourist = false } = req.body;
+    const room = await Room.findById(roomId);
     
-    // וידוא שמספר האורחים הוא מספר ולא מחרוזת
-    const guests = Number(guestsParam) || 1;
+    if (!room) {
+      return next(new ErrorResponse('החדר לא נמצא', 404));
+    }
     
-    // וידוא שמספר החדרים הוא מספר ולא מחרוזת
-    const rooms = Number(roomsParam) || 1;
+    // בדיקת זמינות באמצעות הפונקציה מהשירות
+    const available = await isAvailable(roomId, checkIn, checkOut);
     
-    console.log('בדיקת זמינות:', { roomId, checkIn, checkOut, guests, rooms, isTourist });
-    
-    console.log('סוג של guests:', typeof guests, 'ערך:', guests);
-    
+    // חישוב מספר לילות
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
+    const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
     
-    // חישוב מספר הלילות
-    const nights = Math.round((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+    // חישוב מחירים
+    const basePrice = room.basePrice * nights;
+    const vatAmount = isTourist ? 0 : basePrice * 0.18;
+    const totalPrice = basePrice + vatAmount;
     
-    if (roomId) {
-      // בדיקת זמינות לחדר ספציפי
-      const room = await Room.findById(roomId);
-      
-      if (!room) {
-        return res.status(404).json({
-          success: false,
-          message: 'החדר לא נמצא'
-        });
-      }
-      
-      // בדיקת תפוסה
-      if (guests > room.maxOccupancy) {
-        return res.json({
-          success: true,
-          isAvailable: false,
-          reason: `החדר מתאים לעד ${room.maxOccupancy} אורחים`,
-          room: {
-            id: room._id,
-            roomNumber: room.roomNumber,
-            basePrice: room.basePrice,
-            maxOccupancy: room.maxOccupancy
-          }
-        });
-      }
-      
-      // בדיקה אם יש הזמנות חופפות
-      const overlappingBookings = await Booking.find({
-        room: roomId,
-        status: { $ne: 'canceled' },
-        $or: [
-          // צ'ק-אין בתוך תקופת הזמנה קיימת
-          { 
-            checkIn: { $lt: checkOutDate },
-            checkOut: { $gt: checkInDate }
-          }
-        ]
-      });
-      
-      // אם יש הזמנות חופפות, החדר לא זמין
-      if (overlappingBookings.length > 0) {
-        return res.json({
-          success: true,
-          isAvailable: false,
-          reason: 'קיימת הזמנה בתאריכים אלה',
-          room: {
-            id: room._id,
-            roomNumber: room.roomNumber,
-            basePrice: room.basePrice,
-            maxOccupancy: room.maxOccupancy
-          }
-        });
-      }
-      
-      // חישוב מחיר עם מחירים מיוחדים
-      const { totalNightsPrice, hasSpecialPrices } = exports.calculatePriceWithSpecialPrices(room, checkInDate, nights);
-      
-      // חישוב מחיר סופי עם מע"מ
-      const priceDetails = exports.calculateVatAndTotalPrice(totalNightsPrice, isTourist);
-      
-      return res.json({
-        success: true,
-        isAvailable: true,
-        room: {
-          id: room._id,
-          roomNumber: room.roomNumber,
-          basePrice: room.basePrice,
-          maxOccupancy: room.maxOccupancy
-        },
-        checkIn: checkInDate,
-        checkOut: checkOutDate,
+    res.status(200).json({
+      success: true,
+      data: {
+        isAvailable: available,
+        roomId: room._id,
+        roomName: room.name,
+        roomType: room.type,
         nights,
         basePrice: room.basePrice,
-        nightsTotal: totalNightsPrice,
-        hasSpecialPrices: hasSpecialPrices,
-        vatRate: priceDetails.vatRate,
-        vatAmount: priceDetails.vatAmount,
-        totalPrice: priceDetails.totalPrice
-      });
-    } else {
-      // אם לא סופק חדר ספציפי, בדוק את כל החדרים הזמינים
-      console.log(`מחפש חדרים למספר אורחים: ${guests}`);
-      
-      let query = { isActive: true };
-      
-      // אם מחפשים רק חדר אחד, אז צריך שיתאים לכל האורחים
-      // אם מחפשים מספר חדרים, אז מציגים את כל החדרים הפעילים ונמיין/נפלטר אחר כך
-      if (rooms === 1) {
-        query.maxOccupancy = { $gte: guests }; // מציג רק חדרים שמתאימים למספר האורחים או יותר
+        nightsTotal: basePrice,
+        vatAmount,
+        totalPrice,
+        checkIn,
+        checkOut
       }
-      
-      console.log('שאילתת חיפוש חדרים:', query);
-      
-      const allRooms = await Room.find(query);
-      
-      console.log(`נמצאו ${allRooms.length} חדרים שמתאימים לקריטריון תפוסה ${guests} אורחים`);
-      console.log('רשימת סוגי חדרים שנמצאו:', allRooms.map(r => ({ roomNumber: r.roomNumber, type: r.type, maxOccupancy: r.maxOccupancy })));
-      
-      // בדיקת זמינות כל החדרים
-      const availableRooms = [];
-      
-      for (const room of allRooms) {
-        // בדיקה אם החדר פנוי
-        const overlappingBookings = await Booking.find({
-          room: room._id,
-          status: { $ne: 'canceled' },
-          $or: [
-            // צ'ק-אין בתוך תקופת הזמנה קיימת
-            { 
-              checkIn: { $lt: checkOutDate },
-              checkOut: { $gt: checkInDate }
-            }
-          ]
-        });
-        
-        // אם אין הזמנות חופפות, החדר זמין
-        if (overlappingBookings.length === 0) {
-          // חישוב מחיר עם מחירים מיוחדים
-          const { totalNightsPrice, hasSpecialPrices } = exports.calculatePriceWithSpecialPrices(room, checkInDate, nights);
-          
-          // חישוב מחיר סופי עם מע"מ
-          const priceDetails = exports.calculateVatAndTotalPrice(totalNightsPrice, isTourist);
-          
-          // הוספת החדר לרשימת החדרים הזמינים
-          availableRooms.push({
-            _id: room._id,
-            roomNumber: room.roomNumber,
-            type: room.type,
-            name: room.name,
-            description: room.description,
-            basePrice: room.basePrice,
-            amenities: room.amenities,
-            images: room.images.map(img => ({
-              _id: img._id,
-              url: img.url,
-              isPrimary: img.isPrimary
-            })),
-            maxGuests: room.maxOccupancy,
-            hasSpecialPrices: hasSpecialPrices,
-            nightsTotal: totalNightsPrice,
-            vatRate: priceDetails.vatRate,
-            vatAmount: priceDetails.vatAmount,
-            totalPrice: priceDetails.totalPrice
-          });
-        }
-      }
-      
-      console.log(`נמצאו ${availableRooms.length} חדרים זמינים בתאריכים הנבחרים`);
-      
-      let filteredRooms = availableRooms;
-      
-      // קבלת מספר החדרים המבוקש
-      const requestedRoomsCount = rooms || 1;
-      
-      // טיפול במקרה שמחפשים יותר מחדר אחד
-      if (requestedRoomsCount > 1) {
-        console.log(`מספר חדרים מבוקש: ${requestedRoomsCount}, מתאים את הסינון`);
-        
-        // אם מחפשים לאדם אחד או שניים, אבל כמה חדרים, יש להשאיר יותר מחדר אחד מכל סוג
-        if (guests <= 2) {
-          console.log(`מספר אורחים ${guests} <= 2, מפעיל פילטור לחדר אחד לכל סוג`);
-          console.log(`לפני פילטור: ${availableRooms.length} חדרים`);
-          
-          // קיבוץ החדרים לפי סוג ובחירת הזול ביותר מכל סוג
-          const roomTypeMap = {};
-          
-          // הקבצת החדרים לפי סוג
-          availableRooms.forEach(room => {
-            // בדיקה אם קיים כבר חדר מסוג זה במפה וגם שהחדר הנוכחי זול יותר
-            if (!roomTypeMap[room.type] || room.totalPrice < roomTypeMap[room.type].totalPrice) {
-              roomTypeMap[room.type] = room;
-            }
-          });
-          
-          // המרה של מפת החדרים בחזרה למערך
-          filteredRooms = Object.values(roomTypeMap);
-          
-          console.log(`לאחר פילטור נשארו ${filteredRooms.length} חדרים, אחד מכל סוג`);
-          console.log('חדרים לאחר פילטור:', filteredRooms.map(r => ({ roomNumber: r.roomNumber, type: r.type, maxGuests: r.maxGuests, totalPrice: r.totalPrice })));
-          
-          // מיון לפי מחיר
-          filteredRooms.sort((a, b) => a.totalPrice - b.totalPrice);
-          
-          // וידוא שלא מחזירים יותר מחדר אחד מכל סוג
-          console.log(`החזרת ${filteredRooms.length} חדרים מסוננים לקליינט`);
-        } else {
-          // עבור 3 אורחים ומעלה שצריכים מספר חדרים, צריך לחפש שילובים מתאימים
-          console.log(`מחפשים ${requestedRoomsCount} חדרים ל-${guests} אורחים`);
-          
-          // מיון החדרים לפי גודל ומחיר
-          const sortedRooms = [...filteredRooms].sort((a, b) => {
-            // קודם לפי כמות אנשים בחדר (מהגדול לקטן) ואז לפי מחיר (מהזול ליקר)
-            if (b.maxGuests !== a.maxGuests) {
-              return b.maxGuests - a.maxGuests;
-            }
-            return a.totalPrice - b.totalPrice;
-          });
-          
-          // חיפוש שילובים של שני חדרים שיחד מספיקים לכל האורחים
-          const combinations = [];
-          
-          // לכל חדר, בדוק האם יש חדר נוסף שיכול להשלים אותו לכמות האורחים הנדרשת
-          for (let i = 0; i < sortedRooms.length; i++) {
-            const room1 = sortedRooms[i];
-            
-            // אם צריך חדר שני, חפש את החדר השני
-            for (let j = 0; j < sortedRooms.length; j++) {
-              // לא לשלב חדר עם עצמו
-              if (i === j) continue;
-              
-              const room2 = sortedRooms[j];
-              
-              // בדוק אם שני החדרים יחד מספיקים לכל האורחים
-              if (room1.maxGuests + room2.maxGuests >= guests) {
-                combinations.push({
-                  rooms: [room1, room2],
-                  totalCapacity: room1.maxGuests + room2.maxGuests,
-                  totalPrice: room1.totalPrice + room2.totalPrice,
-                  surplus: (room1.maxGuests + room2.maxGuests) - guests // כמה מקומות עודפים
-                });
-              }
-            }
-          }
-          
-          // מיון השילובים לפי עודף מקומות (עדיף פחות עודף) ואז לפי מחיר
-          combinations.sort((a, b) => {
-            // קודם לפי מספר המקומות העודפים - רצוי פחות עודף
-            if (a.surplus !== b.surplus) {
-              return a.surplus - b.surplus;
-            }
-            // אם העודף זהה, מיין לפי מחיר
-            return a.totalPrice - b.totalPrice;
-          });
-          
-          console.log(`נמצאו ${combinations.length} שילובי חדרים אפשריים ל-${guests} אורחים`);
-          
-          if (combinations.length > 0) {
-            // לוקח את 5 השילובים הטובים ביותר
-            const bestCombinations = combinations.slice(0, 5);
-            console.log('שילובים מומלצים:', bestCombinations.map(c => ({
-              rooms: c.rooms.map(r => r.roomNumber),
-              totalCapacity: c.totalCapacity,
-              totalPrice: c.totalPrice
-            })));
-            
-            // החזר את כל החדרים שמופיעים בשילובים המומלצים
-            const recommendedRoomIds = new Set();
-            bestCombinations.forEach(c => {
-              c.rooms.forEach(r => recommendedRoomIds.add(r._id.toString()));
-            });
-            
-            // אם יש שילובים, עדכן את רשימת החדרים המומלצת
-            filteredRooms = sortedRooms.filter(r => recommendedRoomIds.has(r._id.toString()));
-            
-            // הוסף מידע על שילובים מומלצים לתשובה
-            return res.json({
-              success: true,
-              data: filteredRooms,
-              combinations: bestCombinations.map(c => ({
-                rooms: c.rooms.map(r => r.roomNumber),
-                totalCapacity: c.totalCapacity,
-                totalPrice: c.totalPrice
-              })),
-              message: `נמצאו ${bestCombinations.length} שילובי חדרים מתאימים ל-${guests} אורחים ב-${requestedRoomsCount} חדרים`
-            });
-          }
-          
-          // אם לא נמצאו שילובים מתאימים, החזר את כל החדרים ממוינים
-          // למיין קודם לפי התאמה למספר האורחים ולאחר מכן לפי מחיר
-          filteredRooms.sort((a, b) => {
-            // תפוסה טובה יותר קודמת (קרובה יותר למספר האורחים)
-            const fitDiff = Math.abs(a.maxGuests - guests) - Math.abs(b.maxGuests - guests);
-            if (fitDiff !== 0) return fitDiff;
-            
-            // אם התפוסה זהה, מיין לפי מחיר
-            return a.totalPrice - b.totalPrice;
-          });
-        }
-      } else {
-        // מיון החדרים עבור 1-2 אורחים כשמחפשים חדר אחד בלבד
-        if (guests <= 2) {
-          console.log(`מספר אורחים ${guests} <= 2, מפעיל פילטור לחדר אחד לכל סוג`);
-          console.log(`לפני פילטור: ${availableRooms.length} חדרים`);
-          
-          // קיבוץ החדרים לפי סוג ובחירת הזול ביותר מכל סוג
-          const roomTypeMap = {};
-          
-          // הקבצת החדרים לפי סוג
-          availableRooms.forEach(room => {
-            // בדיקה אם קיים כבר חדר מסוג זה במפה וגם שהחדר הנוכחי זול יותר
-            if (!roomTypeMap[room.type] || room.totalPrice < roomTypeMap[room.type].totalPrice) {
-              roomTypeMap[room.type] = room;
-            }
-          });
-          
-          // המרה של מפת החדרים בחזרה למערך
-          filteredRooms = Object.values(roomTypeMap);
-          
-          console.log(`לאחר פילטור נשארו ${filteredRooms.length} חדרים, אחד מכל סוג`);
-          console.log('חדרים לאחר פילטור:', filteredRooms.map(r => ({ roomNumber: r.roomNumber, type: r.type, maxGuests: r.maxGuests, totalPrice: r.totalPrice })));
-          
-          // מיון לפי מחיר
-          filteredRooms.sort((a, b) => a.totalPrice - b.totalPrice);
-          
-          // וידוא שלא מחזירים יותר מחדר אחד מכל סוג
-          console.log(`החזרת ${filteredRooms.length} חדרים מסוננים לקליינט`);
-        } else {
-          console.log(`מספר אורחים ${guests} > 2, מפעיל מיון לפי התאמה והתפוסה הקרובה`);
-          
-          // מיון לפי תפוסה והתאמה לאורחים ואז לפי מחיר
-          filteredRooms.sort((a, b) => {
-            // תפוסה טובה יותר קודמת (קרובה יותר למספר האורחים)
-            const fitDiff = Math.abs(a.maxGuests - guests) - Math.abs(b.maxGuests - guests);
-            if (fitDiff !== 0) return fitDiff;
-            
-            // אם התפוסה זהה, מיין לפי מחיר
-            return a.totalPrice - b.totalPrice;
-          });
-          
-          console.log('חדרים לאחר מיון:', filteredRooms.map(r => ({ roomNumber: r.roomNumber, type: r.type, maxGuests: r.maxGuests, totalPrice: r.totalPrice })));
-        }
-      }
-      
-      return res.json({
-        success: true,
-        data: filteredRooms
-      });
-    }
-  } catch (error) {
-    console.error('שגיאה בבדיקת זמינות:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'שגיאת שרת'
     });
+  } catch (err) {
+    return next(new ErrorResponse(`שגיאה בבדיקת זמינות: ${err.message}`, 500));
   }
-};
+});
+
+// @desc    בדיקת זמינות מספר חדרים
+// @route   POST /api/rooms/check-multiple-availability
+// @access  Public
+exports.checkMultipleAvailability = asyncHandler(async (req, res, next) => {
+  const { roomIds, checkIn, checkOut, isTourist } = req.body;
+  
+  // בדיקת תקינות נתונים
+  if (!roomIds || !Array.isArray(roomIds) || roomIds.length === 0 || !checkIn || !checkOut) {
+    return next(new ErrorResponse('נא לספק רשימת חדרים ותאריכים תקינים', 400));
+  }
+  
+  try {
+    // בדיקת זמינות לכל חדר
+    const availabilityResults = await Promise.all(
+      roomIds.map(async (roomId) => {
+        const room = await Room.findById(roomId);
+        
+        if (!room) {
+          throw new Error(`חדר עם מזהה ${roomId} לא נמצא`);
+        }
+        
+        // בדיקת זמינות
+        const available = await isAvailable(roomId, checkIn, checkOut);
+        
+        // חישוב מספר לילות
+        const checkInDate = new Date(checkIn);
+        const checkOutDate = new Date(checkOut);
+        const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+        
+        // חישוב מחירים לחדר זה
+        const basePrice = room.basePrice * nights;
+        const vatAmount = isTourist ? 0 : basePrice * 0.18;
+        const totalPrice = basePrice + vatAmount;
+        
+        return {
+          roomId: room._id,
+          roomName: room.name,
+          roomType: room.type,
+          isAvailable: available,
+          nights,
+          basePrice: room.basePrice,
+          nightsTotal: basePrice,
+          vatAmount,
+          totalPrice
+        };
+      })
+    );
+    
+    // חישוב סכומים כוללים לכל החדרים
+    const totalBasePrice = availabilityResults.reduce((sum, room) => sum + room.nightsTotal, 0);
+    const totalVatAmount = availabilityResults.reduce((sum, room) => sum + room.vatAmount, 0);
+    const finalTotalPrice = totalBasePrice + totalVatAmount;
+    
+    // בדיקה אם כל החדרים זמינים
+    const allRoomsAvailable = availabilityResults.every(room => room.isAvailable);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        rooms: availabilityResults,
+        allRoomsAvailable,
+        totalBasePrice,
+        totalVatAmount,
+        totalPrice: finalTotalPrice,
+        nights: availabilityResults[0].nights,
+        checkIn,
+        checkOut
+      }
+    });
+  } catch (err) {
+    return next(new ErrorResponse(`שגיאה בבדיקת זמינות חדרים: ${err.message}`, 500));
+  }
+});
+
+// @desc    יצירת הזמנה מרובת חדרים
+// @route   POST /api/bookings/multi-room
+// @access  Private
+exports.createMultiRoomBooking = asyncHandler(async (req, res, next) => {
+  const {
+    roomIds,
+    checkIn,
+    checkOut,
+    guest,
+    paymentMethod,
+    creditCard,
+    isTourist,
+    totalPrice
+  } = req.body;
+  
+  // בדיקת תקינות נתונים
+  if (!roomIds || !Array.isArray(roomIds) || roomIds.length === 0 || !checkIn || !checkOut || !guest) {
+    return next(new ErrorResponse('נא לספק את כל פרטי ההזמנה הנדרשים', 400));
+  }
+  
+  try {
+    // בדיקת זמינות החדרים
+    const availabilityResults = await Promise.all(
+      roomIds.map(async (roomId) => {
+        const available = await isAvailable(roomId, checkIn, checkOut);
+        return { roomId, available };
+      })
+    );
+    
+    // בדיקה אם כל החדרים זמינים
+    const unavailableRooms = availabilityResults.filter(room => !room.available);
+    
+    if (unavailableRooms.length > 0) {
+      return next(new ErrorResponse(`חדר אחד או יותר אינו זמין בתאריכים שנבחרו`, 400));
+    }
+    
+    // יצירת הזמנה מרובת חדרים
+    const multiBooking = {
+      rooms: roomIds,
+      checkIn,
+      checkOut,
+      guest,
+      paymentMethod,
+      creditCard,
+      isTourist,
+      totalPrice,
+      status: 'confirmed',
+      bookingDate: new Date(),
+      bookingNumber: `MB-${Date.now().toString().slice(-8)}`
+    };
+    
+    const booking = await Booking.create(multiBooking);
+    
+    res.status(201).json({
+      success: true,
+      data: booking
+    });
+  } catch (err) {
+    return next(new ErrorResponse(`שגיאה ביצירת הזמנה מרובת חדרים: ${err.message}`, 500));
+  }
+});
 
 // @desc    עדכון מחירים מיוחדים לפי ימי שבוע לחדר ספציפי
 // @route   PUT /api/rooms/:id/special-prices

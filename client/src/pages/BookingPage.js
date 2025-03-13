@@ -42,6 +42,7 @@ import CreditCardIcon from '@mui/icons-material/CreditCard';
 import LockIcon from '@mui/icons-material/Lock';
 import InfoIcon from '@mui/icons-material/Info';
 import { EventAvailable as EventAvailableIcon, EventBusy as EventBusyIcon } from '@mui/icons-material';
+import CheckIcon from '@mui/icons-material/Check';
 
 const steps = ['בחירת תאריכים', 'פרטי אורח', 'פרטי תשלום', 'סיכום'];
 
@@ -52,32 +53,37 @@ const BookingPage = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   
-  const initialCheckIn = location.state?.checkIn || null;
-  const initialCheckOut = location.state?.checkOut || null;
+  const initialCheckIn = location.state?.checkIn || '';
+  const initialCheckOut = location.state?.checkOut || '';
   const initialRoomId = location.state?.selectedRoomId || location.state?.roomId || null;
+  const initialSelectedRooms = location.state?.selectedRooms || (initialRoomId ? [initialRoomId] : []);
   const initialGuests = location.state?.guests || 1;
   const initialRooms = location.state?.rooms || 1;
   const initialIsTourist = location.state?.isTourist || false;
   
-  // אם יש תאריכים וחדר, התחל משלב פרטי האורח (שלב 1) במקום משלב בחירת תאריכים (שלב 0)
-  const initialStep = (initialCheckIn && initialCheckOut && initialRoomId) ? 1 : 0;
+  const initialStep = initialCheckIn && initialCheckOut && (initialRoomId || (initialSelectedRooms && initialSelectedRooms.length > 0)) ? 1 : 0;
   
+  const calculateNights = (startDate, endDate) => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
   const [activeStep, setActiveStep] = useState(initialStep);
-  const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [checkingAvailability, setCheckingAvailability] = useState(false);
-  const [error, setError] = useState(null);
   const [availableRooms, setAvailableRooms] = useState([]);
-  const [bookingId, setBookingId] = useState('');
-  
-  // פרטי הזמנה
+  const [room, setRoom] = useState(null);
   const [bookingData, setBookingData] = useState({
+    selectedRooms: initialSelectedRooms,
+    roomId: initialRoomId,
     checkIn: initialCheckIn,
     checkOut: initialCheckOut,
-    roomId: initialRoomId || '',
     guests: initialGuests,
     rooms: initialRooms,
-    guest: {
+    guestDetails: {
       firstName: '',
       lastName: '',
       phone: '',
@@ -91,57 +97,64 @@ const BookingPage = () => {
       cvv: '',
       cardholderName: ''
     },
-    notes: ''
+    notes: '',
+    nights: calculateNights(initialCheckIn, initialCheckOut),
+    basePrice: 0,
+    vat: 0,
+    totalPrice: 0,
+    roomDetails: [],
   });
   
-  // חישובים
-  const [calculations, setCalculations] = useState({
-    nights: 0,
-    basePrice: 0,
-    vatRate: 18,
-    vatAmount: 0,
-    totalPrice: 0
-  });
-
   const typeToDisplayName = {
     'standard': 'Standard',
     'deluxe': 'Deluxe',
     'suite': 'Suite'
   };
 
-  // טעינת פרטי החדר
   useEffect(() => {
     const fetchRoom = async () => {
       try {
         setLoading(true);
         
-        // מזהה החדר
-        const roomId = initialRoomId || (location.search ? new URLSearchParams(location.search).get('roomId') : null);
-        
-        // אם אין מזהה חדר, קח את החדר הסטנדרטי (מספר 6)
-        let url = '';
-        if (roomId) {
-          url = `${process.env.REACT_APP_API_URL}/rooms/${roomId}`;
+        if (bookingData.selectedRooms && bookingData.selectedRooms.length > 0) {
+          const roomIds = bookingData.selectedRooms;
+          
+          const roomPromises = roomIds.map(roomId => 
+            axios.get(`${process.env.REACT_APP_API_URL}/rooms/${roomId}`)
+          );
+          
+          const responses = await Promise.all(roomPromises);
+          const loadedRooms = responses.map(response => response.data.data);
+          
+          setAvailableRooms(loadedRooms);
+          
+          if (loadedRooms.length > 0) {
+            setRoom(loadedRooms[0]);
+          }
+        } else if (initialRoomId) {
+          const url = `${process.env.REACT_APP_API_URL}/rooms/${initialRoomId}`;
+          const response = await axios.get(url);
+          const selectedRoom = response.data.data;
+          
+          if (selectedRoom) {
+            setRoom(selectedRoom);
+            setAvailableRooms([selectedRoom]);
+          } else {
+            setError('החדר המבוקש לא נמצא.');
+          }
         } else {
-          url = `${process.env.REACT_APP_API_URL}/rooms`;
-        }
-        
-        const response = await axios.get(url);
-        
-        // אם זו רשימת חדרים, ניקח את הראשון (כאשר אין מזהה ספציפי)
-        let selectedRoom;
-        if (roomId) {
-          selectedRoom = response.data.data;
-        } else {
-          // מציאת החדר הסטנדרטי (חדר 6)
+          let url = `${process.env.REACT_APP_API_URL}/rooms`;
+          
+          const response = await axios.get(url);
+          
           const rooms = response.data.data;
-          selectedRoom = rooms.find(r => r.roomNumber === 6) || rooms[0];
-        }
-        
-        if (selectedRoom) {
-          setRoom(selectedRoom);
-        } else {
-          setError('החדר המבוקש לא נמצא.');
+          const defaultRoom = rooms.find(r => r.roomNumber === 6) || rooms[0];
+          
+          if (defaultRoom) {
+            setRoom(defaultRoom);
+          } else {
+            setError('לא נמצאו חדרים זמינים.');
+          }
         }
       } catch (error) {
         console.error('שגיאה בטעינת החדר:', error);
@@ -152,44 +165,24 @@ const BookingPage = () => {
     };
     
     fetchRoom();
-  }, [initialRoomId, location.search]);
+  }, [initialRoomId, bookingData.selectedRooms, location.search]);
 
-  // חישוב מספר הלילות
-  const calculateNights = () => {
-    if (bookingData.checkIn && bookingData.checkOut) {
-      try {
-        const startDate = new Date(bookingData.checkIn);
-        const endDate = new Date(bookingData.checkOut);
-        
-        // וידוא שהתאריכים תקפים
-        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-          console.error('תאריכים לא תקפים:', { checkIn: bookingData.checkIn, checkOut: bookingData.checkOut });
-          return 0;
-        }
-        
-        const nights = differenceInDays(endDate, startDate);
-        return nights > 0 ? nights : 0;
-      } catch (error) {
-        console.error('שגיאה בחישוב מספר הלילות:', error);
-        return 0;
-      }
-    }
-    return 0;
-  };
-
-  // בדיקת זמינות אוטומטית בהתחלה אם יש כבר תאריכים וחדר
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [error, setError] = useState(null);
+  const [bookingId, setBookingId] = useState('');
+  
+  const [selectedRooms, setSelectedRooms] = useState([]);
+  
   useEffect(() => {
-    if (initialCheckIn && initialCheckOut && initialRoomId && room && activeStep > 0) {
-      // בדיקת זמינות שקטה כאשר עולה הדף
+    if (bookingData.checkIn && bookingData.checkOut && bookingData.roomId && room && activeStep > 0) {
       const checkRoomAvailability = async () => {
         try {
           setCheckingAvailability(true);
           
-          // בדיקת זמינות אמיתית מול השרת
           const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
-            roomId: initialRoomId,
-            checkIn: initialCheckIn,
-            checkOut: initialCheckOut,
+            roomId: bookingData.roomId,
+            checkIn: bookingData.checkIn,
+            checkOut: bookingData.checkOut,
             isTourist: bookingData.isTourist
           });
           
@@ -199,27 +192,24 @@ const BookingPage = () => {
             return;
           }
           
-          // עדכון מחירים מהשרת
           if (response.data.isAvailable) {
-            const nights = response.data.nights || calculateNights();
+            const nights = response.data.nights || calculateNights(bookingData.checkIn, bookingData.checkOut);
             const basePrice = response.data.nightsTotal || (nights * (room.basePrice || 400));
-            const vatRate = 18; // אחוז המע"מ
+            const vatRate = 18;
             const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
             const totalPrice = basePrice + vatAmount;
             
-            // עדכון מחירים מהשרת אם זמינים
-            setCalculations({
+            setBookingData(prev => ({
+              ...prev,
               nights: nights || 0,
               basePrice: basePrice || 0,
-              vatRate: vatRate,
-              vatAmount: vatAmount || 0,
+              vat: vatAmount || 0,
               totalPrice: isNaN(totalPrice) ? 0 : totalPrice
-            });
+            }));
           }
         } catch (error) {
           console.error('שגיאה בבדיקת זמינות:', error);
           setError('שגיאה בבדיקת זמינות החדר. אנא נסה שוב מאוחר יותר.');
-          // במקרה של שגיאה נחזור לדף הבית
           navigate('/');
         } finally {
           setCheckingAvailability(false);
@@ -228,12 +218,10 @@ const BookingPage = () => {
       
       checkRoomAvailability();
     }
-  }, [room, initialCheckIn, initialCheckOut, initialRoomId, activeStep]);
+  }, [room, bookingData.checkIn, bookingData.checkOut, bookingData.roomId, activeStep]);
 
-  // חישוב מחירים כאשר משתנים תאריכים או סטטוס תייר
   useEffect(() => {
     if (bookingData.checkIn && bookingData.checkOut && room) {
-      // בדיקת זמינות ומחירים מיוחדים
       const fetchPrices = async () => {
         try {
           const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
@@ -244,39 +232,37 @@ const BookingPage = () => {
           });
           
           if (response.data.isAvailable) {
-            const nights = response.data.nights || calculateNights();
+            const nights = response.data.nights || calculateNights(bookingData.checkIn, bookingData.checkOut);
             const basePrice = response.data.nightsTotal || (nights * (room.basePrice || 400));
-            const vatRate = 18; // אחוז המע"מ
+            const vatRate = 18;
             const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
             const totalPrice = basePrice + vatAmount;
             
-            // עדכון מחירים מהשרת אם זמינים
             if (response.data.totalPrice) {
-              setCalculations({
-                ...calculations,
-                basePrice: response.data.nightsTotal || response.data.basePrice || calculations.basePrice,
-                vatAmount: response.data.vatAmount || calculations.vatAmount,
-                totalPrice: response.data.totalPrice || calculations.totalPrice,
-                nights: response.data.nights || calculations.nights
-              });
+              setBookingData(prev => ({
+                ...prev,
+                basePrice: response.data.nightsTotal || response.data.basePrice || prev.basePrice,
+                vat: response.data.vatAmount || prev.vat,
+                totalPrice: response.data.totalPrice || prev.totalPrice,
+                nights: response.data.nights || prev.nights
+              }));
             }
           }
         } catch (error) {
           console.error('שגיאה בקבלת מחירים:', error);
-          // במקרה של שגיאה, השתמש בחישוב פשוט
-          const nights = calculateNights();
+          const nights = calculateNights(bookingData.checkIn, bookingData.checkOut);
           const basePrice = nights * (room.basePrice || 400);
           const vatRate = 18;
           const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
           const totalPrice = basePrice + vatAmount;
           
-          setCalculations({
+          setBookingData(prev => ({
+            ...prev,
             nights: nights || 0,
             basePrice: basePrice || 0,
-            vatRate: vatRate,
-            vatAmount: vatAmount || 0,
+            vat: vatAmount || 0,
             totalPrice: isNaN(totalPrice) ? 0 : totalPrice
-          });
+          }));
         }
       };
       
@@ -284,14 +270,13 @@ const BookingPage = () => {
     }
   }, [bookingData.checkIn, bookingData.checkOut, bookingData.isTourist, bookingData.roomId, room]);
 
-  // בדיקת זמינות החדר
   const checkAvailability = async () => {
     if (!bookingData.checkIn || !bookingData.checkOut) {
       toast.error('אנא בחר תאריכי צ׳ק-אין וצ׳ק-אאוט');
       return false;
     }
     
-    if (calculateNights() < 1) {
+    if (calculateNights(bookingData.checkIn, bookingData.checkOut) < 1) {
       toast.error('תאריך צ׳ק-אאוט חייב להיות לפחות יום אחד אחרי צ׳ק-אין');
       return false;
     }
@@ -300,34 +285,75 @@ const BookingPage = () => {
       setCheckingAvailability(true);
       setError(null);
       
-      // אם לא נבחר חדר ספציפי, בדוק את כל החדרים הזמינים
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
-        roomId: bookingData.roomId || null,
-        checkIn: bookingData.checkIn,
-        checkOut: bookingData.checkOut,
-        guests: bookingData.guests,
-        isTourist: bookingData.isTourist
-      });
-      
-      const isAvailable = response.data.isAvailable;
-      
-      if (!isAvailable) {
-        toast.error('החדר אינו זמין בתאריכים שנבחרו. אנא בחר תאריכים אחרים.');
-        return false;
-      }
-      
-      // עדכון מחירים מהשרת אם זמינים
-      if (response.data.totalPrice) {
-        setCalculations({
-          ...calculations,
-          basePrice: response.data.nightsTotal || response.data.basePrice || calculations.basePrice,
-          vatAmount: response.data.vatAmount || calculations.vatAmount,
-          totalPrice: response.data.totalPrice || calculations.totalPrice,
-          nights: response.data.nights || calculations.nights
+      if (bookingData.selectedRooms && bookingData.selectedRooms.length > 0) {
+        const availabilityChecks = bookingData.selectedRooms.map(roomId => 
+          axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
+            roomId: roomId,
+            checkIn: bookingData.checkIn,
+            checkOut: bookingData.checkOut,
+            guests: bookingData.guests,
+            isTourist: bookingData.isTourist
+          })
+        );
+        
+        const responses = await Promise.all(availabilityChecks);
+        
+        const areAllRoomsAvailable = responses.every(response => response.data.isAvailable);
+        
+        if (!areAllRoomsAvailable) {
+          toast.error('אחד או יותר מהחדרים אינם זמינים בתאריכים שנבחרו. אנא בחר תאריכים אחרים.');
+          return false;
+        }
+        
+        let totalBasePrice = 0;
+        let totalVatAmount = 0;
+        let totalPrice = 0;
+        
+        responses.forEach(response => {
+          if (response.data.isAvailable) {
+            totalBasePrice += response.data.nightsTotal || response.data.basePrice || 0;
+            totalVatAmount += response.data.vatAmount || 0;
+            totalPrice += response.data.totalPrice || 0;
+          }
         });
+        
+        setBookingData(prev => ({
+          ...prev,
+          basePrice: totalBasePrice || 0,
+          vat: totalVatAmount || 0,
+          totalPrice: totalPrice || (totalBasePrice + totalVatAmount),
+          nights: responses[0].data.nights || prev.nights
+        }));
+        
+        return true;
+      } else {
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
+          roomId: bookingData.roomId || null,
+          checkIn: bookingData.checkIn,
+          checkOut: bookingData.checkOut,
+          guests: bookingData.guests,
+          isTourist: bookingData.isTourist
+        });
+        
+        const isAvailable = response.data.isAvailable;
+        
+        if (!isAvailable) {
+          toast.error('החדר אינו זמין בתאריכים שנבחרו. אנא בחר תאריכים אחרים.');
+          return false;
+        }
+        
+        if (response.data.totalPrice) {
+          setBookingData(prev => ({
+            ...prev,
+            basePrice: response.data.nightsTotal || response.data.basePrice || prev.basePrice,
+            vat: response.data.vatAmount || prev.vat,
+            totalPrice: response.data.totalPrice || prev.totalPrice,
+            nights: response.data.nights || prev.nights
+          }));
+        }
+        
+        return true;
       }
-      
-      return true;
     } catch (error) {
       console.error('שגיאה בבדיקת זמינות:', error);
       toast.error('שגיאה בבדיקת זמינות החדר. אנא נסה שוב מאוחר יותר.');
@@ -337,16 +363,12 @@ const BookingPage = () => {
     }
   };
 
-  // טיפול בשינוי שדות
   const handleChange = (e) => {
     const { name, value, checked, type } = e.target;
     
-    // טיפול מיוחד במספר כרטיס אשראי - הוספת רווחים כל 4 ספרות
     if (name === 'creditCardDetails.cardNumber') {
-      // הסרת כל התווים שאינם ספרות
       const digitsOnly = value.replace(/\D/g, '');
       
-      // הוספת רווחים כל 4 ספרות
       let formattedValue = '';
       for (let i = 0; i < digitsOnly.length; i++) {
         if (i > 0 && i % 4 === 0) {
@@ -355,7 +377,6 @@ const BookingPage = () => {
         formattedValue += digitsOnly[i];
       }
       
-      // הגבלה ל-19 תווים (16 ספרות + 3 רווחים)
       formattedValue = formattedValue.slice(0, 19);
       
       setBookingData(prev => ({
@@ -368,12 +389,9 @@ const BookingPage = () => {
       return;
     }
     
-    // טיפול מיוחד בתאריך תוקף - הוספת / אוטומטית
     if (name === 'creditCardDetails.expiryDate') {
-      // הסרת כל התווים שאינם ספרות
       const digitsOnly = value.replace(/\D/g, '');
       
-      // פורמט בצורת MM/YY
       let formattedValue = '';
       if (digitsOnly.length <= 2) {
         formattedValue = digitsOnly;
@@ -381,7 +399,6 @@ const BookingPage = () => {
         formattedValue = `${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2, 4)}`;
       }
       
-      // הגבלה ל-5 תווים (4 ספרות + סלאש)
       formattedValue = formattedValue.slice(0, 5);
       
       setBookingData(prev => ({
@@ -394,7 +411,6 @@ const BookingPage = () => {
       return;
     }
     
-    // טיפול רגיל בשאר השדות
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setBookingData(prev => ({
@@ -412,7 +428,6 @@ const BookingPage = () => {
     }
   };
 
-  // טיפול בשינוי תאריכים
   const handleDateChange = (name, date) => {
     setBookingData(prev => ({
       ...prev,
@@ -420,34 +435,27 @@ const BookingPage = () => {
     }));
   };
 
-  // מעבר לשלב הבא
   const handleNext = async () => {
-    // בדיקות תקינות לפי השלב הנוכחי
     if (activeStep === 0) {
-      // בשלב בחירת תאריכים, בדוק שנבחרו תאריכים ושהחדר זמין
       const isAvailable = await checkAvailability();
       if (!isAvailable) return;
     } else if (activeStep === 1) {
-      // בשלב פרטי אורח, בדוק שהוכנסו כל הפרטים הנדרשים
-      if (!bookingData.guest.firstName || !bookingData.guest.lastName || !bookingData.guest.phone || !bookingData.guest.email) {
+      if (!bookingData.guestDetails.firstName || !bookingData.guestDetails.lastName || !bookingData.guestDetails.phone || !bookingData.guestDetails.email) {
         toast.error('אנא מלא את כל פרטי האורח');
         return;
       }
       
-      // בדיקת תקינות כתובת אימייל בסיסית
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(bookingData.guest.email)) {
+      if (!emailRegex.test(bookingData.guestDetails.email)) {
         toast.error('אנא הכנס כתובת אימייל תקינה');
         return;
       }
       
-      // בדיקת תקינות מספר טלפון בסיסית
-      if (!/^\d{9,10}$/.test(bookingData.guest.phone.replace(/[-\s]/g, ''))) {
+      if (!/^\d{9,10}$/.test(bookingData.guestDetails.phone.replace(/[-\s]/g, ''))) {
         toast.error('אנא הכנס מספר טלפון תקין');
         return;
       }
     } else if (activeStep === 2) {
-      // בשלב פרטי תשלום, בדוק שהוכנסו פרטי תשלום תקינים
       if (bookingData.paymentMethod === 'credit') {
         if (!bookingData.creditCardDetails.cardNumber || 
             !bookingData.creditCardDetails.expiryDate || 
@@ -456,7 +464,6 @@ const BookingPage = () => {
           return;
         }
         
-        // בדיקת תקינות פרטי כרטיס אשראי באמצעות הפונקציה שכבר קיימת
         if (!isPaymentDetailsValid()) {
           toast.error('פרטי כרטיס האשראי אינם תקינים');
           return;
@@ -464,69 +471,112 @@ const BookingPage = () => {
       }
     }
     
-    // עובר לשלב הבא
     setActiveStep(prevActiveStep => prevActiveStep + 1);
   };
 
-  // חזרה לשלב הקודם
   const handleBack = () => {
     setActiveStep((prevActiveStep) => prevActiveStep - 1);
   };
 
-  // שליחת ההזמנה
   const handleSubmit = async () => {
     try {
       setLoading(true);
       
-      // הכנת אובייקט ההזמנה לשליחה
-      const bookingPayload = {
-        roomId: bookingData.roomId,
-        checkIn: bookingData.checkIn instanceof Date ? bookingData.checkIn.toISOString() : bookingData.checkIn,
-        checkOut: bookingData.checkOut instanceof Date ? bookingData.checkOut.toISOString() : bookingData.checkOut,
-        nights: calculations.nights,
-        basePrice: calculations.basePrice,
-        vatRate: calculations.vatRate,
-        vatAmount: calculations.vatAmount,
-        totalPrice: calculations.totalPrice,
-        isTourist: bookingData.isTourist,
-        guest: {
-          firstName: bookingData.guest.firstName,
-          lastName: bookingData.guest.lastName,
-          email: bookingData.guest.email,
-          phone: bookingData.guest.phone,
-          country: bookingData.guest.country || 'ישראל'
-        },
-        // הוספת פרטי כרטיס אשראי לאובייקט שנשלח לשרת
-        creditCard: {
-          cardNumber: bookingData.creditCardDetails.cardNumber,
-          expiryDate: bookingData.creditCardDetails.expiryDate,
-          cvv: bookingData.creditCardDetails.cvv,
-          cardholderName: bookingData.creditCardDetails.cardholderName
-        },
-        status: 'confirmed',
-        paymentStatus: 'pending',
-        notes: bookingData.notes
-      };
-      
-      console.log('שולח הזמנה:', bookingPayload);
-      console.log('פרטי כרטיס אשראי נשלחים:', bookingPayload.creditCard);
-      
-      // שליחת ההזמנה לשרת
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingPayload);
-      
-      // בדיקה אם יש מספר הזמנה בתשובה
-      let bookingNumber = '';
-      if (response.data.data && response.data.data.bookingNumber) {
-        bookingNumber = response.data.data.bookingNumber;
-      } else if (response.data.bookingNumber) {
-        bookingNumber = response.data.bookingNumber;
+      if (bookingData.selectedRooms && bookingData.selectedRooms.length > 1) {
+        const bookingPayload = {
+          roomIds: bookingData.selectedRooms,
+          checkIn: bookingData.checkIn instanceof Date ? bookingData.checkIn.toISOString() : bookingData.checkIn,
+          checkOut: bookingData.checkOut instanceof Date ? bookingData.checkOut.toISOString() : bookingData.checkOut,
+          nights: bookingData.nights,
+          basePrice: bookingData.basePrice,
+          vatRate: 18,
+          vatAmount: bookingData.vat,
+          totalPrice: bookingData.totalPrice,
+          isTourist: bookingData.isTourist,
+          guest: {
+            firstName: bookingData.guestDetails.firstName,
+            lastName: bookingData.guestDetails.lastName,
+            email: bookingData.guestDetails.email,
+            phone: bookingData.guestDetails.phone,
+            country: bookingData.guestDetails.country || 'ישראל'
+          },
+          creditCard: {
+            cardNumber: bookingData.creditCardDetails.cardNumber,
+            expiryDate: bookingData.creditCardDetails.expiryDate,
+            cvv: bookingData.creditCardDetails.cvv,
+            cardholderName: bookingData.creditCardDetails.cardholderName
+          },
+          status: 'confirmed',
+          paymentStatus: 'pending',
+          notes: bookingData.notes,
+          isMultiRoomBooking: true,
+          totalRooms: bookingData.selectedRooms.length
+        };
+        
+        console.log('שולח הזמנה מרובת חדרים:', {
+          ...bookingPayload,
+          creditCard: { ...bookingPayload.creditCard, cardNumber: '****' }
+        });
+        
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings/multi-room`, bookingPayload);
+        
+        let bookingNumber = '';
+        if (response.data.data && response.data.data.bookingNumber) {
+          bookingNumber = response.data.data.bookingNumber;
+        } else if (response.data.bookingNumber) {
+          bookingNumber = response.data.bookingNumber;
+        }
+        
+        setBookingId(bookingNumber);
+        setActiveStep(activeStep + 1);
+        toast.success('ההזמנה נשלחה בהצלחה!');
       } else {
-        console.log('לא נמצא מספר הזמנה בתשובה:', response.data);
+        const bookingPayload = {
+          roomId: bookingData.roomId || (bookingData.selectedRooms && bookingData.selectedRooms[0]),
+          checkIn: bookingData.checkIn instanceof Date ? bookingData.checkIn.toISOString() : bookingData.checkIn,
+          checkOut: bookingData.checkOut instanceof Date ? bookingData.checkOut.toISOString() : bookingData.checkOut,
+          nights: bookingData.nights,
+          basePrice: bookingData.basePrice,
+          vatRate: 18,
+          vatAmount: bookingData.vat,
+          totalPrice: bookingData.totalPrice,
+          isTourist: bookingData.isTourist,
+          guest: {
+            firstName: bookingData.guestDetails.firstName,
+            lastName: bookingData.guestDetails.lastName,
+            email: bookingData.guestDetails.email,
+            phone: bookingData.guestDetails.phone,
+            country: bookingData.guestDetails.country || 'ישראל'
+          },
+          creditCard: {
+            cardNumber: bookingData.creditCardDetails.cardNumber,
+            expiryDate: bookingData.creditCardDetails.expiryDate,
+            cvv: bookingData.creditCardDetails.cvv,
+            cardholderName: bookingData.creditCardDetails.cardholderName
+          },
+          status: 'confirmed',
+          paymentStatus: 'pending',
+          notes: bookingData.notes
+        };
+        
+        console.log('שולח הזמנה:', {
+          ...bookingPayload,
+          creditCard: { ...bookingPayload.creditCard, cardNumber: '****' }
+        });
+        
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingPayload);
+        
+        let bookingNumber = '';
+        if (response.data.data && response.data.data.bookingNumber) {
+          bookingNumber = response.data.data.bookingNumber;
+        } else if (response.data.bookingNumber) {
+          bookingNumber = response.data.bookingNumber;
+        }
+        
+        setBookingId(bookingNumber);
+        setActiveStep(activeStep + 1);
+        toast.success('ההזמנה נשלחה בהצלחה!');
       }
-      
-      setBookingId(bookingNumber);
-      setActiveStep(activeStep + 1);
-      toast.success('ההזמנה נשלחה בהצלחה!');
     } catch (error) {
       console.error('שגיאה בשליחת ההזמנה:', error);
       
@@ -547,19 +597,16 @@ const BookingPage = () => {
     }
   };
 
-  // חזרה לדף הבית
   const handleReset = () => {
     navigate('/');
   };
 
-  // חישוב מחיר סופי
   const calculateTotalPrice = (basePrice) => {
-    const nights = calculateNights();
+    const nights = calculateNights(bookingData.checkIn, bookingData.checkOut);
     if (!nights || nights <= 0 || !basePrice) return 0;
     return basePrice * nights;
   };
 
-  // תצוגת שלב 1 - בחירת תאריכים
   const renderDateSelection = () => (
     <Box>
       <Typography 
@@ -733,7 +780,9 @@ const BookingPage = () => {
                     flexDirection: 'column',
                     transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                     cursor: 'pointer',
-                    border: bookingData.roomId === room._id ? `2px solid ${theme.palette.primary.main}` : 'none',
+                    border: bookingData.selectedRooms.includes(room._id) || bookingData.roomId === room._id 
+                      ? `2px solid ${theme.palette.primary.main}` 
+                      : 'none',
                     '&:hover': {
                       transform: 'translateY(-5px)',
                       boxShadow: 4
@@ -743,7 +792,7 @@ const BookingPage = () => {
                     setBookingData({
                       ...bookingData,
                       roomId: room._id,
-                      totalPrice: calculateTotalPrice(room.basePrice || room.price)
+                      selectedRooms: [room._id]
                     });
                   }}
                 >
@@ -799,18 +848,12 @@ const BookingPage = () => {
                     </Typography>
                     <Box sx={{ mt: 'auto', pt: 1 }}>
                       <Button
-                        variant={bookingData.roomId === room._id ? "contained" : "outlined"}
+                        variant={bookingData.selectedRooms.includes(room._id) || bookingData.roomId === room._id ? "contained" : "outlined"}
                         fullWidth
                         size={isMobile ? "small" : "medium"}
-                        onClick={() => {
-                          setBookingData({
-                            ...bookingData,
-                            roomId: room._id,
-                            totalPrice: calculateTotalPrice(room.basePrice || room.price)
-                          });
-                        }}
+                        startIcon={bookingData.selectedRooms.includes(room._id) || bookingData.roomId === room._id ? <CheckIcon /> : null}
                       >
-                        {bookingData.roomId === room._id ? 'נבחר' : 'בחר חדר זה'}
+                        {bookingData.selectedRooms.includes(room._id) || bookingData.roomId === room._id ? 'נבחר' : 'בחר חדר זה'}
                       </Button>
                     </Box>
                   </CardContent>
@@ -850,7 +893,6 @@ const BookingPage = () => {
     </Box>
   );
 
-  // תצוגת שלב 2 - פרטי אורח
   const renderGuestDetails = () => (
     <Box>
       <Paper 
@@ -882,8 +924,8 @@ const BookingPage = () => {
               required
               fullWidth
               label="שם פרטי"
-              name="guest.firstName"
-              value={bookingData.guest.firstName}
+              name="guestDetails.firstName"
+              value={bookingData.guestDetails.firstName}
               onChange={handleChange}
               InputProps={{
                 sx: { borderRadius: 1.5 }
@@ -895,8 +937,8 @@ const BookingPage = () => {
               required
               fullWidth
               label="שם משפחה"
-              name="guest.lastName"
-              value={bookingData.guest.lastName}
+              name="guestDetails.lastName"
+              value={bookingData.guestDetails.lastName}
               onChange={handleChange}
               InputProps={{
                 sx: { borderRadius: 1.5 }
@@ -908,8 +950,8 @@ const BookingPage = () => {
               required
               fullWidth
               label="טלפון"
-              name="guest.phone"
-              value={bookingData.guest.phone}
+              name="guestDetails.phone"
+              value={bookingData.guestDetails.phone}
               onChange={handleChange}
               InputProps={{
                 sx: { borderRadius: 1.5 }
@@ -921,9 +963,9 @@ const BookingPage = () => {
               required
               fullWidth
               label="אימייל"
-              name="guest.email"
+              name="guestDetails.email"
               type="email"
-              value={bookingData.guest.email}
+              value={bookingData.guestDetails.email}
               onChange={handleChange}
               placeholder="your@email.com"
               InputProps={{
@@ -978,7 +1020,6 @@ const BookingPage = () => {
     </Box>
   );
 
-  // תצוגת שלב 3 - פרטי תשלום
   const renderPaymentDetails = () => (
     <Box>
       <Paper 
@@ -1121,7 +1162,6 @@ const BookingPage = () => {
     </Box>
   );
 
-  // תצוגת שלב 4 - סיכום
   const renderSummary = () => (
     <Box>
       <Paper 
@@ -1184,7 +1224,7 @@ const BookingPage = () => {
                     : 'לא צוין תאריך תקף'}
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  <b>לילות:</b> {calculations.nights}
+                  <b>לילות:</b> {bookingData.nights}
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                   <b>אורחים:</b> {bookingData.guests}
@@ -1217,13 +1257,13 @@ const BookingPage = () => {
                 }}
               >
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  <b>שם מלא:</b> {bookingData.guest.firstName} {bookingData.guest.lastName}
+                  <b>שם מלא:</b> {bookingData.guestDetails.firstName} {bookingData.guestDetails.lastName}
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  <b>טלפון:</b> {bookingData.guest.phone}
+                  <b>טלפון:</b> {bookingData.guestDetails.phone}
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  <b>אימייל:</b> {bookingData.guest.email}
+                  <b>אימייל:</b> {bookingData.guestDetails.email}
                 </Typography>
                 {bookingData.notes && (
                   <Typography variant="body2">
@@ -1257,10 +1297,10 @@ const BookingPage = () => {
                 }}
               >
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  <b>מחיר בסיס:</b> {calculations.basePrice.toFixed(2)} ₪
+                  <b>מחיר בסיס:</b> {bookingData.basePrice.toFixed(2)} ₪
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  <b>מע"מ ({bookingData.isTourist ? 'פטור' : '18%'}):</b> {calculations.vatAmount.toFixed(2)} ₪
+                  <b>מע"מ ({bookingData.isTourist ? 'פטור' : '18%'}):</b> {bookingData.vat.toFixed(2)} ₪
                 </Typography>
                 <Typography variant="body2" sx={{ 
                   mt: 1.5,
@@ -1268,7 +1308,7 @@ const BookingPage = () => {
                   fontSize: '1.1rem',
                   color: theme.palette.primary.main
                 }}>
-                  סה"כ לתשלום: {calculations.totalPrice.toFixed(2)} ₪
+                  סה"כ לתשלום: {bookingData.totalPrice.toFixed(2)} ₪
                 </Typography>
                 {bookingData.isTourist && (
                   <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
@@ -1309,7 +1349,6 @@ const BookingPage = () => {
     </Box>
   );
 
-  // תצוגת שלב סיום
   const renderComplete = () => (
     <Box sx={{ textAlign: 'center', py: 4 }}>
       <Typography variant="h4" gutterBottom sx={{ color: '#4CAF50', fontWeight: 'bold', mb: 3 }}>
@@ -1339,7 +1378,6 @@ const BookingPage = () => {
     </Box>
   );
 
-  // תצוגת תוכן לפי שלב
   const getStepContent = (step) => {
     switch (step) {
       case 0:
@@ -1355,10 +1393,8 @@ const BookingPage = () => {
     }
   };
 
-  // רנדור הסטפר בהתאם לגודל המסך
   const renderStepper = () => {
     if (isMobile) {
-      // עבור מסכים קטנים, נציג רק את השלב הנוכחי והשלבים הקודמים/הבאים
       return (
         <Box sx={{ mb: 3 }}>
           <MobileStepper
@@ -1391,7 +1427,6 @@ const BookingPage = () => {
         </Box>
       );
     } else {
-      // עבור מסכים גדולים, נציג את הסטפר המלא
       return (
         <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
           {steps.map((label) => (
@@ -1404,9 +1439,8 @@ const BookingPage = () => {
     }
   };
   
-  // בדיקת תקינות פרטי האורח
   const isGuestDetailsValid = () => {
-    const { firstName, lastName, phone, email } = bookingData.guest;
+    const { firstName, lastName, phone, email } = bookingData.guestDetails;
     return (
       firstName && 
       firstName.length >= 2 && 
@@ -1420,16 +1454,12 @@ const BookingPage = () => {
     );
   };
   
-  // בדיקת תקינות פרטי התשלום
   const isPaymentDetailsValid = () => {
     if (bookingData.paymentMethod === 'credit') {
       const { cardNumber, expiryDate, cvv, cardholderName } = bookingData.creditCardDetails;
       
-      // ניקוי רווחים ממספר הכרטיס
       const cleanCardNumber = cardNumber ? cardNumber.replace(/\s/g, '') : '';
       
-      // בדיקה פשוטה יותר - אם יש מספר כרטיס עם לפחות 8 ספרות
-      // ואם יש תאריך תוקף וקוד CVV כלשהו
       const isValid = (
         cleanCardNumber && 
         cleanCardNumber.length >= 8 && 
@@ -1438,7 +1468,6 @@ const BookingPage = () => {
         cardholderName
       );
 
-      // הדפסת מידע לקונסול לצורכי דיבוג
       console.log('פרטי תוקף כרטיס האשראי:', {
         cardNumber: cleanCardNumber,
         cardNumberLength: cleanCardNumber.length,
@@ -1450,7 +1479,6 @@ const BookingPage = () => {
       
       return isValid;
     }
-    // עבור אמצעי תשלום אחרים תמיד מחזיר true
     return true;
   };
 
