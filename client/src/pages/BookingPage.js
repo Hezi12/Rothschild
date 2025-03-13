@@ -174,78 +174,53 @@ const BookingPage = () => {
   const [selectedRooms, setSelectedRooms] = useState([]);
   
   useEffect(() => {
-    if (bookingData.checkIn && bookingData.checkOut && bookingData.roomId && room && activeStep > 0) {
-      const checkRoomAvailability = async () => {
-        try {
-          setCheckingAvailability(true);
-          
-          const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
-            roomId: bookingData.roomId,
-            checkIn: bookingData.checkIn,
-            checkOut: bookingData.checkOut,
-            isTourist: bookingData.isTourist
-          });
-          
-          if (!response.data.isAvailable) {
-            setError('החדר אינו זמין בתאריכים שנבחרו. אנא בחר תאריכים אחרים.');
-            navigate('/');
-            return;
-          }
-          
-          if (response.data.isAvailable) {
-            const nights = response.data.nights || calculateNights(bookingData.checkIn, bookingData.checkOut);
-            const basePrice = response.data.nightsTotal || (nights * (room.basePrice || 400));
-            const vatRate = 18;
-            const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
-            const totalPrice = basePrice + vatAmount;
-            
-            setBookingData(prev => ({
-              ...prev,
-              nights: nights || 0,
-              basePrice: basePrice || 0,
-              vat: vatAmount || 0,
-              totalPrice: isNaN(totalPrice) ? 0 : totalPrice
-            }));
-          }
-        } catch (error) {
-          console.error('שגיאה בבדיקת זמינות:', error);
-          setError('שגיאה בבדיקת זמינות החדר. אנא נסה שוב מאוחר יותר.');
-          navigate('/');
-        } finally {
-          setCheckingAvailability(false);
-        }
-      };
-      
-      checkRoomAvailability();
-    }
-  }, [room, bookingData.checkIn, bookingData.checkOut, bookingData.roomId, activeStep]);
-
-  useEffect(() => {
     if (bookingData.checkIn && bookingData.checkOut && room) {
       const fetchPrices = async () => {
         try {
-          const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
-            roomId: bookingData.roomId,
-            checkIn: bookingData.checkIn,
-            checkOut: bookingData.checkOut,
-            isTourist: bookingData.isTourist
-          });
-          
-          if (response.data.isAvailable) {
-            const nights = response.data.nights || calculateNights(bookingData.checkIn, bookingData.checkOut);
-            const basePrice = response.data.nightsTotal || (nights * (room.basePrice || 400));
-            const vatRate = 18;
-            const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
-            const totalPrice = basePrice + vatAmount;
+          if (bookingData.selectedRooms && bookingData.selectedRooms.length > 1) {
+            const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-multiple-availability`, {
+              roomIds: bookingData.selectedRooms,
+              checkIn: bookingData.checkIn,
+              checkOut: bookingData.checkOut,
+              guests: bookingData.guests,
+              isTourist: bookingData.isTourist
+            });
             
-            if (response.data.totalPrice) {
+            const { data } = response.data;
+            
+            if (data.allRoomsAvailable) {
               setBookingData(prev => ({
                 ...prev,
-                basePrice: response.data.nightsTotal || response.data.basePrice || prev.basePrice,
-                vat: response.data.vatAmount || prev.vat,
-                totalPrice: response.data.totalPrice || prev.totalPrice,
-                nights: response.data.nights || prev.nights
+                basePrice: data.totalBasePrice || prev.basePrice,
+                vat: data.totalVatAmount || prev.vat,
+                totalPrice: data.totalPrice || prev.totalPrice,
+                nights: data.nights || prev.nights
               }));
+            }
+          } else {
+            const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
+              roomId: bookingData.roomId,
+              checkIn: bookingData.checkIn,
+              checkOut: bookingData.checkOut,
+              isTourist: bookingData.isTourist
+            });
+            
+            if (response.data.isAvailable) {
+              const nights = response.data.nights || calculateNights(bookingData.checkIn, bookingData.checkOut);
+              const basePrice = response.data.nightsTotal || (nights * (room.basePrice || 400));
+              const vatRate = 18;
+              const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
+              const totalPrice = basePrice + vatAmount;
+              
+              if (response.data.totalPrice) {
+                setBookingData(prev => ({
+                  ...prev,
+                  basePrice: response.data.nightsTotal || response.data.basePrice || prev.basePrice,
+                  vat: response.data.vatAmount || prev.vat,
+                  totalPrice: response.data.totalPrice || prev.totalPrice,
+                  nights: response.data.nights || prev.nights
+                }));
+              }
             }
           }
         } catch (error) {
@@ -286,43 +261,27 @@ const BookingPage = () => {
       setError(null);
       
       if (bookingData.selectedRooms && bookingData.selectedRooms.length > 0) {
-        const availabilityChecks = bookingData.selectedRooms.map(roomId => 
-          axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
-            roomId: roomId,
-            checkIn: bookingData.checkIn,
-            checkOut: bookingData.checkOut,
-            guests: bookingData.guests,
-            isTourist: bookingData.isTourist
-          })
-        );
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-multiple-availability`, {
+          roomIds: bookingData.selectedRooms,
+          checkIn: bookingData.checkIn,
+          checkOut: bookingData.checkOut,
+          guests: bookingData.guests,
+          isTourist: bookingData.isTourist
+        });
         
-        const responses = await Promise.all(availabilityChecks);
+        const { data } = response.data;
         
-        const areAllRoomsAvailable = responses.every(response => response.data.isAvailable);
-        
-        if (!areAllRoomsAvailable) {
+        if (!data.allRoomsAvailable) {
           toast.error('אחד או יותר מהחדרים אינם זמינים בתאריכים שנבחרו. אנא בחר תאריכים אחרים.');
           return false;
         }
         
-        let totalBasePrice = 0;
-        let totalVatAmount = 0;
-        let totalPrice = 0;
-        
-        responses.forEach(response => {
-          if (response.data.isAvailable) {
-            totalBasePrice += response.data.nightsTotal || response.data.basePrice || 0;
-            totalVatAmount += response.data.vatAmount || 0;
-            totalPrice += response.data.totalPrice || 0;
-          }
-        });
-        
         setBookingData(prev => ({
           ...prev,
-          basePrice: totalBasePrice || 0,
-          vat: totalVatAmount || 0,
-          totalPrice: totalPrice || (totalBasePrice + totalVatAmount),
-          nights: responses[0].data.nights || prev.nights
+          basePrice: data.totalBasePrice || 0,
+          vat: data.totalVatAmount || 0,
+          totalPrice: data.totalPrice || 0,
+          nights: data.nights || prev.nights
         }));
         
         return true;
