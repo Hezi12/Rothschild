@@ -973,4 +973,148 @@ exports.getRoomBookings = async (req, res) => {
       message: 'שגיאת שרת' 
     });
   }
+};
+
+// יצירת חשבונית PDF
+exports.generateInvoicePdf = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    
+    // קבלת פרטי ההזמנה
+    const booking = await Booking.findById(bookingId)
+      .populate('room', 'roomNumber type basePrice internalName');
+    
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'ההזמנה לא נמצאה'
+      });
+    }
+    
+    // שימוש בספריית PDFKit ליצירת ה-PDF
+    const PDFDocument = require('pdfkit');
+    
+    // יצירת מסמך PDF חדש עם תמיכה בעברית
+    const doc = new PDFDocument({
+      size: 'A4',
+      margin: 50,
+      lang: 'he',
+      features: {
+        // הפעלת תמיכה בכתיבה מימין לשמאל
+        isWritingRTL: true
+      }
+    });
+    
+    // הגדרת כותרת לקובץ שיורד
+    res.setHeader('Content-Disposition', `attachment; filename=invoice-${booking.bookingNumber}.pdf`);
+    res.setHeader('Content-Type', 'application/pdf');
+    
+    // הזרמת ה-PDF ישירות לתגובה
+    doc.pipe(res);
+    
+    // הוספת כותרת למסמך
+    doc.fontSize(20).text('חשבונית / קבלה', { align: 'center' });
+    doc.moveDown();
+    
+    // פרטי העסק
+    doc.fontSize(12).text('רוטשילד 79', { align: 'right' });
+    doc.text('ח.פ: 12345678', { align: 'right' });
+    doc.text('טלפון: 03-1234567', { align: 'right' });
+    doc.text('כתובת: רחוב רוטשילד 79, תל אביב', { align: 'right' });
+    doc.moveDown();
+    
+    // מידע על החשבונית
+    doc.fontSize(14).text('פרטי חשבונית:', { align: 'right', underline: true });
+    doc.fontSize(12).text(`מספר חשבונית: ${booking.bookingNumber}`, { align: 'right' });
+    doc.text(`תאריך: ${new Date().toLocaleDateString('he-IL')}`, { align: 'right' });
+    doc.moveDown();
+    
+    // פרטי הלקוח
+    doc.fontSize(14).text('פרטי לקוח:', { align: 'right', underline: true });
+    doc.fontSize(12).text(`שם: ${booking.guest.firstName} ${booking.guest.lastName}`, { align: 'right' });
+    doc.text(`טלפון: ${booking.guest.phone || 'לא צוין'}`, { align: 'right' });
+    doc.text(`אימייל: ${booking.guest.email || 'לא צוין'}`, { align: 'right' });
+    doc.moveDown();
+    
+    // פרטי ההזמנה
+    doc.fontSize(14).text('פרטי הזמנה:', { align: 'right', underline: true });
+    doc.fontSize(12).text(`חדר: ${booking.room.internalName || 'חדר ' + booking.room.roomNumber}`, { align: 'right' });
+    doc.text(`תאריך הגעה: ${new Date(booking.checkIn).toLocaleDateString('he-IL')}`, { align: 'right' });
+    doc.text(`תאריך עזיבה: ${new Date(booking.checkOut).toLocaleDateString('he-IL')}`, { align: 'right' });
+    doc.text(`מספר לילות: ${booking.nights}`, { align: 'right' });
+    doc.moveDown();
+    
+    // טבלת מחירים
+    doc.fontSize(14).text('פירוט מחירים:', { align: 'right', underline: true });
+    doc.moveDown(0.5);
+    
+    // כותרות טבלה
+    let yPos = doc.y;
+    doc.fontSize(12).text('תיאור', 450, yPos, { width: 100, align: 'right' });
+    doc.text('מחיר ללילה', 350, yPos, { width: 100, align: 'right' });
+    doc.text('לילות', 250, yPos, { width: 100, align: 'right' });
+    doc.text('סה"כ', 150, yPos, { width: 100, align: 'right' });
+    
+    // קו מפריד
+    doc.moveTo(50, doc.y + 15).lineTo(550, doc.y + 15).stroke();
+    doc.moveDown();
+    
+    // שורת הפריט
+    yPos = doc.y;
+    doc.fontSize(12).text(`לינה - ${booking.room.internalName || 'חדר ' + booking.room.roomNumber}`, 450, yPos, { width: 100, align: 'right' });
+    doc.text(`${booking.basePrice} ₪`, 350, yPos, { width: 100, align: 'right' });
+    doc.text(`${booking.nights}`, 250, yPos, { width: 100, align: 'right' });
+    doc.text(`${booking.totalPrice} ₪`, 150, yPos, { width: 100, align: 'right' });
+    
+    // קו מפריד
+    doc.moveDown();
+    doc.moveTo(50, doc.y + 5).lineTo(550, doc.y + 5).stroke();
+    doc.moveDown();
+    
+    // סיכום
+    if (booking.isTourist) {
+      // תיירים פטורים ממע"מ
+      doc.fontSize(12).text(`סה"כ לתשלום: ${booking.totalPrice} ₪`, { align: 'right' });
+      doc.text('* פטור ממע"מ לתייר עם דרכון זר', { align: 'right' });
+    } else {
+      // חישוב מע"מ והצגתו
+      const vatRate = booking.vatRate || 18;
+      const priceBeforeVat = (booking.totalPrice * 100) / (100 + vatRate);
+      const vatAmount = booking.totalPrice - priceBeforeVat;
+      
+      doc.fontSize(12).text(`סכום לפני מע"מ: ${priceBeforeVat.toFixed(2)} ₪`, { align: 'right' });
+      doc.text(`מע"מ (${vatRate}%): ${vatAmount.toFixed(2)} ₪`, { align: 'right' });
+      doc.fontSize(14).text(`סה"כ לתשלום: ${booking.totalPrice} ₪`, { align: 'right' });
+    }
+    
+    // סטטוס תשלום
+    doc.moveDown();
+    doc.fontSize(12).text(`סטטוס תשלום: ${booking.paymentStatus === 'paid' ? 'שולם' : booking.paymentStatus === 'partial' ? 'שולם חלקית' : 'טרם שולם'}`, { align: 'right' });
+    if (booking.paymentMethod) {
+      doc.text(`אמצעי תשלום: ${booking.paymentMethod}`, { align: 'right' });
+    }
+    
+    // הערות
+    if (booking.notes) {
+      doc.moveDown();
+      doc.fontSize(12).text('הערות:', { align: 'right', underline: true });
+      doc.text(booking.notes, { align: 'right' });
+    }
+    
+    // תודה והערות סיום
+    doc.moveDown();
+    doc.fontSize(10).text('תודה שבחרתם בנו!', { align: 'center' });
+    doc.text('מסמך זה הופק אוטומטית ואינו דורש חתימה', { align: 'center' });
+    
+    // סיום המסמך
+    doc.end();
+    
+  } catch (error) {
+    console.error('שגיאה ביצירת חשבונית PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: 'אירעה שגיאה ביצירת חשבונית PDF',
+      error: error.message
+    });
+  }
 }; 

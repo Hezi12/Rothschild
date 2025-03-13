@@ -47,7 +47,8 @@ import {
   Event as EventIcon,
   WhatsApp as WhatsAppIcon,
   Payments as PaymentsIcon,
-  Launch as LaunchIcon
+  Launch as LaunchIcon,
+  Receipt as ReceiptIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -465,6 +466,15 @@ const BookingsNewPage = () => {
       setError(error.response?.data?.message || 'שגיאה במחיקת ההזמנה לצמיתות');
       alert(`שגיאה: ${error.response?.data?.message || 'שגיאה במחיקת ההזמנה לצמיתות'}`);
     }
+  };
+  
+  const handleGenerateInvoice = (bookingId) => {
+    // יצירת חשבונית PDF
+    const invoiceUrl = `${process.env.REACT_APP_API_URL}/bookings/${bookingId}/invoice`;
+    const token = localStorage.getItem('token');
+    
+    // פתיחת החשבונית בחלון חדש
+    window.open(`${invoiceUrl}?token=${token}`, '_blank');
   };
   
   const handleUpdatePaymentStatus = async (bookingId, newStatus) => {
@@ -892,6 +902,19 @@ const BookingsNewPage = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
+                            {/* אייקון חשבונית */}
+                            <Tooltip title="הפקת חשבונית PDF">
+                             <IconButton 
+                               color="primary" 
+                               size="small"
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleGenerateInvoice(booking._id);
+                               }}
+                             >
+                               <ReceiptIcon fontSize="small" />
+                             </IconButton>
+                            </Tooltip>
                           </Stack>
                         </TableCell>
                       </TableRow>

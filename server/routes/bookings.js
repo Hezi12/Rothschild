@@ -33,6 +33,23 @@ router
   .route('/:id/hard-delete')
   .delete(protect, admin, bookingController.hardDeleteBooking);
 
+// יצירת חשבונית PDF
+router
+  .route('/:id/invoice')
+  .get(async (req, res, next) => {
+    // בדיקה אם התקבל טוקן בפרמטרי השאילתה
+    if (req.query.token) {
+      try {
+        // הגדרת הטוקן בכותרות הבקשה
+        req.headers.authorization = `Bearer ${req.query.token}`;
+      } catch (error) {
+        console.error('שגיאה בעיבוד טוקן:', error);
+      }
+    }
+    // המשך לפונקציית האימות
+    protect(req, res, next);
+  }, bookingController.generateInvoicePdf);
+
 // סטטיסטיקות
 router
   .route('/stats')
