@@ -994,11 +994,10 @@ exports.generateInvoicePdf = async (req, res) => {
     // שימוש בספריית PDFKit ליצירת ה-PDF
     const PDFDocument = require('pdfkit');
     
-    // יצירת מסמך PDF חדש באנגלית עם גופנים יפים
+    // יצירת מסמך PDF חדש מינימליסטי
     const doc = new PDFDocument({
       size: 'A4',
-      margin: 50,
-      bufferPages: true,
+      margin: 40,
       info: {
         Title: `Invoice #${booking.bookingNumber}`,
         Author: 'Rothschild 79',
@@ -1013,296 +1012,135 @@ exports.generateInvoicePdf = async (req, res) => {
     // הזרמת ה-PDF ישירות לתגובה
     doc.pipe(res);
     
-    // צבעים
-    const primaryColor = '#0066cc';
-    const secondaryColor = '#333333';
-    const accentColor = '#e6e6e6';
+    // צבעים וקבועים
+    const textColor = '#000000';
+    const headerColor = '#000000';
+    const lineColor = '#cccccc';
     
-    // הוספת כותרת עם לוגו בסיסי
-    const headerHeight = 130;
-    
-    // רקע אפור לכותרת
-    doc.fillColor(accentColor)
-       .rect(0, 0, doc.page.width, headerHeight)
-       .fill();
-    
-    // לוגו פשוט - אליפסה עם טקסט
-    doc.fillColor(primaryColor)
-       .ellipse(100, 70, 40, 40)
-       .fill();
-    
-    doc.fillColor('white')
-       .fontSize(20)
-       .text('R79', 85, 60);
-    
-    // כותרת חשבונית
-    doc.fillColor(primaryColor)
-       .fontSize(28)
+    // ------ כותרת המסמך -------
+    doc.fontSize(16)
        .font('Helvetica-Bold')
-       .text('INVOICE / RECEIPT', 200, 60);
+       .fillColor(headerColor)
+       .text('INVOICE', 40, 40);
     
-    // תאריך ומספר חשבונית בפינה הימנית העליונה
+    doc.fontSize(10)
+       .text(`${booking.bookingNumber}`, 110, 42);
+    
     doc.fontSize(10)
        .font('Helvetica')
-       .fillColor(secondaryColor)
-       .text(`Invoice #: ${booking.bookingNumber}`, 400, 35, { align: 'right' });
+       .text(`Date: ${new Date().toLocaleDateString('en-US')}`, 400, 40, { align: 'right' });
     
-    doc.text(`Date: ${new Date().toLocaleDateString('en-US')}`, 400, 50, { align: 'right' });
-    
-    // קו הפרדה אופקי
-    doc.moveTo(50, headerHeight)
-       .lineTo(doc.page.width - 50, headerHeight)
-       .strokeColor(primaryColor)
-       .lineWidth(1)
+    // קו הפרדה
+    doc.moveTo(40, 60)
+       .lineTo(doc.page.width - 40, 60)
+       .strokeColor(lineColor)
        .stroke();
     
-    // מידע ארגוני
-    const columnPosition = 50; // Left column
-    let currentPosition = headerHeight + 30;
-    
-    // תיבת מידע של העסק
-    doc.roundedRect(columnPosition, currentPosition, 230, 80, 5)
-       .fillColor(accentColor)
-       .fillAndStroke();
-    
-    doc.fillColor(secondaryColor)
-       .fontSize(14)
-       .font('Helvetica-Bold')
-       .text('Rothschild 79', columnPosition + 15, currentPosition + 15);
-    
+    // ------ פרטי העסק -------
     doc.fontSize(10)
-       .font('Helvetica')
-       .text('Business ID: 12345678', columnPosition + 15, currentPosition + 35);
-    
-    doc.text('Phone: 03-1234567', columnPosition + 15, currentPosition + 50);
-    doc.text('79 Rothschild Blvd, Tel Aviv', columnPosition + 15, currentPosition + 65);
-    
-    // תיבת פרטי לקוח
-    doc.roundedRect(columnPosition + 250, currentPosition, 230, 80, 5)
-       .fillColor(accentColor)
-       .fillAndStroke();
-    
-    doc.fillColor(secondaryColor)
-       .fontSize(14)
        .font('Helvetica-Bold')
-       .text('Customer Details:', columnPosition + 265, currentPosition + 15);
-    
-    doc.fontSize(10)
+       .fillColor(textColor)
+       .text('Rothschild 79', 40, 70);
+       
+    doc.fontSize(9)
        .font('Helvetica')
-       .text(`Name: ${booking.guest.firstName} ${booking.guest.lastName}`, columnPosition + 265, currentPosition + 35);
+       .text('79 Rothschild Blvd, Tel Aviv', 40, 85);
+       
+    doc.text(`Phone: 03-1234567 | Business ID: 12345678`, 40, 100);
     
-    doc.text(`Phone: ${booking.guest.phone || 'Not specified'}`, columnPosition + 265, currentPosition + 50);
-    doc.text(`Email: ${booking.guest.email || 'Not specified'}`, columnPosition + 265, currentPosition + 65);
+    // ------ פרטי לקוח -------
+    doc.fontSize(10)
+       .font('Helvetica-Bold')
+       .text('TO:', 40, 120);
+       
+    doc.fontSize(9)
+       .font('Helvetica')
+       .text(`${booking.guest.firstName} ${booking.guest.lastName}`, 65, 120);
+       
+    doc.text(`Phone: ${booking.guest.phone || ''}`, 65, 135);
     
-    // פרטי ההזמנה
-    currentPosition += 100;
+    doc.text(`Email: ${booking.guest.email || ''}`, 275, 135);
     
-    doc.font('Helvetica-Bold')
-       .fontSize(14)
-       .fillColor(primaryColor)
-       .text('Booking Details:', columnPosition, currentPosition);
+    // ------ פרטי ההזמנה -------
+    doc.fontSize(10)
+       .font('Helvetica-Bold')
+       .text('BOOKING DETAILS', 40, 155);
+       
+    doc.fontSize(9)
+       .font('Helvetica')
+       .text(`Room: ${booking.room.roomNumber}`, 40, 170)
+       .text(`Check-in: ${new Date(booking.checkIn).toLocaleDateString('en-US')}`, 180, 170)
+       .text(`Check-out: ${new Date(booking.checkOut).toLocaleDateString('en-US')}`, 320, 170)
+       .text(`Nights: ${booking.nights}`, 460, 170);
     
-    doc.moveTo(columnPosition, currentPosition + 20)
-       .lineTo(columnPosition + 480, currentPosition + 20)
-       .strokeColor(primaryColor)
-       .lineWidth(0.5)
+    // קו הפרדה
+    doc.moveTo(40, 185)
+       .lineTo(doc.page.width - 40, 185)
+       .strokeColor(lineColor)
        .stroke();
     
-    currentPosition += 30;
+    // ------ כותרות טבלת מחירים -------
     doc.fontSize(10)
-       .font('Helvetica')
-       .fillColor(secondaryColor);
-    
-    // טבלה עם פרטי ההזמנה
-    const bookingDetails = [
-      { label: 'Room', value: booking.room.internalName || 'Room ' + booking.room.roomNumber },
-      { label: 'Check-in Date', value: new Date(booking.checkIn).toLocaleDateString('en-US') },
-      { label: 'Check-out Date', value: new Date(booking.checkOut).toLocaleDateString('en-US') },
-      { label: 'Number of Nights', value: booking.nights }
-    ];
-    
-    bookingDetails.forEach((detail, index) => {
-      doc.font('Helvetica-Bold').text(detail.label + ':', columnPosition, currentPosition, { width: 150 });
-      doc.font('Helvetica').text(detail.value, columnPosition + 150, currentPosition);
-      currentPosition += 20;
-    });
-    
-    // טבלת מחירים
-    currentPosition += 20;
-    doc.fontSize(14)
        .font('Helvetica-Bold')
-       .fillColor(primaryColor)
-       .text('Price Details:', columnPosition, currentPosition);
+       .text('DESCRIPTION', 40, 195)
+       .text('PRICE', 320, 195)
+       .text('QTY', 400, 195)
+       .text('AMOUNT', 460, 195, { align: 'right' });
     
-    doc.moveTo(columnPosition, currentPosition + 20)
-       .lineTo(columnPosition + 480, currentPosition + 20)
-       .strokeColor(primaryColor)
-       .lineWidth(0.5)
+    // קו הפרדה
+    doc.moveTo(40, 210)
+       .lineTo(doc.page.width - 40, 210)
+       .strokeColor(lineColor)
        .stroke();
     
-    currentPosition += 30;
-    
-    // כותרות טבלה
-    const tableTop = currentPosition;
-    const tableHeaders = ['Description', 'Price per Night', 'Nights', 'Total'];
-    const tableColumnWidths = [250, 100, 50, 80];
-    const tablePositions = [columnPosition];
-    
-    for (let i = 1; i < tableColumnWidths.length; i++) {
-      tablePositions.push(tablePositions[i-1] + tableColumnWidths[i-1]);
-    }
-    
-    // מלבן רקע לכותרות
-    doc.rect(columnPosition, tableTop, 480, 20)
-       .fillColor(primaryColor)
-       .fill();
-    
-    // כותרות הטבלה
-    tableHeaders.forEach((header, i) => {
-      doc.fontSize(10)
-         .font('Helvetica-Bold')
-         .fillColor('white')
-         .text(header, tablePositions[i], tableTop + 5, { width: tableColumnWidths[i], align: 'left' });
-    });
-    
-    // שורת הפריט
-    currentPosition = tableTop + 25;
-    
-    // רקע שורה
-    doc.rect(columnPosition, currentPosition - 5, 480, 20)
-       .fillColor('#f9f9f9')
-       .fill();
-    
-    // תוכן הטבלה
-    doc.fontSize(10)
+    // ------ שורת פריט בטבלה -------
+    doc.fontSize(9)
        .font('Helvetica')
-       .fillColor(secondaryColor);
+       .fillColor(textColor)
+       .text(`Accommodation - ${booking.room.internalName || 'Room ' + booking.room.roomNumber}`, 40, 220)
+       .text(`${booking.basePrice} ILS`, 320, 220)
+       .text(`${booking.nights}`, 400, 220)
+       .text(`${booking.basePrice * booking.nights} ILS`, 460, 220, { align: 'right' });
     
-    doc.text(`Accommodation - ${booking.room.internalName || 'Room ' + booking.room.roomNumber}`, 
-            tablePositions[0], currentPosition);
-    doc.text(`${booking.basePrice} ILS`, tablePositions[1], currentPosition);
-    doc.text(`${booking.nights}`, tablePositions[2], currentPosition);
-    doc.text(`${booking.basePrice * booking.nights} ILS`, tablePositions[3], currentPosition);
-    
-    // קו הפרדה בתחתית הטבלה
-    currentPosition += 25;
-    doc.moveTo(columnPosition, currentPosition)
-       .lineTo(columnPosition + 480, currentPosition)
-       .strokeColor(primaryColor)
-       .lineWidth(0.5)
+    // קו הפרדה
+    doc.moveTo(40, 235)
+       .lineTo(doc.page.width - 40, 235)
+       .strokeColor(lineColor)
        .stroke();
     
-    // סיכום
-    currentPosition += 20;
+    // ------ חישוב מחירים -------
+    const vatRate = booking.vatRate || 18;
+    const priceBeforeVat = (booking.totalPrice * 100) / (100 + vatRate);
+    const vatAmount = booking.totalPrice - priceBeforeVat;
     
-    if (booking.isTourist) {
-      // תיירים פטורים ממע"מ
-      doc.fontSize(12)
-         .font('Helvetica-Bold')
-         .text(`Total Amount: ${booking.totalPrice} ILS`, columnPosition + 330, currentPosition);
-      
-      currentPosition += 20;
-      doc.fontSize(9)
-         .font('Helvetica-Oblique')
-         .text('* VAT exempt for tourists with foreign passports', columnPosition, currentPosition);
-    } else {
-      // חישוב מע"מ והצגתו
-      const vatRate = booking.vatRate || 18;
-      const priceBeforeVat = (booking.totalPrice * 100) / (100 + vatRate);
-      const vatAmount = booking.totalPrice - priceBeforeVat;
-      
-      doc.fontSize(10)
-         .font('Helvetica')
-         .text(`Amount before VAT:`, columnPosition + 280, currentPosition);
-      
-      doc.text(`${priceBeforeVat.toFixed(2)} ILS`, columnPosition + 400, currentPosition, { align: 'right' });
-      
-      currentPosition += 20;
-      doc.text(`VAT (${vatRate}%):`, columnPosition + 280, currentPosition);
-      doc.text(`${vatAmount.toFixed(2)} ILS`, columnPosition + 400, currentPosition, { align: 'right' });
-      
-      // קו הפרדה
-      currentPosition += 5;
-      doc.moveTo(columnPosition + 280, currentPosition)
-         .lineTo(columnPosition + 480, currentPosition)
-         .strokeColor(secondaryColor)
-         .lineWidth(0.5)
-         .stroke();
-      
-      currentPosition += 10;
-      doc.fontSize(12)
-         .font('Helvetica-Bold')
-         .text(`Total Amount:`, columnPosition + 280, currentPosition);
-      
-      doc.text(`${booking.totalPrice} ILS`, columnPosition + 400, currentPosition, { align: 'right' });
-    }
+    // סיכום מחירים
+    doc.fontSize(9)
+       .font('Helvetica')
+       .text('Subtotal', 340, 245)
+       .text(`${priceBeforeVat.toFixed(2)} ILS`, 460, 245, { align: 'right' });
     
-    // סטטוס תשלום
-    currentPosition += 40;
-    doc.rect(columnPosition, currentPosition - 5, 480, 30)
-       .fillColor(accentColor)
-       .fill();
+    doc.text(`VAT (${vatRate}%)`, 340, 260)
+       .text(`${vatAmount.toFixed(2)} ILS`, 460, 260, { align: 'right' });
     
+    doc.fontSize(10)
+       .font('Helvetica-Bold')
+       .text('TOTAL', 340, 280)
+       .text(`${booking.totalPrice.toFixed(2)} ILS`, 460, 280, { align: 'right' });
+    
+    // ------ סטטוס תשלום -------
     const paymentStatusMap = {
       'paid': 'Paid',
       'partial': 'Partially Paid',
       'pending': 'Pending Payment'
     };
     
-    doc.fontSize(12)
+    doc.fontSize(9)
        .font('Helvetica-Bold')
-       .fillColor(secondaryColor)
-       .text(`Payment Status: ${paymentStatusMap[booking.paymentStatus] || booking.paymentStatus}`, 
-            columnPosition + 15, currentPosition);
+       .text('PAYMENT STATUS:', 40, 300);
     
-    if (booking.paymentMethod) {
-      doc.font('Helvetica')
-         .text(`Payment Method: ${booking.paymentMethod}`, columnPosition + 250, currentPosition);
-    }
-    
-    // הערות
-    if (booking.notes) {
-      currentPosition += 50;
-      doc.fontSize(12)
-         .font('Helvetica-Bold')
-         .fillColor(secondaryColor)
-         .text('Notes:', columnPosition, currentPosition);
-      
-      currentPosition += 20;
-      doc.fontSize(10)
-         .font('Helvetica')
-         .text(booking.notes, columnPosition, currentPosition, { width: 480 });
-    }
-    
-    // פוטר
-    const footerPosition = doc.page.height - 50;
-    
-    doc.moveTo(50, footerPosition - 15)
-       .lineTo(doc.page.width - 50, footerPosition - 15)
-       .strokeColor(primaryColor)
-       .lineWidth(1)
-       .stroke();
-    
-    doc.fontSize(10)
-       .font('Helvetica-Bold')
-       .fillColor(primaryColor)
-       .text('Thank you for choosing us!', columnPosition, footerPosition, { align: 'center', width: 480 });
-    
-    doc.fontSize(8)
+    doc.fontSize(9)
        .font('Helvetica')
-       .fillColor(secondaryColor)
-       .text('This document was generated automatically and does not require a signature', 
-            columnPosition, footerPosition + 15, { align: 'center', width: 480 });
-    
-    // מספור עמודים
-    const totalPages = doc.bufferedPageCount;
-    for (let i = 0; i < totalPages; i++) {
-      doc.switchToPage(i);
-      doc.fontSize(8)
-         .fillColor(secondaryColor)
-         .text(`Page ${i + 1} of ${totalPages}`, columnPosition, doc.page.height - 20, 
-               { align: 'center', width: 480 });
-    }
+       .text(paymentStatusMap[booking.paymentStatus] || booking.paymentStatus, 140, 300);
     
     // סיום המסמך
     doc.end();

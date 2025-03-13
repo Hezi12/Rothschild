@@ -13,11 +13,16 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  IconButton,
+  Tooltip,
+  Link
 } from '@mui/material';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
 import axios from 'axios';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
+import LaunchIcon from '@mui/icons-material/Launch';
 
 const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
   const [loading, setLoading] = useState(false);
@@ -252,7 +257,20 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
 
           <Grid item xs={12}>
             <Divider sx={{ my: 2 }} />
-            <Typography variant="h6" gutterBottom>פרטי כרטיס אשראי</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="h6" gutterBottom>פרטי כרטיס אשראי</Typography>
+              <Tooltip title="מערכת ניהול כרטיסי אשראי CreditGuard">
+                <IconButton 
+                  color="primary" 
+                  size="small" 
+                  component={Link} 
+                  href="https://console.creditguard.co.il/html/mainFrames.html" 
+                  target="_blank"
+                >
+                  <LaunchIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Grid>
 
           <Grid item xs={12} sm={6}>
@@ -412,7 +430,20 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
 
           <Grid item xs={12}>
             <Divider sx={{ my: 2 }} />
-            <Typography variant="h6" gutterBottom>פרטי כרטיס אשראי</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="h6" gutterBottom>פרטי כרטיס אשראי</Typography>
+              <Tooltip title="מערכת ניהול כרטיסי אשראי CreditGuard">
+                <IconButton 
+                  color="primary" 
+                  size="small" 
+                  component={Link} 
+                  href="https://console.creditguard.co.il/html/mainFrames.html" 
+                  target="_blank"
+                >
+                  <LaunchIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Grid>
 
           <Grid item xs={12} sm={6}>
