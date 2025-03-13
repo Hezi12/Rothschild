@@ -316,53 +316,140 @@ exports.deleteRoom = async (req, res) => {
 // @route   POST /api/rooms/check-availability
 // @access  Public
 exports.checkAvailability = asyncHandler(async (req, res, next) => {
-  const { roomId, checkIn, checkOut, isTourist } = req.body;
+  const { roomId, checkIn, checkOut, guests, rooms, isTourist } = req.body;
   
   // בדיקת תקינות נתונים
-  if (!roomId || !checkIn || !checkOut) {
-    return next(new ErrorResponse('נא לספק את כל הפרטים הנדרשים', 400));
+  if (!checkIn || !checkOut) {
+    return next(new ErrorResponse('נא לספק תאריכי צ\'ק-אין וצ\'ק-אאוט', 400));
   }
   
   try {
-    const room = await Room.findById(roomId);
-    
-    if (!room) {
-      return next(new ErrorResponse('החדר לא נמצא', 404));
-    }
-    
-    // בדיקת זמינות באמצעות הפונקציה מהשירות
-    const available = await isAvailable(roomId, checkIn, checkOut);
-    
-    // חישוב מספר לילות
+    // המרת תאריכים
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
+    
+    // בדיקת תקינות התאריכים
+    if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+      return next(new ErrorResponse('תאריכים לא תקינים', 400));
+    }
+    
+    if (checkInDate >= checkOutDate) {
+      return next(new ErrorResponse('תאריך הגעה חייב להיות לפני תאריך עזיבה', 400));
+    }
+    
+    // חישוב מספר לילות
     const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
     
-    // חישוב מחירים
-    const basePrice = room.basePrice * nights;
-    const vatAmount = isTourist ? 0 : basePrice * 0.18;
-    const totalPrice = basePrice + vatAmount;
+    // אם נשלח roomId ספציפי, בדוק רק את החדר הזה
+    if (roomId) {
+      const room = await Room.findById(roomId);
+      
+      if (!room) {
+        return next(new ErrorResponse('החדר לא נמצא', 404));
+      }
+      
+      // בדיקת זמינות
+      const available = await isRoomAvailable(roomId, checkInDate, checkOutDate);
+      
+      // חישוב מחיר
+      const priceInfo = calculatePriceWithSpecialPrices(room, checkInDate, nights);
+      const vatData = calculateVatAndTotalPrice(priceInfo.totalBasePrice, isTourist);
+      
+      return res.status(200).json({
+        success: true,
+        data: {
+          isAvailable: available,
+          roomId: room._id,
+          roomNumber: room.roomNumber,
+          internalName: room.internalName,
+          type: room.type,
+          nights,
+          basePrice: room.basePrice,
+          nightsTotal: priceInfo.totalBasePrice,
+          vatAmount: vatData.vatAmount,
+          totalPrice: vatData.totalPrice,
+          checkIn,
+          checkOut,
+          images: room.images,
+          amenities: room.amenities,
+          description: room.description,
+          maxOccupancy: room.maxOccupancy
+        }
+      });
+    }
+    
+    // אחרת, מצא את כל החדרים הזמינים
+    const allRooms = await Room.find({ isActive: true });
+    const availableRooms = [];
+    
+    // בדוק זמינות עבור כל חדר פעיל
+    for (const room of allRooms) {
+      // דלג על חדרים שלא מתאימים למספר האורחים (אם צוין)
+      if (guests && room.maxOccupancy < guests) {
+        continue;
+      }
+      
+      const isAvailable = await isRoomAvailable(room._id, checkInDate, checkOutDate);
+      
+      if (isAvailable) {
+        // חישוב מחיר
+        const priceInfo = calculatePriceWithSpecialPrices(room, checkInDate, nights);
+        const vatData = calculateVatAndTotalPrice(priceInfo.totalBasePrice, isTourist);
+        
+        availableRooms.push({
+          _id: room._id,
+          roomNumber: room.roomNumber,
+          internalName: room.internalName,
+          type: room.type,
+          basePrice: room.basePrice,
+          nightsTotal: priceInfo.totalBasePrice,
+          vatAmount: vatData.vatAmount,
+          totalPrice: vatData.totalPrice,
+          nights,
+          images: room.images,
+          amenities: room.amenities,
+          description: room.description,
+          maxOccupancy: room.maxOccupancy
+        });
+      }
+    }
     
     res.status(200).json({
       success: true,
-      data: {
-        isAvailable: available,
-        roomId: room._id,
-        roomName: room.name,
-        roomType: room.type,
-        nights,
-        basePrice: room.basePrice,
-        nightsTotal: basePrice,
-        vatAmount,
-        totalPrice,
-        checkIn,
-        checkOut
-      }
+      data: availableRooms
     });
   } catch (err) {
     return next(new ErrorResponse(`שגיאה בבדיקת זמינות: ${err.message}`, 500));
   }
 });
+
+// ייבוא פונקציה לבדיקת זמינות חדר ממודול אחר
+const isRoomAvailable = async (roomId, checkInDate, checkOutDate) => {
+  // בדיקה אם יש הזמנות שחופפות לתאריכים המבוקשים
+  const overlappingBookings = await Booking.find({
+    room: roomId,
+    status: { $ne: 'canceled' },
+    $or: [
+      // מקרה 1: תאריך הגעה חדש בין תאריכי הזמנה קיימת
+      {
+        checkIn: { $lte: checkInDate },
+        checkOut: { $gt: checkInDate }
+      },
+      // מקרה 2: תאריך עזיבה חדש בין תאריכי הזמנה קיימת
+      {
+        checkIn: { $lt: checkOutDate },
+        checkOut: { $gte: checkOutDate }
+      },
+      // מקרה 3: תאריכי הזמנה חדשה מכילים הזמנה קיימת
+      {
+        checkIn: { $gte: checkInDate },
+        checkOut: { $lte: checkOutDate }
+      }
+    ]
+  });
+  
+  return overlappingBookings.length === 0;
+};
 
 // @desc    בדיקת זמינות מספר חדרים
 // @route   POST /api/rooms/check-multiple-availability
@@ -516,7 +603,7 @@ exports.createMultiRoomBooking = asyncHandler(async (req, res, next) => {
     const booking = await Booking.create(multiBooking);
     
     res.status(201).json({
-      success: true,
+        success: true,
       data: booking,
       bookingNumber: booking.bookingNumber
     });
@@ -630,7 +717,7 @@ exports.getRoomSpecialPrices = async (req, res) => {
       message: 'שגיאת שרת' 
     });
   }
-};
+}; 
 
 // Make the functions available for export
 exports.calculatePriceWithSpecialPrices = calculatePriceWithSpecialPrices;

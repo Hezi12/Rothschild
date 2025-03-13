@@ -105,6 +105,17 @@ const SearchResultsPage = () => {
         
         let availableRooms = response.data.data || [];
         
+        // וידוא שיש לנו מערך
+        if (!Array.isArray(availableRooms)) {
+          if (availableRooms && typeof availableRooms === 'object') {
+            // אם קיבלנו אובייקט בודד במקום מערך, הפוך אותו למערך
+            availableRooms = [availableRooms];
+          } else {
+            // אם אין נתונים תקינים, הגדר כמערך ריק
+            availableRooms = [];
+          }
+        }
+        
         // סינון נוסף בצד הקליינט למקרה שהשרת לא סינן נכון
         // צריך להיות רק חדר אחד מכל סוג עבור 1-2 אורחים
         if (guests <= 2 && roomsCount === 1) {
@@ -136,7 +147,7 @@ const SearchResultsPage = () => {
         console.log('סוגי חדרים שהתקבלו:', availableRooms.map(room => ({ 
           roomNumber: room.roomNumber, 
           type: room.type, 
-          maxGuests: room.maxGuests,
+          maxGuests: room.maxOccupancy,
           totalPrice: room.totalPrice
         })));
       } catch (error) {

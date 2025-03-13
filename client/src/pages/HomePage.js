@@ -549,54 +549,6 @@ const HomePage = () => {
                     </Box>
                   </Box>
                   
-                  <Box sx={{ mt: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 'medium' }}>
-                      סטטוס מבקר:
-                    </Typography>
-                    <RadioGroup
-                      row
-                      value={bookingData.isTourist ? 'tourist' : 'israeli'}
-                      onChange={(e) => setBookingData(prev => ({ ...prev, isTourist: e.target.value === 'tourist' }))}
-                      sx={{ 
-                        '& .MuiFormControlLabel-root': { 
-                          marginLeft: 0, 
-                          marginRight: 0 
-                        }
-                      }}
-                    >
-                      <FormControlLabel
-                        value="israeli"
-                        control={<Radio size="small" />}
-                        label={
-                          <Box>
-                            <Typography variant="body2" component="span">
-                              תושב ישראל
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              מחירים כוללים מע״מ (18%)
-                            </Typography>
-                          </Box>
-                        }
-                        sx={{ flex: 1, alignItems: 'flex-start' }}
-                      />
-                      <FormControlLabel
-                        value="tourist"
-                        control={<Radio size="small" />}
-                        label={
-                          <Box>
-                            <Typography variant="body2" component="span">
-                              תייר
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              פטור ממע״מ בהצגת דרכון בצ׳ק אין
-                            </Typography>
-                          </Box>
-                        }
-                        sx={{ flex: 1, alignItems: 'flex-start' }}
-                      />
-                    </RadioGroup>
-                  </Box>
-                  
                   <Button 
                     variant="contained" 
                     fullWidth 
@@ -660,6 +612,40 @@ const HomePage = () => {
             {searchError}
           </Alert>
         )}
+
+        <Box sx={{ 
+          mt: 3, 
+          pt: 1, 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: { xs: 'center', sm: 'space-between' }, 
+          alignItems: 'center',
+          gap: 2
+        }}>
+          <Box sx={{ width: { xs: 0, sm: '200px' }, flexShrink: 0 }}></Box>
+          
+          <Typography 
+            variant="body2" 
+            color="text.secondary"
+            sx={{
+              p: 1.5,
+              border: '1px dashed',
+              borderColor: alpha(theme.palette.primary.main, 0.3),
+              borderRadius: 4,
+              display: 'inline-block',
+              px: 3,
+              backgroundColor: alpha(theme.palette.primary.main, 0.03),
+              textAlign: 'center',
+              order: { xs: 1, sm: 'unset' },
+              margin: { xs: '0 auto', sm: '0 auto' },
+              flex: 1
+            }}
+          >
+            <Typography component="span" variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
+              מחירים מיוחדים להזמנות דרך האתר
+            </Typography>
+          </Typography>
+        </Box>
 
         <Box sx={{ 
           mt: 3, 
