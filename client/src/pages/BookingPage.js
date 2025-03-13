@@ -177,9 +177,21 @@ const BookingPage = () => {
     if (bookingData.checkIn && bookingData.checkOut && room) {
       const fetchPrices = async () => {
         try {
-          if (bookingData.selectedRooms && bookingData.selectedRooms.length > 1) {
+          const isMultiRoom = bookingData.rooms > 1;
+          
+          if (isMultiRoom || (bookingData.selectedRooms && bookingData.selectedRooms.length > 1)) {
+            let roomIdsToCheck = [];
+            
+            if (bookingData.selectedRooms && bookingData.selectedRooms.length > 1) {
+              roomIdsToCheck = bookingData.selectedRooms;
+            } else if (bookingData.roomId) {
+              roomIdsToCheck = Array(bookingData.rooms).fill(bookingData.roomId);
+            } else {
+              return;
+            }
+            
             const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-multiple-availability`, {
-              roomIds: bookingData.selectedRooms,
+              roomIds: roomIdsToCheck,
               checkIn: bookingData.checkIn,
               checkOut: bookingData.checkOut,
               guests: bookingData.guests,
@@ -187,6 +199,7 @@ const BookingPage = () => {
             });
             
             const { data } = response.data;
+            console.log('תוצאת חישוב מחיר עבור מספר חדרים:', data);
             
             if (data.allRoomsAvailable) {
               setBookingData(prev => ({
@@ -194,7 +207,8 @@ const BookingPage = () => {
                 basePrice: data.totalBasePrice || prev.basePrice,
                 vat: data.totalVatAmount || prev.vat,
                 totalPrice: data.totalPrice || prev.totalPrice,
-                nights: data.nights || prev.nights
+                nights: data.nights || prev.nights,
+                selectedRooms: roomIdsToCheck
               }));
             }
           } else {
@@ -226,7 +240,10 @@ const BookingPage = () => {
         } catch (error) {
           console.error('שגיאה בקבלת מחירים:', error);
           const nights = calculateNights(bookingData.checkIn, bookingData.checkOut);
-          const basePrice = nights * (room.basePrice || 400);
+          
+          const roomCount = bookingData.rooms || 1;
+          const basePricePerRoom = room.basePrice || 400;
+          const basePrice = nights * basePricePerRoom * roomCount;
           const vatRate = 18;
           const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
           const totalPrice = basePrice + vatAmount;
@@ -243,7 +260,7 @@ const BookingPage = () => {
       
       fetchPrices();
     }
-  }, [bookingData.checkIn, bookingData.checkOut, bookingData.isTourist, bookingData.roomId, room]);
+  }, [bookingData.checkIn, bookingData.checkOut, bookingData.isTourist, bookingData.roomId, bookingData.rooms, bookingData.selectedRooms, room]);
 
   const checkAvailability = async () => {
     if (!bookingData.checkIn || !bookingData.checkOut) {
@@ -260,9 +277,23 @@ const BookingPage = () => {
       setCheckingAvailability(true);
       setError(null);
       
-      if (bookingData.selectedRooms && bookingData.selectedRooms.length > 0) {
+      const isMultiRoom = bookingData.rooms > 1;
+      
+      if (isMultiRoom || (bookingData.selectedRooms && bookingData.selectedRooms.length > 1)) {
+        let roomIdsToCheck = [];
+        
+        if (bookingData.selectedRooms && bookingData.selectedRooms.length > 1) {
+          roomIdsToCheck = bookingData.selectedRooms;
+        } else if (bookingData.roomId) {
+          roomIdsToCheck = Array(bookingData.rooms).fill(bookingData.roomId);
+        } else {
+          toast.error('אנא בחר לפחות חדר אחד');
+          setCheckingAvailability(false);
+          return false;
+        }
+        
         const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-multiple-availability`, {
-          roomIds: bookingData.selectedRooms,
+          roomIds: roomIdsToCheck,
           checkIn: bookingData.checkIn,
           checkOut: bookingData.checkOut,
           guests: bookingData.guests,
@@ -270,9 +301,11 @@ const BookingPage = () => {
         });
         
         const { data } = response.data;
+        console.log('תוצאת בדיקת זמינות מרובת חדרים:', data);
         
         if (!data.allRoomsAvailable) {
           toast.error('אחד או יותר מהחדרים אינם זמינים בתאריכים שנבחרו. אנא בחר תאריכים אחרים.');
+          setCheckingAvailability(false);
           return false;
         }
         
@@ -281,7 +314,8 @@ const BookingPage = () => {
           basePrice: data.totalBasePrice || 0,
           vat: data.totalVatAmount || 0,
           totalPrice: data.totalPrice || 0,
-          nights: data.nights || prev.nights
+          nights: data.nights || prev.nights,
+          selectedRooms: roomIdsToCheck
         }));
         
         return true;
@@ -298,6 +332,7 @@ const BookingPage = () => {
         
         if (!isAvailable) {
           toast.error('החדר אינו זמין בתאריכים שנבחרו. אנא בחר תאריכים אחרים.');
+          setCheckingAvailability(false);
           return false;
         }
         
@@ -1270,10 +1305,16 @@ const BookingPage = () => {
                   borderLeft: `2px solid ${alpha(theme.palette.primary.main, 0.3)}` 
                 }}
               >
+                <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'bold', color: 'primary.main' }}>
+                  {bookingData.rooms > 1 ? 
+                    `סיכום מחיר עבור ${bookingData.rooms} חדרים:` : 
+                    'סיכום מחיר:'}
+                </Typography>
+                
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                   <b>מחיר בסיס:</b> {bookingData.basePrice.toFixed(2)} ₪
-                  {bookingData.selectedRooms && bookingData.selectedRooms.length > 1 ? 
-                    ` (עבור ${bookingData.selectedRooms.length} חדרים)` : ''}
+                  {bookingData.rooms > 1 ? 
+                    ` (${bookingData.rooms} חדרים × ${(bookingData.basePrice / bookingData.rooms).toFixed(2)} ₪)` : ''}
                 </Typography>
                 
                 {bookingData.selectedRooms && bookingData.selectedRooms.length > 1 && availableRooms.length > 0 && (
@@ -1297,8 +1338,8 @@ const BookingPage = () => {
                   color: theme.palette.primary.main
                 }}>
                   סה"כ לתשלום: {bookingData.totalPrice.toFixed(2)} ₪
-                  {bookingData.selectedRooms && bookingData.selectedRooms.length > 1 ? 
-                    ` (עבור ${bookingData.selectedRooms.length} חדרים)` : ''}
+                  {bookingData.rooms > 1 ? 
+                    ` (עבור ${bookingData.rooms} חדרים)` : ''}
                 </Typography>
                 {bookingData.isTourist && (
                   <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
