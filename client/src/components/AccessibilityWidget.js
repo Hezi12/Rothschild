@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, 
   Fab, 
@@ -23,20 +23,14 @@ import {
   FormatLineSpacing as LineSpacingIcon
 } from '@mui/icons-material';
 
-// התעלמות משגיאות ResizeObserver
-const ignoreResizeObserverErrors = () => {
-  // כאן אנחנו מתעלמים משגיאת ResizeObserver loop limit exceeded
-  const consoleError = console.error;
-  console.error = (...args) => {
-    if (
-      args.length > 1 &&
-      typeof args[0] === 'string' &&
-      args[0].includes('ResizeObserver loop') 
-    ) {
-      // התעלם משגיאת ResizeObserver
-      return;
-    }
-    consoleError(...args);
+// פונקציית עזר להשהיית פונקציות
+const debounce = (func, delay) => {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      func.apply(this, args);
+    }, delay);
   };
 };
 
@@ -49,137 +43,165 @@ const AccessibilityWidget = () => {
   const [textOnly, setTextOnly] = useState(false);
   const [links, setLinks] = useState(false);
   
-  // התעלמות משגיאות ResizeObserver
+  // סגירת שגיאות מודאליות כשיש שגיאה
   useEffect(() => {
-    ignoreResizeObserverErrors();
-    
-    // ניקוי תצפיתן resize
-    return () => {
-      const resizeObservers = window.__resizeObservers__ || [];
-      if (resizeObservers.length > 0) {
-        resizeObservers.forEach(observer => {
-          try {
-            observer.disconnect();
-          } catch (e) {
-            // התעלם משגיאות
-          }
-        });
+    // התמודדות עם שגיאות ResizeObserver בקונסול
+    const originalError = window.console.error;
+    window.console.error = (...args) => {
+      if (args.length > 0 && typeof args[0] === 'string' && args[0].includes('ResizeObserver')) {
+        return;
       }
+      originalError(...args);
+    };
+
+    // חסימת שגיאות ResizeObserver במודל האירועים
+    const handler = (event) => {
+      if (event.message && event.message.includes('ResizeObserver')) {
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        return false;
+      }
+    };
+
+    window.addEventListener('error', handler, true);
+    
+    return () => {
+      window.console.error = originalError;
+      window.removeEventListener('error', handler, true);
     };
   }, []);
   
   // טעינת הגדרות שמורות מה-localStorage
   useEffect(() => {
-    const savedSettings = localStorage.getItem('accessibilitySettings');
-    if (savedSettings) {
-      const settings = JSON.parse(savedSettings);
-      setFontSize(settings.fontSize || 100);
-      setContrast(settings.contrast || false);
-      setInvertColors(settings.invertColors || false);
-      setLineSpacing(settings.lineSpacing || 100);
-      setTextOnly(settings.textOnly || false);
-      setLinks(settings.links || false);
-      
-      // החלת ההגדרות
-      applySettings(settings);
+    try {
+      const savedSettings = localStorage.getItem('accessibilitySettings');
+      if (savedSettings) {
+        const settings = JSON.parse(savedSettings);
+        setFontSize(settings.fontSize || 100);
+        setContrast(settings.contrast || false);
+        setInvertColors(settings.invertColors || false);
+        setLineSpacing(settings.lineSpacing || 100);
+        setTextOnly(settings.textOnly || false);
+        setLinks(settings.links || false);
+        
+        // החלת ההגדרות באופן מושהה
+        setTimeout(() => {
+          applySettings(settings);
+        }, 0);
+      }
+    } catch (error) {
+      // בעיה בקריאת ההגדרות - איפוס להגדרות ברירת מחדל
+      console.log('שגיאה בטעינת הגדרות נגישות:', error);
     }
   }, []);
   
+  // החלת הגדרות הנגישות באופן מושהה (debounced)
+  const applySettings = useCallback(debounce((settings) => {
+    try {
+      // גודל טקסט
+      document.documentElement.style.fontSize = `${settings.fontSize}%`;
+      
+      // ניגודיות גבוהה
+      if (settings.contrast) {
+        document.body.classList.add('high-contrast');
+      } else {
+        document.body.classList.remove('high-contrast');
+      }
+      
+      // היפוך צבעים
+      if (settings.invertColors) {
+        document.body.classList.add('invert-colors');
+      } else {
+        document.body.classList.remove('invert-colors');
+      }
+      
+      // מרווח בין שורות
+      document.body.style.lineHeight = `${settings.lineSpacing}%`;
+      
+      // רק טקסט
+      if (settings.textOnly) {
+        document.body.classList.add('text-only');
+      } else {
+        document.body.classList.remove('text-only');
+      }
+      
+      // הדגשת קישורים
+      if (settings.links) {
+        document.body.classList.add('highlight-links');
+      } else {
+        document.body.classList.remove('highlight-links');
+      }
+    } catch (error) {
+      console.log('שגיאה בהחלת הגדרות נגישות:', error);
+    }
+  }, 100), []);
+  
   // שמירת הגדרות ב-localStorage
-  const saveSettings = (newSettings) => {
-    const settings = {
-      fontSize,
-      contrast,
-      invertColors,
-      lineSpacing,
-      textOnly,
-      links,
-      ...newSettings
-    };
-    
-    localStorage.setItem('accessibilitySettings', JSON.stringify(settings));
-    
-    // שימוש בפונקציית setTimeout כדי להפריד את השינויים וליצור חיץ זמן בין עדכוני DOM
-    setTimeout(() => {
+  const saveSettings = useCallback((newSettings) => {
+    try {
+      const settings = {
+        fontSize,
+        contrast,
+        invertColors,
+        lineSpacing,
+        textOnly,
+        links,
+        ...newSettings
+      };
+      
+      localStorage.setItem('accessibilitySettings', JSON.stringify(settings));
       applySettings(settings);
-    }, 0);
-  };
+    } catch (error) {
+      console.log('שגיאה בשמירת הגדרות נגישות:', error);
+    }
+  }, [fontSize, contrast, invertColors, lineSpacing, textOnly, links, applySettings]);
   
-  // החלת הגדרות הנגישות
-  const applySettings = (settings) => {
-    // גודל טקסט
-    document.documentElement.style.fontSize = `${settings.fontSize}%`;
-    
-    // ניגודיות גבוהה
-    if (settings.contrast) {
-      document.body.classList.add('high-contrast');
-    } else {
-      document.body.classList.remove('high-contrast');
-    }
-    
-    // היפוך צבעים
-    if (settings.invertColors) {
-      document.body.classList.add('invert-colors');
-    } else {
-      document.body.classList.remove('invert-colors');
-    }
-    
-    // מרווח בין שורות
-    document.body.style.lineHeight = `${settings.lineSpacing}%`;
-    
-    // רק טקסט
-    if (settings.textOnly) {
-      document.body.classList.add('text-only');
-    } else {
-      document.body.classList.remove('text-only');
-    }
-    
-    // הדגשת קישורים
-    if (settings.links) {
-      document.body.classList.add('highlight-links');
-    } else {
-      document.body.classList.remove('highlight-links');
-    }
-  };
-  
-  // טיפול בשינוי גודל הטקסט
-  const handleFontSizeChange = (event, value) => {
+  // טיפול בשינוי גודל הטקסט - השהיית העדכון בזמן גרירה
+  const handleFontSizeChange = useCallback((event, value) => {
     setFontSize(value);
+    // אם מדובר בגרירה פעילה, נדלג על עדכון מיידי
+    if (event.type !== 'mouseup' && event.type !== 'touchend') {
+      return;
+    }
     saveSettings({ fontSize: value });
-  };
+  }, [saveSettings]);
   
   // טיפול בשינוי הניגודיות
-  const handleContrastChange = (event) => {
+  const handleContrastChange = useCallback((event) => {
     setContrast(event.target.checked);
     saveSettings({ contrast: event.target.checked });
-  };
+  }, [saveSettings]);
   
   // טיפול בשינוי היפוך צבעים
-  const handleInvertColorsChange = (event) => {
+  const handleInvertColorsChange = useCallback((event) => {
     setInvertColors(event.target.checked);
     saveSettings({ invertColors: event.target.checked });
-  };
+  }, [saveSettings]);
   
-  // טיפול בשינוי מרווח בין שורות
-  const handleLineSpacingChange = (event, value) => {
+  // טיפול בשינוי מרווח בין שורות - השהיית העדכון בזמן גרירה
+  const handleLineSpacingChange = useCallback((event, value) => {
     setLineSpacing(value);
+    // אם מדובר בגרירה פעילה, נדלג על עדכון מיידי
+    if (event.type !== 'mouseup' && event.type !== 'touchend') {
+      return;
+    }
     saveSettings({ lineSpacing: value });
-  };
+  }, [saveSettings]);
   
   // טיפול בשינוי מצב "רק טקסט"
-  const handleTextOnlyChange = (event) => {
+  const handleTextOnlyChange = useCallback((event) => {
     setTextOnly(event.target.checked);
     saveSettings({ textOnly: event.target.checked });
-  };
+  }, [saveSettings]);
   
   // טיפול בשינוי הדגשת קישורים
-  const handleLinksChange = (event) => {
+  const handleLinksChange = useCallback((event) => {
     setLinks(event.target.checked);
     saveSettings({ links: event.target.checked });
-  };
+  }, [saveSettings]);
   
   // איפוס הגדרות הנגישות
-  const resetSettings = () => {
+  const resetSettings = useCallback(() => {
     const defaultSettings = {
       fontSize: 100,
       contrast: false,
@@ -197,7 +219,16 @@ const AccessibilityWidget = () => {
     setLinks(defaultSettings.links);
     
     saveSettings(defaultSettings);
-  };
+  }, [saveSettings]);
+  
+  // טיפול בסיום גרירת סליידר
+  const handleSliderChangeCommitted = useCallback((newValue, type) => {
+    if (type === 'fontSize') {
+      saveSettings({ fontSize: newValue });
+    } else if (type === 'lineSpacing') {
+      saveSettings({ lineSpacing: newValue });
+    }
+  }, [saveSettings]);
   
   return (
     <>
@@ -266,6 +297,7 @@ const AccessibilityWidget = () => {
               <Slider
                 value={fontSize}
                 onChange={handleFontSizeChange}
+                onChangeCommitted={(e, val) => handleSliderChangeCommitted(val, 'fontSize')}
                 aria-labelledby="font-size-slider"
                 valueLabelDisplay="auto"
                 step={5}
@@ -290,6 +322,7 @@ const AccessibilityWidget = () => {
               <Slider
                 value={lineSpacing}
                 onChange={handleLineSpacingChange}
+                onChangeCommitted={(e, val) => handleSliderChangeCommitted(val, 'lineSpacing')}
                 aria-labelledby="line-spacing-slider"
                 valueLabelDisplay="auto"
                 step={5}
