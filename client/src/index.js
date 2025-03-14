@@ -7,14 +7,6 @@ import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import './index.css';
 
-// הוספת בדיקת נגישות במצב פיתוח
-if (process.env.NODE_ENV !== 'production') {
-  import('@axe-core/react').then(axe => {
-    axe.default(React, ReactDOM, 1000);
-    console.log('axe-core accessibility testing enabled');
-  });
-}
-
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
