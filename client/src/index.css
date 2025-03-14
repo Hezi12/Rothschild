@@ -105,4 +105,27 @@ input, select, textarea, button {
     padding: 8px;
     font-size: 0.8rem;
   }
+}
+
+/* הסתרת אייקון מספר האורחים ליד הלוגו */
+a[href="/"] svg + span,
+a[href="/"] .MuiBadge-root,
+.MuiToolbar-root > div > a > div > svg + div,
+.MuiToolbar-root a > div:last-child > div:last-child {
+  display: none !important;
+}
+
+/* הסתרת כל מספר או באג' שמופיע ליד הלוגו */
+.MuiToolbar-root > div:first-child span[class*="badge"],
+.MuiToolbar-root > div:first-child span[class*="Badge"],
+.MuiToolbar-root > div:first-child span[class*="count"],
+.MuiToolbar-root > div:first-child div[class*="badge"],
+.MuiToolbar-root > div:first-child div[class*="Badge"] {
+  display: none !important;
+}
+
+/* ספציפי לאייקון שנראה בצילום המסך */
+a[href="/"]:after,
+.MuiToolbar-root > div:first-child:after {
+  content: none !important;
 } 

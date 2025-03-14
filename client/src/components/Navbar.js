@@ -7,13 +7,29 @@ const Navbar = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  React.useEffect(() => {
+    const removeGuestBadges = () => {
+      const logo = document.querySelector('.MuiToolbar-root a[href="/"]');
+      if (logo) {
+        const badges = logo.querySelectorAll('span[class*="badge"], span[class*="Badge"], div[class*="badge"], div[class*="Badge"]');
+        badges.forEach(badge => {
+          badge.style.display = 'none';
+        });
+      }
+    };
+    
+    removeGuestBadges();
+    const interval = setInterval(removeGuestBadges, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <AppBar position="static" color="primary" elevation={3} sx={{ 
       backgroundColor: '#1565C0',
       boxShadow: '0px 2px 10px rgba(0,0,0,0.2)'
     }}>
       <Toolbar sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        {/* לוגו בצד ימין */}
         <Typography 
           variant="h6" 
           component={Link} 
@@ -32,6 +48,9 @@ const Navbar = () => {
             '&:hover': {
               transform: 'scale(1.02)',
               textShadow: '1px 1px 4px rgba(0,0,0,0.3)'
+            },
+            '& > *:not(:first-child):not(:nth-child(2))': {
+              display: 'none !important'
             }
           }}
         >
