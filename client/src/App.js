@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import rtlPlugin from 'stylis-plugin-rtl';
@@ -89,6 +89,53 @@ const theme = createTheme({
 });
 
 function App() {
+  // טיפול גלובלי בשגיאות ResizeObserver - מונע הופעת שגיאות בקונסול
+  useEffect(() => {
+    // טיפול בשגיאות ResizeObserver ברמת הקונסול
+    const originalConsoleError = window.console.error;
+    window.console.error = (...args) => {
+      if (args.length > 0 && typeof args[0] === 'string' && args[0].includes('ResizeObserver')) {
+        return;
+      }
+      originalConsoleError(...args);
+    };
+
+    // חסימת אירועי שגיאה של ResizeObserver
+    const errorHandler = (event) => {
+      if (event && event.message && (
+        event.message.includes('ResizeObserver') || 
+        event.message.includes('ResizeObserver loop completed') || 
+        event.message.includes('ResizeObserver loop limit exceeded')
+      )) {
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        return false;
+      }
+    };
+
+    // הוספת מאזיני אירועים להתמודדות עם שגיאות מבוססות אירועים
+    window.addEventListener('error', errorHandler, true);
+    window.addEventListener('unhandledrejection', errorHandler, true);
+    
+    // ניקוי בעת סגירת האפליקציה
+    return () => {
+      window.console.error = originalConsoleError;
+      window.removeEventListener('error', errorHandler, true);
+      window.removeEventListener('unhandledrejection', errorHandler, true);
+      
+      // נסיון לנקות את כל ה-ResizeObservers שעלולים להיות פעילים
+      if (window.__resizeObservers__ && Array.isArray(window.__resizeObservers__)) {
+        window.__resizeObservers__.forEach(observer => {
+          try {
+            observer.disconnect();
+          } catch (e) {
+            // התעלם משגיאות
+          }
+        });
+      }
+    };
+  }, []);
+
   return (
     <CacheProvider value={cacheRtl}>
       <ThemeProvider theme={theme}>
