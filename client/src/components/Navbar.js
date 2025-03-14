@@ -8,6 +8,26 @@ const Navbar = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   React.useEffect(() => {
+    // טיפול בשגיאות ResizeObserver
+    const originalError = window.console.error;
+    window.console.error = (...args) => {
+      if (args.length > 0 && typeof args[0] === 'string' && args[0].includes('ResizeObserver')) {
+        return;
+      }
+      originalError(...args);
+    };
+
+    // חסימת שגיאות ResizeObserver במודל האירועים
+    const handler = (event) => {
+      if (event.message && event.message.includes('ResizeObserver')) {
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        return false;
+      }
+    };
+
+    window.addEventListener('error', handler, true);
+    
     const removeGuestBadges = () => {
       const logo = document.querySelector('.MuiToolbar-root a[href="/"]');
       if (logo) {
@@ -21,7 +41,11 @@ const Navbar = () => {
     removeGuestBadges();
     const interval = setInterval(removeGuestBadges, 1000);
     
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.console.error = originalError;
+      window.removeEventListener('error', handler, true);
+    };
   }, []);
 
   return (
