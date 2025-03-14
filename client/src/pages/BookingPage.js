@@ -234,6 +234,14 @@ const BookingPage = () => {
                   totalPrice: response.data.totalPrice || prev.totalPrice,
                   nights: response.data.nights || prev.nights
                 }));
+              } else {
+                setBookingData(prev => ({
+                  ...prev,
+                  basePrice: basePrice,
+                  vat: vatAmount,
+                  totalPrice: totalPrice,
+                  nights: nights
+                }));
               }
             }
           }
@@ -250,17 +258,31 @@ const BookingPage = () => {
           
           setBookingData(prev => ({
             ...prev,
-            nights: nights || 0,
-            basePrice: basePrice || 0,
-            vat: vatAmount || 0,
-            totalPrice: isNaN(totalPrice) ? 0 : totalPrice
+            basePrice: basePrice,
+            vat: vatAmount,
+            totalPrice: totalPrice,
+            nights: nights
           }));
         }
       };
       
       fetchPrices();
     }
-  }, [bookingData.checkIn, bookingData.checkOut, bookingData.isTourist, bookingData.roomId, bookingData.rooms, bookingData.selectedRooms, room]);
+  }, [bookingData.checkIn, bookingData.checkOut, bookingData.roomId, bookingData.selectedRooms, bookingData.rooms, bookingData.guests, bookingData.isTourist, room]);
+
+  useEffect(() => {
+    if (bookingData.basePrice > 0) {
+      const vatRate = 18;
+      const vatAmount = bookingData.isTourist ? 0 : bookingData.basePrice * (vatRate / 100);
+      const totalPrice = bookingData.basePrice + vatAmount;
+      
+      setBookingData(prev => ({
+        ...prev,
+        vat: vatAmount,
+        totalPrice: totalPrice
+      }));
+    }
+  }, [bookingData.isTourist, bookingData.basePrice]);
 
   const checkAvailability = async () => {
     if (!bookingData.checkIn || !bookingData.checkOut) {
@@ -1213,6 +1235,11 @@ const BookingPage = () => {
                       <Box key={roomItem._id} sx={{ mb: 1, pl: 1 }}>
                         <Typography variant="body2" sx={{ mb: 0.5 }}>
                           <b>חדר {index + 1}:</b> {typeToDisplayName[roomItem.type] || roomItem.type}
+                          <span style={{ marginRight: '8px', color: 'text.secondary' }}>
+                            {bookingData.isTourist ? 
+                              `${(roomItem.basePrice || 400) * bookingData.nights} ₪` : 
+                              `${Math.round((roomItem.basePrice || 400) * 1.18 * bookingData.nights)} ₪ (כולל מע״מ)`}
+                          </span>
                         </Typography>
                       </Box>
                     ))}
@@ -1315,6 +1342,7 @@ const BookingPage = () => {
                   <b>מחיר בסיס:</b> {bookingData.basePrice.toFixed(2)} ₪
                   {bookingData.rooms > 1 ? 
                     ` (${bookingData.rooms} חדרים × ${(bookingData.basePrice / bookingData.rooms).toFixed(2)} ₪)` : ''}
+                  {!bookingData.isTourist && <span style={{ marginRight: '8px', fontSize: '0.8rem' }}>(לפני מע"מ)</span>}
                 </Typography>
                 
                 {bookingData.selectedRooms && bookingData.selectedRooms.length > 1 && availableRooms.length > 0 && (
@@ -1322,7 +1350,10 @@ const BookingPage = () => {
                     {availableRooms.map((roomItem, index) => (
                       <Typography key={roomItem._id} variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
                         חדר {index + 1} ({typeToDisplayName[roomItem.type] || roomItem.type}): 
-                        {((roomItem.basePrice || 400) * bookingData.nights).toFixed(2)} ₪
+                        {bookingData.isTourist ?
+                          ` ${((roomItem.basePrice || 400) * bookingData.nights).toFixed(2)} ₪` :
+                          ` ${((roomItem.basePrice || 400) * bookingData.nights).toFixed(2)} ₪ (לפני מע"מ)`
+                        }
                       </Typography>
                     ))}
                   </Box>
@@ -1340,6 +1371,7 @@ const BookingPage = () => {
                   סה"כ לתשלום: {bookingData.totalPrice.toFixed(2)} ₪
                   {bookingData.rooms > 1 ? 
                     ` (עבור ${bookingData.rooms} חדרים)` : ''}
+                  {!bookingData.isTourist && <span style={{ fontSize: '0.8rem', fontWeight: 'normal', marginRight: '5px' }}>(כולל מע"מ)</span>}
                 </Typography>
                 {bookingData.isTourist && (
                   <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>

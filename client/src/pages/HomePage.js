@@ -52,7 +52,8 @@ import {
   Remove as RemoveIcon,
   Add as AddIcon,
   WhatsApp as WhatsAppIcon,
-  Call as CallIcon
+  Call as CallIcon,
+  LocalOffer as LocalOfferIcon
 } from '@mui/icons-material';
 import ChatBox from '../components/ChatBox';
 import Carousel from 'react-material-ui-carousel';
@@ -622,64 +623,38 @@ const HomePage = () => {
           alignItems: 'center',
           gap: 2
         }}>
-          <Box sx={{ width: { xs: 0, sm: '200px' }, flexShrink: 0 }}></Box>
-          
           <Typography 
             variant="body2" 
             color="text.secondary"
             sx={{
               p: 1.5,
-              border: '1px dashed',
-              borderColor: alpha(theme.palette.primary.main, 0.3),
-              borderRadius: 4,
+              border: '1px solid',
+              borderColor: alpha(theme.palette.primary.main, 0.4),
+              borderRadius: 2,
               display: 'inline-block',
               px: 3,
-              backgroundColor: alpha(theme.palette.primary.main, 0.03),
+              backgroundColor: alpha(theme.palette.primary.main, 0.05),
               textAlign: 'center',
-              order: { xs: 1, sm: 'unset' },
-              margin: { xs: '0 auto', sm: '0 auto' },
-              flex: 1
+              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+              fontWeight: 500,
+              flex: { xs: '1 1 100%', sm: '1 1 auto' },
+              width: { xs: '100%', sm: 'auto' },
+              minWidth: { sm: '280px' },
+              mr: { sm: 2 }
             }}
           >
-            <Typography component="span" variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
-              מחירים מיוחדים להזמנות דרך האתר
+            <Typography component="span" variant="body2" color="primary" sx={{ 
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1 
+            }}>
+              <LocalOfferIcon fontSize="small" />
+              מחירים מיוחדים להזמנות דרך האתר - חסכו עד 15%
             </Typography>
           </Typography>
-        </Box>
 
-        <Box sx={{ 
-          mt: 3, 
-          pt: 1, 
-          display: 'flex', 
-          flexDirection: { xs: 'column', sm: 'row' },
-          justifyContent: { xs: 'center', sm: 'space-between' }, 
-          alignItems: 'center',
-          gap: 2
-        }}>
-          <Box sx={{ width: { xs: 0, sm: '200px' }, flexShrink: 0 }}></Box>
-          
-          <Typography 
-            variant="body2" 
-            color="text.secondary"
-            sx={{
-              p: 1.5,
-              border: '1px dashed',
-              borderColor: alpha(theme.palette.primary.main, 0.3),
-              borderRadius: 4,
-              display: 'inline-block',
-              px: 3,
-              backgroundColor: alpha(theme.palette.primary.main, 0.03),
-              textAlign: 'center',
-              order: { xs: 1, sm: 'unset' },
-              margin: { xs: '0 auto', sm: '0 auto' },
-              flex: 1
-            }}
-          >
-            <Typography component="span" variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
-              מחירים מיוחדים להזמנות דרך האתר
-            </Typography>
-          </Typography>
-          
           <RadioGroup
             row
             value={bookingData.isTourist ? 'tourist' : 'israeli'}
@@ -690,10 +665,10 @@ const HomePage = () => {
                 marginLeft: 0, 
                 marginRight: 0 
               },
-              order: { xs: 2, sm: 'unset' },
-              width: { xs: '100%', sm: 'auto' },
-              flexShrink: 0,
-              minWidth: { sm: '200px' }
+              display: 'flex',
+              justifyContent: 'center',
+              flex: { xs: '1 1 100%', sm: '0 0 auto' },
+              width: { xs: '100%', sm: 'auto' }
             }}
           >
             <FormControlLabel

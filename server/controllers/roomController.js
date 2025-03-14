@@ -382,11 +382,28 @@ exports.checkAvailability = asyncHandler(async (req, res, next) => {
     const allRooms = await Room.find({ isActive: true });
     const availableRooms = [];
     
+    // מספר החדרים המבוקש (ברירת מחדל 1)
+    const requestedRooms = parseInt(rooms) || 1;
+    // מספר האורחים המבוקש
+    const requestedGuests = parseInt(guests) || 1;
+    
+    console.log(`חיפוש זמינות: ${requestedGuests} אורחים, ${requestedRooms} חדרים`);
+    
     // בדוק זמינות עבור כל חדר פעיל
     for (const room of allRooms) {
-      // דלג על חדרים שלא מתאימים למספר האורחים (אם צוין)
-      if (guests && room.maxOccupancy < guests) {
-        continue;
+      // בדיקות זמינות שונות בהתאם למספר החדרים המבוקש
+      if (requestedRooms === 1) {
+        // במקרה של חדר בודד - בדוק אם החדר מתאים למספר האורחים המלא
+        if (guests && room.maxOccupancy < requestedGuests) {
+          continue;
+        }
+      } else {
+        // במקרה של מספר חדרים - החזר את כל החדרים הזמינים 
+        // גם אם אינם מתאימים לכל האורחים בחדר בודד
+        // כל עוד אינם מתאימים לאורח אחד לפחות
+        if (room.maxOccupancy < 1) {
+          continue;
+        }
       }
       
       const isAvailable = await isRoomAvailable(room._id, checkInDate, checkOutDate);
@@ -414,10 +431,26 @@ exports.checkAvailability = asyncHandler(async (req, res, next) => {
       }
     }
     
-    res.status(200).json({
-      success: true,
-      data: availableRooms
-    });
+    // במקרה של חיפוש רגיל עם חדר אחד, החזר את החדרים הזמינים כרגיל
+    if (requestedRooms === 1) {
+      // מיון לפי מחיר מהנמוך לגבוה
+      availableRooms.sort((a, b) => a.totalPrice - b.totalPrice);
+      
+      res.status(200).json({
+        success: true,
+        data: availableRooms
+      });
+    } else {
+      // במקרה של חיפוש מרובה חדרים, הוסף הודעת הסבר
+      res.status(200).json({
+        success: true,
+        multiRoomBooking: true,
+        requestedRooms: requestedRooms,
+        requestedGuests: requestedGuests,
+        message: `אנא בחר ${requestedRooms} חדרים עבור ${requestedGuests} אורחים`,
+        data: availableRooms
+      });
+    }
   } catch (err) {
     return next(new ErrorResponse(`שגיאה בבדיקת זמינות: ${err.message}`, 500));
   }
