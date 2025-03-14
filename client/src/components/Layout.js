@@ -27,6 +27,7 @@ import {
   Construction as ConstructionIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
+import Navbar from './Navbar';
 
 const Layout = () => {
   const { isAuthenticated, isAdmin, logout, user } = useContext(AuthContext);
