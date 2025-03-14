@@ -53,7 +53,11 @@ const Navbar = () => {
       backgroundColor: '#1565C0',
       boxShadow: '0px 2px 10px rgba(0,0,0,0.2)'
     }}>
-      <Toolbar sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <Toolbar sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between',
+        padding: { xs: '0 16px', md: '0 24px' }
+      }}>
         <Typography 
           variant="h6" 
           component={Link} 
@@ -70,7 +74,6 @@ const Navbar = () => {
             transition: 'all 0.3s ease',
             fontFamily: "'Heebo', 'Roboto', sans-serif",
             '&:hover': {
-              transform: 'scale(1.02)',
               textShadow: '1px 1px 4px rgba(0,0,0,0.3)'
             },
             '& > *:not(:first-child):not(:nth-child(2))': {
@@ -78,44 +81,53 @@ const Navbar = () => {
             }
           }}
         >
-          <HotelIcon sx={{ 
-            mr: 1.5,
-            fontSize: { xs: '1.4rem', md: '1.7rem' }
-          }} />
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'flex-end',
+            marginLeft: 'auto'
+          }}>
             <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'flex-end'
+              fontSize: { xs: '0.65rem', md: '0.75rem' }, 
+              fontWeight: 'normal',
+              letterSpacing: '0.5px',
+              opacity: 0.9,
+              mb: -0.8,
+              mr: '2px'
             }}>
-              <Box sx={{ 
-                fontSize: { xs: '0.7rem', md: '0.8rem' }, 
-                fontWeight: 'normal',
-                letterSpacing: '0.5px',
-                opacity: 0.9,
-                mb: -0.5
-              }}>
-                מלונית
-              </Box>
-              <Box sx={{ 
-                fontSize: { xs: '1.2rem', md: '1.4rem' },
-                fontWeight: 'bold',
-                letterSpacing: '0.5px'
-              }}>
-                רוטשילד 79
-              </Box>
+              מלונית
             </Box>
             <Box sx={{ 
-              fontSize: { xs: '0.7rem', md: '0.8rem' }, 
-              fontWeight: 'normal', 
-              letterSpacing: '1px',
-              opacity: 0.9,
-              mt: 0.3
+              fontSize: { xs: '1.2rem', md: '1.5rem' },
+              fontWeight: 'bold',
+              letterSpacing: '0.5px'
             }}>
-              Rothschild 79 Hotel
+              רוטשילד 79
             </Box>
           </Box>
         </Typography>
+        
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center'
+        }}>
+          <HotelIcon sx={{ 
+            mr: 1,
+            fontSize: { xs: '1.4rem', md: '1.7rem' },
+            color: 'white'
+          }} />
+          <Box sx={{ 
+            fontSize: { xs: '0.65rem', md: '0.75rem' }, 
+            fontWeight: 'normal', 
+            letterSpacing: '0.5px',
+            opacity: 0.9,
+            color: 'white',
+            textAlign: 'center'
+          }}>
+            Rothschild 79 Hotel
+          </Box>
+        </Box>
+        
       </Toolbar>
     </AppBar>
   );
