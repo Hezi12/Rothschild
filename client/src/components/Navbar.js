@@ -59,13 +59,34 @@ const Navbar = () => {
             fontSize: { xs: '1.4rem', md: '1.7rem' }
           }} />
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <Box sx={{ fontSize: { xs: '1.1rem', md: '1.3rem' } }}>מלונית רוטשילד 79</Box>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'flex-end'
+            }}>
+              <Box sx={{ 
+                fontSize: { xs: '0.7rem', md: '0.8rem' }, 
+                fontWeight: 'normal',
+                letterSpacing: '0.5px',
+                opacity: 0.9,
+                mb: -0.5
+              }}>
+                מלונית
+              </Box>
+              <Box sx={{ 
+                fontSize: { xs: '1.2rem', md: '1.4rem' },
+                fontWeight: 'bold',
+                letterSpacing: '0.5px'
+              }}>
+                רוטשילד 79
+              </Box>
+            </Box>
             <Box sx={{ 
               fontSize: { xs: '0.7rem', md: '0.8rem' }, 
               fontWeight: 'normal', 
               letterSpacing: '1px',
               opacity: 0.9,
-              mt: -0.3
+              mt: 0.3
             }}>
               Rothschild 79 Hotel
             </Box>
