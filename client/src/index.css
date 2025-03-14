@@ -226,17 +226,24 @@ a:focus, button:focus {
 /* תמיכה ב-skip to content */
 .skip-to-content {
   position: absolute;
-  top: -40px;
+  top: -100px;
   left: 0;
+  right: 0;
   background: #0000ff;
-  color: white;
-  padding: 8px;
-  z-index: 100;
+  color: white !important;
+  padding: 12px;
+  z-index: 9999;
+  text-align: center;
   transition: top 0.3s;
+  font-weight: bold;
+  text-decoration: none;
+  font-size: 1rem;
+  opacity: 0;
 }
 
 .skip-to-content:focus {
   top: 0;
+  opacity: 1;
 }
 
 /* שיפור ניגודיות טקסט */
