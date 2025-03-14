@@ -15,7 +15,8 @@ import {
   useMediaQuery,
   Tooltip,
   alpha,
-  Chip
+  Chip,
+  SkipNav
 } from '@mui/material';
 import { 
   AccountCircle,
@@ -24,10 +25,33 @@ import {
   Hotel as HotelIcon,
   WhatsApp as WhatsAppIcon,
   Call as CallIcon,
-  Construction as ConstructionIcon
+  Construction as ConstructionIcon,
+  Menu as MenuIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
-import Navbar from './Navbar';
+
+// רכיב דילוג לתוכן עיקרי עבור ניווט בעזרת מקלדת
+const SkipToContent = () => (
+  <a 
+    href="#main-content" 
+    className="sr-only" 
+    style={{
+      position: 'absolute',
+      top: '0',
+      left: '0',
+      padding: '10px',
+      background: '#1976d2',
+      color: 'white',
+      zIndex: 9999,
+      transform: 'translateY(-100%)',
+      transition: 'transform 0.3s',
+    }}
+    onFocus={(e) => e.target.style.transform = 'translateY(0)'}
+    onBlur={(e) => e.target.style.transform = 'translateY(-100%)'}
+  >
+    דלג לתוכן העיקרי
+  </a>
+);
 
 const Layout = () => {
   const { isAuthenticated, isAdmin, logout, user } = useContext(AuthContext);
@@ -55,6 +79,10 @@ const Layout = () => {
     setAnchorEl(null);
   };
 
+  const handleMobileMenuOpen = (event) => {
+    setMobileAnchorEl(event.currentTarget);
+  };
+
   const handleMobileClose = () => {
     setMobileAnchorEl(null);
   };
@@ -67,217 +95,246 @@ const Layout = () => {
 
   return (
     <>
-      <AppBar position="static" elevation={1}>
-        <Toolbar sx={{ justifyContent: 'space-between' }}>
-          {/* לוגו */}
-          <div>
-            <Navbar />
-          </div>
-
-          {/* אזור ימין - כפתורים */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {/* כפתור יצירת קשר בווטסאפ */}
-            <Tooltip title="צור קשר בוואטסאפ" arrow>
-              <IconButton 
-                color="inherit" 
-                href="https://wa.me/972536541467" 
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="צור קשר בוואטסאפ"
+      <SkipToContent />
+      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <AppBar position="static" color="primary" elevation={3} sx={{ backgroundColor: '#1565C0' }}>
+          <Toolbar>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+              <Typography 
+                variant="h6" 
+                component={Link} 
+                to="/" 
+                sx={{ 
+                  color: 'white', 
+                  textDecoration: 'none',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+                aria-label="דף הבית של מלונית רוטשילד 79"
               >
-                <WhatsAppIcon />
-              </IconButton>
-            </Tooltip>
-            
-            {/* כפתור התקשר אלינו */}
-            <Tooltip title="התקשר אלינו" arrow>
-              <IconButton 
-                color="inherit" 
-                href="tel:+972536541467"
-                aria-label="התקשר אלינו"
-              >
-                <CallIcon />
-              </IconButton>
-            </Tooltip>
+                <HotelIcon sx={{ mr: 1 }} aria-hidden="true" />
+                <Box component="span">מלונית רוטשילד 79</Box>
+              </Typography>
 
-            {/* ניווט - מסך גדול */}
-            {!isMobile && (
-              <>
-                {/* בדיקה אם המשתמש מחובר */}
-                {isAuthenticated() ? (
-                  <Tooltip title="הגדרות ויציאה" arrow>
-                    <IconButton
-                      aria-label="הגדרות חשבון"
-                      aria-controls="menu-appbar"
-                      aria-haspopup="true"
-                      onClick={handleMenu}
-                      color="inherit"
-                    >
-                      <AccountCircle />
-                    </IconButton>
-                  </Tooltip>
-                ) : (
-                  // כפתור כניסה
-                  <Button 
-                    component={Link} 
-                    to="/login" 
+              {isMobile ? (
+                <>
+                  <IconButton
+                    edge="end"
                     color="inherit"
-                    aria-label="כניסה למערכת"
+                    aria-label="תפריט"
+                    aria-controls="mobile-menu"
+                    aria-haspopup="true"
+                    onClick={handleMobileMenuOpen}
                   >
-                    התחבר
-                  </Button>
-                )}
-              </>
-            )}
+                    <MenuIcon />
+                  </IconButton>
+                  <Menu
+                    id="mobile-menu"
+                    anchorEl={mobileAnchorEl}
+                    keepMounted
+                    open={Boolean(mobileAnchorEl)}
+                    onClose={handleMobileClose}
+                  >
+                    <MenuItem 
+                      component={Link} 
+                      to="/" 
+                      onClick={handleMobileClose}
+                    >
+                      דף הבית
+                    </MenuItem>
+                    {isAuthenticated && isAdmin && (
+                      <MenuItem 
+                        component={Link} 
+                        to="/dashboard" 
+                        onClick={handleMobileClose}
+                      >
+                        ניהול
+                      </MenuItem>
+                    )}
+                    {isAuthenticated ? (
+                      <MenuItem onClick={() => { handleLogout(); handleMobileClose(); }}>
+                        <LogoutIcon fontSize="small" sx={{ mr: 1 }} aria-hidden="true" />
+                        התנתק
+                      </MenuItem>
+                    ) : (
+                      <MenuItem 
+                        component={Link} 
+                        to="/login" 
+                        onClick={handleMobileClose}
+                      >
+                        התחבר
+                      </MenuItem>
+                    )}
+                    <Divider />
+                    <MenuItem 
+                      component="a" 
+                      href="https://wa.me/972506070260" 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={handleMobileClose}
+                    >
+                      <WhatsAppIcon fontSize="small" sx={{ mr: 1 }} aria-hidden="true" />
+                      וואטסאפ
+                    </MenuItem>
+                    <MenuItem 
+                      component="a" 
+                      href="tel:0506070260"
+                      onClick={handleMobileClose}
+                    >
+                      <CallIcon fontSize="small" sx={{ mr: 1 }} aria-hidden="true" />
+                      התקשר אלינו
+                    </MenuItem>
+                  </Menu>
+                </>
+              ) : (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  {isAuthenticated && isAdmin && (
+                    <Tooltip title="למערכת הניהול">
+                      <Button 
+                        color="inherit" 
+                        component={Link} 
+                        to="/dashboard"
+                        startIcon={<DashboardIcon />}
+                        sx={{ mr: 1 }}
+                      >
+                        ניהול
+                      </Button>
+                    </Tooltip>
+                  )}
+                  
+                  {isAuthenticated ? (
+                    <Tooltip title="התנתק">
+                      <IconButton 
+                        onClick={handleMenu}
+                        color="inherit"
+                        aria-label="אפשרויות חשבון"
+                        aria-controls="menu-appbar"
+                        aria-haspopup="true"
+                      >
+                        <AccountCircle />
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    <Button 
+                      color="inherit" 
+                      component={Link} 
+                      to="/login"
+                    >
+                      התחבר
+                    </Button>
+                  )}
+                  
+                  <Menu
+                    id="menu-appbar"
+                    anchorEl={anchorEl}
+                    anchorOrigin={{
+                      vertical: 'bottom',
+                      horizontal: 'right',
+                    }}
+                    keepMounted
+                    transformOrigin={{
+                      vertical: 'top',
+                      horizontal: 'right',
+                    }}
+                    open={Boolean(anchorEl)}
+                    onClose={handleClose}
+                  >
+                    <MenuItem onClick={handleLogout}>
+                      <LogoutIcon fontSize="small" sx={{ mr: 1 }} aria-hidden="true" />
+                      התנתק
+                    </MenuItem>
+                  </Menu>
+                  
+                  <Tooltip title="שלח לנו הודעה בוואטסאפ">
+                    <Button 
+                      variant="contained" 
+                      color="success" 
+                      size="small"
+                      startIcon={<WhatsAppIcon />}
+                      component="a"
+                      href="https://wa.me/972506070260"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="שלח לנו הודעה בוואטסאפ"
+                      sx={{ 
+                        mr: 1, 
+                        borderRadius: '50px',
+                        backgroundColor: '#25D366',
+                        '&:hover': { 
+                          backgroundColor: '#128C7E',
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+                        },
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      צור קשר
+                    </Button>
+                  </Tooltip>
 
-            {/* כפתור תפריט במובייל */}
-            {isMobile && (
-              <IconButton
-                color="inherit"
-                aria-label="תפריט"
-                aria-controls="menu-mobile"
-                aria-haspopup="true"
-                onClick={(e) => setMobileAnchorEl(e.currentTarget)}
-              >
-                <AccountCircle />
-              </IconButton>
-            )}
-          </Box>
-        </Toolbar>
-      </AppBar>
-
-      {/* תפריט ניווט */}
-      <Menu
-        id="menu-appbar"
-        anchorEl={anchorEl}
-        keepMounted
-        open={Boolean(anchorEl)}
-        onClose={handleClose}
-        PaperProps={{
-          style: {
-            maxHeight: '100vh',
-            width: isMobile ? '200px' : '250px'
-          },
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
-        }}
-      >
-        <MenuItem disabled>
-          {user?.name || 'משתמש'}
-        </MenuItem>
-        <Divider />
-        {isAdmin() && (
-          <MenuItem component={Link} to="/dashboard" onClick={handleClose}>
-            <DashboardIcon fontSize="small" sx={{ ml: 1 }} />
-            ניהול
-          </MenuItem>
-        )}
-        <MenuItem onClick={handleLogout}>
-          <LogoutIcon fontSize="small" sx={{ ml: 1 }} />
-          התנתק
-        </MenuItem>
-      </Menu>
-      
-      {/* תפריט נייד */}
-      <Menu
-        id="menu-mobile"
-        anchorEl={mobileAnchorEl}
-        keepMounted
-        open={Boolean(mobileAnchorEl)}
-        onClose={handleMobileClose}
-        PaperProps={{
-          style: {
-            maxHeight: '100vh',
-            width: '100%',
-            maxWidth: '300px'
-          },
-        }}
-      >
-        {isAuthenticated() ? (
-          <>
-            {isAdmin() && (
-              <MenuItem component={Link} to="/dashboard" onClick={handleClose}>
-                <DashboardIcon fontSize="small" sx={{ ml: 1 }} />
-                ניהול
-              </MenuItem>
-            )}
-            <MenuItem onClick={() => { handleClose(); handleLogout(); }}>
-              <LogoutIcon fontSize="small" sx={{ ml: 1 }} />
-              התנתק
-            </MenuItem>
-          </>
-        ) : (
-          <MenuItem component={Link} to="/login" onClick={handleClose}>
-            התחברות
-          </MenuItem>
-        )}
-      </Menu>
-
-      {/* הודעת תחזוקה - מוסתרת */}
-      <Box 
-        sx={{ 
-          display: 'none',
-          justifyContent: 'center', 
-          alignItems: 'center',
-          bgcolor: isBlinking ? alpha(theme.palette.warning.main, 0.15) : 'transparent',
-          p: 1,
-          transition: 'background-color 0.5s',
-          borderBottom: `1px solid ${theme.palette.warning.main}`
-        }}
-        role="alert"
-        aria-live="polite"
-      >
-        <ConstructionIcon color="warning" fontSize="small" sx={{ mr: 1 }} />
-        <Typography variant="body2" color="warning.main" fontWeight="medium">
-          האתר נמצא בתחזוקה, ייתכנו שיבושים זמניים
-        </Typography>
-      </Box>
-
-      {/* תוכן עיקרי */}
-      <Box id="main-content" component="main" sx={{ mt: 0, minHeight: 'calc(100vh - 65px)' }}>
-        <Container maxWidth="xl" sx={{ py: 3 }}>
-          <Outlet />
-        </Container>
-      </Box>
-
-      {/* פוטר */}
-      <Box component="footer" sx={{ 
-        p: 2, 
-        borderTop: 1, 
-        borderColor: 'divider',
-        backgroundColor: 'background.paper',
-        mt: 'auto' 
-      }}>
-        <Container maxWidth="xl">
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              justifyContent: 'space-between',
-              alignItems: { xs: 'center', sm: 'flex-start' },
-              gap: 1
-            }}
-          >
-            <Typography variant="body2" color="text.secondary" align="center">
-              &copy; {new Date().getFullYear()} מלונית רוטשילד 79 | כל הזכויות שמורות
-            </Typography>
-            
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
-                <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-                  דף הבית
-                </Link>
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                <a href="tel:+972536541467" style={{ textDecoration: 'none', color: 'inherit' }}>
-                  טלפון: 053-654-1467
-                </a>
-              </Typography>
+                  <Tooltip title="התקשר אלינו">
+                    <Button 
+                      variant="outlined" 
+                      color="primary" 
+                      size="small"
+                      startIcon={<CallIcon />}
+                      component="a"
+                      href="tel:0506070260"
+                      aria-label="התקשר אלינו: 050-607-0260"
+                      sx={{ 
+                        borderRadius: '50px',
+                        fontWeight: 'medium',
+                        borderWidth: '1.5px',
+                        px: 2,
+                        '&:hover': { 
+                          borderWidth: '1.5px',
+                          backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 4px 8px rgba(0,0,0,0.05)'
+                        },
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      050-607-0260
+                    </Button>
+                  </Tooltip>
+                </Box>
+              )}
             </Box>
-          </Box>
-        </Container>
+          </Toolbar>
+        </AppBar>
+
+        <main id="main-content" tabIndex="-1" style={{ outline: 'none' }}>
+          <Container sx={{ pt: 3, pb: 5, flexGrow: 1 }}>
+            <Outlet />
+          </Container>
+        </main>
+
+        <Box 
+          component="footer" 
+          sx={{ 
+            mt: 'auto', 
+            py: 3, 
+            bgcolor: 'background.paper',
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            textAlign: 'center'
+          }}
+          role="contentinfo"
+          aria-label="פרטי קשר ומידע נוסף"
+        >
+          <Container>
+            <Typography variant="body2" color="text.secondary">
+              © {new Date().getFullYear()} מלונית רוטשילד 79 | כל הזכויות שמורות
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <Link to="/" aria-label="דף הבית">דף הבית</Link> | 
+              <a href="tel:0506070260" aria-label="התקשר אלינו: 050-607-0260"> צור קשר </a> | 
+              <a href="https://wa.me/972506070260" target="_blank" rel="noopener noreferrer" aria-label="שלח לנו הודעת וואטסאפ"> וואטסאפ</a>
+            </Typography>
+          </Container>
+        </Box>
       </Box>
     </>
   );

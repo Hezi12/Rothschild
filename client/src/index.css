@@ -130,149 +130,96 @@ a[href="/"]:after,
   content: none !important;
 }
 
-/* סגנונות נגישות */
-
-/* ניגודיות גבוהה */
-.high-contrast {
-  color: #ffffff !important;
-  background-color: #000000 !important;
-}
-
-.high-contrast * {
-  color: #ffffff !important;
-  background-color: #000000 !important;
-  border-color: #ffffff !important;
-}
-
-.high-contrast a, 
-.high-contrast button,
-.high-contrast .MuiButton-root {
-  color: #ffff00 !important;
-  background-color: #000080 !important;
-}
-
-.high-contrast img {
-  filter: grayscale(100%) contrast(150%) !important;
-}
-
-.high-contrast .MuiPaper-root,
-.high-contrast .MuiCard-root,
-.high-contrast .MuiDialog-paper {
-  background-color: #000000 !important;
-  border: 1px solid #ffffff !important;
-}
-
-.high-contrast .MuiAppBar-root {
-  background-color: #000080 !important;
-}
-
-/* היפוך צבעים */
-.invert-colors {
-  filter: invert(100%) !important;
-}
-
-.invert-colors img,
-.invert-colors svg {
-  filter: invert(100%) !important;
-}
-
-/* הדגשת קישורים */
-.highlight-links a {
-  text-decoration: underline !important;
-  color: #0000ff !important;
-  font-weight: bold !important;
-  border-bottom: 2px solid #0000ff !important;
-}
-
-.highlight-links button,
-.highlight-links .MuiButton-root {
-  outline: 2px solid #0000ff !important;
-  outline-offset: 2px !important;
-}
-
-/* תצוגת טקסט בלבד */
-.text-only img:not([alt*="logo"]):not([alt*="חשוב"]) {
-  display: none !important;
-}
-
-.text-only .MuiCardMedia-root {
-  display: none !important;
-}
-
-.text-only .MuiSvgIcon-root {
-  display: inline-block !important;
-}
-
-.text-only .MuiButton-startIcon {
-  display: inline-flex !important;
-}
-
-/* מיקוד טוב יותר (focus) */
+/* נגישות - עיצוב פוקוס */
 :focus {
-  outline: 3px solid #4299e1 !important;
-  outline-offset: 2px !important;
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
 }
 
-a:focus, button:focus {
-  outline: 3px solid #4299e1 !important;
-  outline-offset: 2px !important;
+:focus:not(:focus-visible) {
+  outline: none;
 }
 
-/* רוחב מקסימלי לתוכן לקריאות טובה יותר */
-.text-only .MuiContainer-root {
-  max-width: 120ch !important;
+:focus-visible {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
 }
 
-/* תמיכה ב-skip to content */
-.skip-to-content {
-  position: absolute;
-  top: -100px;
-  left: 0;
-  right: 0;
-  background: #0000ff;
-  color: white !important;
-  padding: 12px;
-  z-index: 9999;
-  text-align: center;
-  transition: top 0.3s;
-  font-weight: bold;
-  text-decoration: none;
-  font-size: 1rem;
-  opacity: 0;
+/* נגישות - עיצוב קישורים */
+a:focus-visible {
+  text-decoration: underline;
 }
 
-.skip-to-content:focus {
-  top: 0;
-  opacity: 1;
+a:hover {
+  text-decoration: underline;
 }
 
-/* שיפור ניגודיות טקסט */
+/* נגישות - גודל טקסט מינימלי */
 body {
-  color: rgba(0, 0, 0, 0.87); /* ערך ברירת מחדל כהה יותר */
+  font-size: 1rem;
 }
 
-/* השיפור נגישות של רכיבי משוב ואזהרות */
-.MuiAlert-root {
-  border-radius: 4px !important;
-  border: 1px solid transparent !important;
+/* נגישות - טיפוגרפיה */
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
 }
 
-.MuiAlert-standardError {
-  background-color: #ffebee !important;
-  border-color: #f44336 !important;
+/* נגישות - התאמות אינטראקטיביות */
+button, 
+a[role="button"], 
+input[type="button"], 
+input[type="submit"], 
+input[type="reset"] {
+  cursor: pointer;
 }
 
-.MuiAlert-standardSuccess {
-  background-color: #e8f5e9 !important;
-  border-color: #4caf50 !important;
+/* נגישות - משוב חזותי למצב לחוץ */
+button:active,
+a[role="button"]:active,
+.MuiButton-root:active {
+  transform: scale(0.98);
 }
 
-.MuiAlert-standardWarning {
-  background-color: #fff8e1 !important;
-  border-color: #ff9800 !important;
+/* נגישות - הדגשת שדות שגויים */
+.MuiFormHelperText-root.Mui-error {
+  font-weight: bold;
 }
 
-.MuiAlert-standardInfo {
-  background-color: #e3f2fd !important;
-  border-color: #2196f3 !important;
+/* נגישות - שיפור ניגודיות */
+.MuiTypography-root {
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.MuiInputLabel-root,
+.MuiFormLabel-root {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* הסתרת תוכן ויזואלי מקוראי מסך */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* תמיכה בשינוי גודל כללי של התצוגה */
+html {
+  zoom: 100%;
+}
+
+/* נגישות - תמיכה בהגדרות משתמש */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 } 

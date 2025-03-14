@@ -26,7 +26,6 @@ import BookingsNewPage from './pages/BookingsNewPage';
 // רכיבים
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-import AccessibilityWidget from './components/AccessibilityWidget';
 
 // יצירת קאש RTL
 const cacheRtl = createCache({
@@ -34,22 +33,79 @@ const cacheRtl = createCache({
   stylisPlugins: [prefixer, rtlPlugin],
 });
 
-// יצירת ערכת נושא מותאמת אישית
+// יצירת ערכת נושא מותאמת אישית עם תמיכה בנגישות
 const theme = createTheme({
   direction: 'rtl',
   palette: {
     primary: {
       main: '#1976d2',
+      light: '#4791db',
+      dark: '#115293',
+      contrastText: '#ffffff',
     },
     secondary: {
       main: '#f50057',
+      light: '#f73378',
+      dark: '#ab003c',
+      contrastText: '#ffffff',
     },
     background: {
       default: '#f5f5f5',
+      paper: '#ffffff',
+    },
+    text: {
+      primary: '#000000de',
+      secondary: '#0000008a',
+    },
+    error: {
+      main: '#d32f2f',
+      light: '#ef5350',
+      dark: '#c62828',
+      contrastText: '#ffffff',
+    },
+    warning: {
+      main: '#ed6c02',
+      light: '#ff9800',
+      dark: '#e65100',
+      contrastText: '#ffffff',
+    },
+    info: {
+      main: '#0288d1',
+      light: '#03a9f4',
+      dark: '#01579b',
+      contrastText: '#ffffff',
+    },
+    success: {
+      main: '#2e7d32',
+      light: '#4caf50',
+      dark: '#1b5e20',
+      contrastText: '#ffffff',
     },
   },
   typography: {
     fontFamily: 'Rubik, Arial, sans-serif',
+    h1: {
+      fontWeight: 700,
+    },
+    h2: {
+      fontWeight: 700,
+    },
+    h3: {
+      fontWeight: 600,
+    },
+    h4: {
+      fontWeight: 600,
+    },
+    h5: {
+      fontWeight: 500,
+    },
+    h6: {
+      fontWeight: 500,
+    },
+    button: {
+      fontWeight: 500,
+      textTransform: 'none',
+    },
   },
   components: {
     MuiButton: {
@@ -59,91 +115,45 @@ const theme = createTheme({
         },
       },
     },
-    // הוספת נגישות לרכיבים
-    MuiTextField: {
-      defaultProps: {
-        InputLabelProps: {
-          required: false,
+    MuiAlert: {
+      styleOverrides: {
+        root: {
+          fontSize: '1rem',
         },
-        inputProps: {
-          'aria-required': (props) => props.required ? 'true' : 'false',
-        }
-      }
-    },
-    MuiButtonBase: {
-      defaultProps: {
-        // לחיצה על כפתורים עם המקלדת
-        disableRipple: false,
       },
     },
-    MuiDialog: {
+    MuiLink: {
       defaultProps: {
-        // הבטחה שחלונות דיאלוג יפעלו כראוי עם קורא מסך
-        aria: {
-          labelledby: 'dialog-title',
-          describedby: 'dialog-description',
-        }
-      }
-    }
+        underline: 'hover',
+      },
+    },
+    MuiTooltip: {
+      styleOverrides: {
+        tooltip: {
+          fontSize: '0.875rem',
+        },
+      },
+    },
   },
 });
 
 function App() {
-  // טיפול גלובלי בשגיאות ResizeObserver - מונע הופעת שגיאות בקונסול
   useEffect(() => {
-    // טיפול בשגיאות ResizeObserver ברמת הקונסול
-    const originalConsoleError = window.console.error;
-    window.console.error = (...args) => {
-      if (args.length > 0 && typeof args[0] === 'string' && args[0].includes('ResizeObserver')) {
-        return;
-      }
-      originalConsoleError(...args);
-    };
-
-    // חסימת אירועי שגיאה של ResizeObserver
-    const errorHandler = (event) => {
-      if (event && event.message && (
-        event.message.includes('ResizeObserver') || 
-        event.message.includes('ResizeObserver loop completed') || 
-        event.message.includes('ResizeObserver loop limit exceeded')
-      )) {
-        event.stopImmediatePropagation();
-        event.preventDefault();
-        return false;
-      }
-    };
-
-    // הוספת מאזיני אירועים להתמודדות עם שגיאות מבוססות אירועים
-    window.addEventListener('error', errorHandler, true);
-    window.addEventListener('unhandledrejection', errorHandler, true);
+    // הוספת תכונות נגישות
+    document.documentElement.lang = 'he';
     
-    // ניקוי בעת סגירת האפליקציה
-    return () => {
-      window.console.error = originalConsoleError;
-      window.removeEventListener('error', errorHandler, true);
-      window.removeEventListener('unhandledrejection', errorHandler, true);
-      
-      // נסיון לנקות את כל ה-ResizeObservers שעלולים להיות פעילים
-      if (window.__resizeObservers__ && Array.isArray(window.__resizeObservers__)) {
-        window.__resizeObservers__.forEach(observer => {
-          try {
-            observer.disconnect();
-          } catch (e) {
-            // התעלם משגיאות
-          }
-        });
-      }
-    };
+    // הוספת תמיכה בקורא מסך
+    const rootElement = document.getElementById('root');
+    if (rootElement) {
+      rootElement.setAttribute('role', 'main');
+      rootElement.setAttribute('aria-label', 'מלונית רוטשילד 79');
+    }
   }, []);
 
   return (
     <CacheProvider value={cacheRtl}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {/* רכיב Skip to content - מאפשר ניווט מהיר באמצעות מקלדת */}
-        <a className="skip-to-content" href="#main-content">
-          דלג לתוכן העיקרי
-        </a>
         <Routes>
           <Route path="/" element={<Layout />}>
             {/* נתיבים ציבוריים */}
@@ -164,28 +174,28 @@ function App() {
             } />
             <Route path="/dashboard/bookings-calendar" element={<ProtectedRoute><BookingCalendarNew /></ProtectedRoute>} />
             <Route path="/dashboard/bookings-new" element={<ProtectedRoute><BookingsNewPage /></ProtectedRoute>} />
-            <Route path="dashboard/rooms" element={
+            
+            {/* Add other protected routes */}
+            <Route path="/dashboard/rooms" element={
               <ProtectedRoute>
                 <RoomsListPage />
               </ProtectedRoute>
             } />
-            <Route path="dashboard/gallery" element={
-              <ProtectedRoute>
-                <GalleryManagementPage />
-              </ProtectedRoute>
-            } />
-            <Route path="dashboard/calendar-links" element={
+            <Route path="/dashboard/calendar-links" element={
               <ProtectedRoute>
                 <CalendarLinksPage />
               </ProtectedRoute>
             } />
+            <Route path="/dashboard/gallery" element={
+              <ProtectedRoute>
+                <GalleryManagementPage />
+              </ProtectedRoute>
+            } />
             
-            {/* דף 404 */}
+            {/* הנתיב השגיאה (404) */}
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
-        {/* רכיב הנגישות */}
-        <AccessibilityWidget />
       </ThemeProvider>
     </CacheProvider>
   );

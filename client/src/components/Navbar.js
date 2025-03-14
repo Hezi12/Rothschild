@@ -8,26 +8,6 @@ const Navbar = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   React.useEffect(() => {
-    // טיפול בשגיאות ResizeObserver
-    const originalError = window.console.error;
-    window.console.error = (...args) => {
-      if (args.length > 0 && typeof args[0] === 'string' && args[0].includes('ResizeObserver')) {
-        return;
-      }
-      originalError(...args);
-    };
-
-    // חסימת שגיאות ResizeObserver במודל האירועים
-    const handler = (event) => {
-      if (event.message && event.message.includes('ResizeObserver')) {
-        event.stopImmediatePropagation();
-        event.preventDefault();
-        return false;
-      }
-    };
-
-    window.addEventListener('error', handler, true);
-    
     const removeGuestBadges = () => {
       const logo = document.querySelector('.MuiToolbar-root a[href="/"]');
       if (logo) {
@@ -41,11 +21,7 @@ const Navbar = () => {
     removeGuestBadges();
     const interval = setInterval(removeGuestBadges, 1000);
     
-    return () => {
-      clearInterval(interval);
-      window.console.error = originalError;
-      window.removeEventListener('error', handler, true);
-    };
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -53,11 +29,7 @@ const Navbar = () => {
       backgroundColor: '#1565C0',
       boxShadow: '0px 2px 10px rgba(0,0,0,0.2)'
     }}>
-      <Toolbar sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between',
-        padding: { xs: '0 16px', md: '0 24px' }
-      }}>
+      <Toolbar sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Typography 
           variant="h6" 
           component={Link} 
@@ -74,6 +46,7 @@ const Navbar = () => {
             transition: 'all 0.3s ease',
             fontFamily: "'Heebo', 'Roboto', sans-serif",
             '&:hover': {
+              transform: 'scale(1.02)',
               textShadow: '1px 1px 4px rgba(0,0,0,0.3)'
             },
             '& > *:not(:first-child):not(:nth-child(2))': {
@@ -81,53 +54,23 @@ const Navbar = () => {
             }
           }}
         >
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'flex-end',
-            marginLeft: 'auto'
-          }}>
+          <HotelIcon sx={{ 
+            mr: 1.5,
+            fontSize: { xs: '1.4rem', md: '1.7rem' }
+          }} />
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <Box sx={{ fontSize: { xs: '1.1rem', md: '1.3rem' } }}>מלונית רוטשילד 79</Box>
             <Box sx={{ 
-              fontSize: { xs: '0.65rem', md: '0.75rem' }, 
-              fontWeight: 'normal',
-              letterSpacing: '0.5px',
+              fontSize: { xs: '0.7rem', md: '0.8rem' }, 
+              fontWeight: 'normal', 
+              letterSpacing: '1px',
               opacity: 0.9,
-              mb: -0.8,
-              mr: '2px'
+              mt: -0.3
             }}>
-              מלונית
-            </Box>
-            <Box sx={{ 
-              fontSize: { xs: '1.2rem', md: '1.5rem' },
-              fontWeight: 'bold',
-              letterSpacing: '0.5px'
-            }}>
-              רוטשילד 79
+              Rothschild 79 Hotel
             </Box>
           </Box>
         </Typography>
-        
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center'
-        }}>
-          <HotelIcon sx={{ 
-            mr: 1,
-            fontSize: { xs: '1.4rem', md: '1.7rem' },
-            color: 'white'
-          }} />
-          <Box sx={{ 
-            fontSize: { xs: '0.65rem', md: '0.75rem' }, 
-            fontWeight: 'normal', 
-            letterSpacing: '0.5px',
-            opacity: 0.9,
-            color: 'white',
-            textAlign: 'center'
-          }}>
-            Rothschild 79 Hotel
-          </Box>
-        </Box>
-        
       </Toolbar>
     </AppBar>
   );
