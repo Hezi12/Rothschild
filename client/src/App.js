@@ -26,6 +26,7 @@ import BookingsNewPage from './pages/BookingsNewPage';
 // רכיבים
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import AccessibilityWidget from './components/AccessibilityWidget';
 
 // יצירת קאש RTL
 const cacheRtl = createCache({
@@ -58,6 +59,32 @@ const theme = createTheme({
         },
       },
     },
+    // הוספת נגישות לרכיבים
+    MuiTextField: {
+      defaultProps: {
+        InputLabelProps: {
+          required: false,
+        },
+        inputProps: {
+          'aria-required': (props) => props.required ? 'true' : 'false',
+        }
+      }
+    },
+    MuiButtonBase: {
+      defaultProps: {
+        // לחיצה על כפתורים עם המקלדת
+        disableRipple: false,
+      },
+    },
+    MuiDialog: {
+      defaultProps: {
+        // הבטחה שחלונות דיאלוג יפעלו כראוי עם קורא מסך
+        aria: {
+          labelledby: 'dialog-title',
+          describedby: 'dialog-description',
+        }
+      }
+    }
   },
 });
 
@@ -66,6 +93,10 @@ function App() {
     <CacheProvider value={cacheRtl}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
+        {/* רכיב Skip to content - מאפשר ניווט מהיר באמצעות מקלדת */}
+        <a className="skip-to-content" href="#main-content">
+          דלג לתוכן העיקרי
+        </a>
         <Routes>
           <Route path="/" element={<Layout />}>
             {/* נתיבים ציבוריים */}
@@ -106,6 +137,8 @@ function App() {
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
+        {/* רכיב הנגישות */}
+        <AccessibilityWidget />
       </ThemeProvider>
     </CacheProvider>
   );

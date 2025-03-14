@@ -128,4 +128,144 @@ a[href="/"] .MuiBadge-root,
 a[href="/"]:after,
 .MuiToolbar-root > div:first-child:after {
   content: none !important;
+}
+
+/* סגנונות נגישות */
+
+/* ניגודיות גבוהה */
+.high-contrast {
+  color: #ffffff !important;
+  background-color: #000000 !important;
+}
+
+.high-contrast * {
+  color: #ffffff !important;
+  background-color: #000000 !important;
+  border-color: #ffffff !important;
+}
+
+.high-contrast a, 
+.high-contrast button,
+.high-contrast .MuiButton-root {
+  color: #ffff00 !important;
+  background-color: #000080 !important;
+}
+
+.high-contrast img {
+  filter: grayscale(100%) contrast(150%) !important;
+}
+
+.high-contrast .MuiPaper-root,
+.high-contrast .MuiCard-root,
+.high-contrast .MuiDialog-paper {
+  background-color: #000000 !important;
+  border: 1px solid #ffffff !important;
+}
+
+.high-contrast .MuiAppBar-root {
+  background-color: #000080 !important;
+}
+
+/* היפוך צבעים */
+.invert-colors {
+  filter: invert(100%) !important;
+}
+
+.invert-colors img,
+.invert-colors svg {
+  filter: invert(100%) !important;
+}
+
+/* הדגשת קישורים */
+.highlight-links a {
+  text-decoration: underline !important;
+  color: #0000ff !important;
+  font-weight: bold !important;
+  border-bottom: 2px solid #0000ff !important;
+}
+
+.highlight-links button,
+.highlight-links .MuiButton-root {
+  outline: 2px solid #0000ff !important;
+  outline-offset: 2px !important;
+}
+
+/* תצוגת טקסט בלבד */
+.text-only img:not([alt*="logo"]):not([alt*="חשוב"]) {
+  display: none !important;
+}
+
+.text-only .MuiCardMedia-root {
+  display: none !important;
+}
+
+.text-only .MuiSvgIcon-root {
+  display: inline-block !important;
+}
+
+.text-only .MuiButton-startIcon {
+  display: inline-flex !important;
+}
+
+/* מיקוד טוב יותר (focus) */
+:focus {
+  outline: 3px solid #4299e1 !important;
+  outline-offset: 2px !important;
+}
+
+a:focus, button:focus {
+  outline: 3px solid #4299e1 !important;
+  outline-offset: 2px !important;
+}
+
+/* רוחב מקסימלי לתוכן לקריאות טובה יותר */
+.text-only .MuiContainer-root {
+  max-width: 120ch !important;
+}
+
+/* תמיכה ב-skip to content */
+.skip-to-content {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: #0000ff;
+  color: white;
+  padding: 8px;
+  z-index: 100;
+  transition: top 0.3s;
+}
+
+.skip-to-content:focus {
+  top: 0;
+}
+
+/* שיפור ניגודיות טקסט */
+body {
+  color: rgba(0, 0, 0, 0.87); /* ערך ברירת מחדל כהה יותר */
+}
+
+/* השיפור נגישות של רכיבי משוב ואזהרות */
+.MuiAlert-root {
+  border-radius: 4px !important;
+  border: 1px solid transparent !important;
+}
+
+.MuiAlert-standardError {
+  background-color: #ffebee !important;
+  border-color: #f44336 !important;
+}
+
+.MuiAlert-standardSuccess {
+  background-color: #e8f5e9 !important;
+  border-color: #4caf50 !important;
+}
+
+.MuiAlert-standardWarning {
+  background-color: #fff8e1 !important;
+  border-color: #ff9800 !important;
+}
+
+.MuiAlert-standardInfo {
+  background-color: #e3f2fd !important;
+  border-color: #2196f3 !important;
 } 
