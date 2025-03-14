@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { 
   Box, 
   Fab, 
@@ -23,6 +23,23 @@ import {
   FormatLineSpacing as LineSpacingIcon
 } from '@mui/icons-material';
 
+// התעלמות משגיאות ResizeObserver
+const ignoreResizeObserverErrors = () => {
+  // כאן אנחנו מתעלמים משגיאת ResizeObserver loop limit exceeded
+  const consoleError = console.error;
+  console.error = (...args) => {
+    if (
+      args.length > 1 &&
+      typeof args[0] === 'string' &&
+      args[0].includes('ResizeObserver loop') 
+    ) {
+      // התעלם משגיאת ResizeObserver
+      return;
+    }
+    consoleError(...args);
+  };
+};
+
 const AccessibilityWidget = () => {
   const [open, setOpen] = useState(false);
   const [fontSize, setFontSize] = useState(100);
@@ -31,6 +48,25 @@ const AccessibilityWidget = () => {
   const [lineSpacing, setLineSpacing] = useState(100);
   const [textOnly, setTextOnly] = useState(false);
   const [links, setLinks] = useState(false);
+  
+  // התעלמות משגיאות ResizeObserver
+  useEffect(() => {
+    ignoreResizeObserverErrors();
+    
+    // ניקוי תצפיתן resize
+    return () => {
+      const resizeObservers = window.__resizeObservers__ || [];
+      if (resizeObservers.length > 0) {
+        resizeObservers.forEach(observer => {
+          try {
+            observer.disconnect();
+          } catch (e) {
+            // התעלם משגיאות
+          }
+        });
+      }
+    };
+  }, []);
   
   // טעינת הגדרות שמורות מה-localStorage
   useEffect(() => {
@@ -62,7 +98,11 @@ const AccessibilityWidget = () => {
     };
     
     localStorage.setItem('accessibilitySettings', JSON.stringify(settings));
-    applySettings(settings);
+    
+    // שימוש בפונקציית setTimeout כדי להפריד את השינויים וליצור חיץ זמן בין עדכוני DOM
+    setTimeout(() => {
+      applySettings(settings);
+    }, 0);
   };
   
   // החלת הגדרות הנגישות
