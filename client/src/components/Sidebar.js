@@ -18,6 +18,14 @@ const Sidebar = () => {
         isActive={pathname === '/dashboard/bookings-new'}
       />
       
+      {/* לוח זמינות חדרים והזמנות - חדש */}
+      <NavItem 
+        to="/dashboard/bookings-calendar" 
+        text="לוח זמינות חדרים והזמנות - חדש!" 
+        icon={<CalendarMonthIcon />} 
+        isActive={pathname === '/dashboard/bookings-calendar'}
+      />
+      
       <Divider style={{ margin: '8px 0' }} />
       
       {/* דפים ישנים - לא מומלצים */}
@@ -35,14 +43,6 @@ const Sidebar = () => {
         text="לוח שנה הזמנות (ישן)" 
         icon={<EventIcon />} 
         isActive={pathname === '/dashboard/bookings'}
-      />
-      
-      {/* לוח השנה הישן */}
-      <NavItem 
-        to="/dashboard/bookings-calendar" 
-        text="לוח שנה ישן (ישן)" 
-        icon={<CalendarMonthIcon />} 
-        isActive={pathname === '/dashboard/bookings-calendar'}
       />
     </div>
   );

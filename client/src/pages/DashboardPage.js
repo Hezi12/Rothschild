@@ -179,6 +179,23 @@ const DashboardPage = () => {
         </Grid>
       </Grid>
 
+      {/* קישור ללוח זמינות */}
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12}>
+          <Button
+            component={Link}
+            to="/dashboard/bookings-calendar"
+            fullWidth
+            variant="contained"
+            color="info"
+            size="large"
+            sx={{ fontWeight: 'bold' }}
+          >
+            לוח זמינות חדרים והזמנות - תצוגה חדשה
+          </Button>
+        </Grid>
+      </Grid>
+
       {/* שורת כלים נוספים */}
       <Box sx={{ mb: 4, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
         {/* הסרת קישור הגלריה מכאן */}
