@@ -647,10 +647,10 @@ const SearchResultsPage = () => {
                       fontWeight: 'medium',
                       fontSize: '0.75rem'
                     }}>
-                      {Array.from({ length: room.maxGuests || guests }).map((_, index) => (
+                      {Array.from({ length: room.maxGuests || 2 }).map((_, index) => (
                         <PersonIcon key={index} sx={{ fontSize: '0.85rem', color: theme.palette.primary.main }} />
                       ))}
-                      <span style={{ marginRight: '3px' }}>{room.maxGuests || guests} אורחים</span>
+                      <span style={{ marginRight: '3px' }}>{room.maxGuests || 2} אורחים</span>
                     </Box>
                   </Grid>
                 </Grid>
