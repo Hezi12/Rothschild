@@ -277,10 +277,14 @@ const RoomsListPage = () => {
       }
     };
     
+    // וידוא שמספר החדר ושם פנימי זהים לאחר איחוד השדות
+    const roomIdentifier = room.roomNumber || '';
+    
     setCurrentRoom({
       ...room,
       amenities: room.amenities ? room.amenities.join(', ') : '',
-      internalName: room.internalName || room.roomNumber.toString(),
+      roomNumber: roomIdentifier,
+      internalName: roomIdentifier
     });
     
     loadSpecialPrices();
@@ -369,10 +373,15 @@ const RoomsListPage = () => {
           currentRoom.amenities) : 
         [];
       
+      // וידוא שמספר החדר ושם פנימי זהים
+      const roomIdentifier = currentRoom.roomNumber || '';
+      
       // הכנת האובייקט לשמירה
       const roomData = {
         ...currentRoom,
-        amenities: amenitiesArray
+        amenities: amenitiesArray,
+        roomNumber: roomIdentifier,
+        internalName: roomIdentifier
       };
       
       let response;
@@ -782,110 +791,134 @@ const RoomsListPage = () => {
             פרטי חדר
           </Typography>
           
-          <TextField
-            autoFocus
-            margin="dense"
-            name="roomNumber"
-            label="מספר חדר"
-            type="number"
-            fullWidth
-            variant="outlined"
-            value={currentRoom?.roomNumber || ''}
-            onChange={handleInputChange}
-            sx={{ mb: 2 }}
-          />
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                autoFocus
+                margin="dense"
+                name="roomNumber"
+                label="מספר חדר / שם"
+                type="text"
+                fullWidth
+                variant="outlined"
+                value={currentRoom?.roomNumber || ''}
+                onChange={(e) => {
+                  // עדכון הן של מספר החדר והן של השם הפנימי
+                  const value = e.target.value;
+                  setCurrentRoom({
+                    ...currentRoom,
+                    roomNumber: value,
+                    internalName: value
+                  });
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth variant="outlined" sx={{ mt: 1 }}>
+                <InputLabel>סוג חדר</InputLabel>
+                <Select
+                  name="type"
+                  value={currentRoom?.type || 'standard'}
+                  onChange={handleInputChange}
+                  label="סוג חדר"
+                >
+                  <MenuItem value="simple">Simple</MenuItem>
+                  <MenuItem value="standard">Standard</MenuItem>
+                  <MenuItem value="deluxe">Deluxe</MenuItem>
+                  <MenuItem value="suite">Suite</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
           
-          <TextField
-            margin="dense"
-            name="internalName"
-            label="שם פנימי (יוצג רק למנהלים)"
-            type="text"
-            fullWidth
-            variant="outlined"
-            value={currentRoom?.internalName || ''}
-            onChange={handleInputChange}
-            sx={{ mb: 2 }}
-          />
+          {/* מחיר בסיס ומחיר כולל מע"מ */}
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                margin="dense"
+                name="basePrice"
+                label="מחיר בסיס ללא מע״מ"
+                type="number"
+                fullWidth
+                variant="outlined"
+                value={currentRoom?.basePrice || ''}
+                onChange={handleInputChange}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                margin="dense"
+                label="מחיר כולל מע״מ (18%)"
+                type="number"
+                fullWidth
+                variant="outlined"
+                value={currentRoom?.basePrice ? Math.round(currentRoom.basePrice * 1.18) : ''}
+                onChange={(e) => {
+                  const withVatPrice = Number(e.target.value);
+                  if (!isNaN(withVatPrice)) {
+                    const withoutVatPrice = Math.round((withVatPrice / 1.18) * 100) / 100;
+                    setCurrentRoom({
+                      ...currentRoom,
+                      basePrice: withoutVatPrice
+                    });
+                  }
+                }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                }}
+              />
+            </Grid>
+          </Grid>
           
-          <FormControl fullWidth variant="outlined" sx={{ mb: 2 }}>
-            <InputLabel>סוג חדר</InputLabel>
-            <Select
-              name="type"
-              value={currentRoom?.type || 'standard'}
-              onChange={handleInputChange}
-              label="סוג חדר"
-            >
-              <MenuItem value="simple">פשוט</MenuItem>
-              <MenuItem value="standard">סטנדרט</MenuItem>
-              <MenuItem value="deluxe">דה-לוקס</MenuItem>
-              <MenuItem value="suite">סוויטה</MenuItem>
-            </Select>
-          </FormControl>
-          
-          <TextField
-            margin="dense"
-            name="basePrice"
-            label="מחיר בסיס לחדר"
-            type="number"
-            fullWidth
-            variant="outlined"
-            value={currentRoom?.basePrice || ''}
-            onChange={handleInputChange}
-            sx={{ mb: 3 }}
-            InputProps={{
-              startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-            }}
-          />
-          
-          {/* חלק חדש: מחירים מיוחדים לפי ימי שבוע */}
-          <Accordion sx={{ mb: 3 }}>
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon />}
-              aria-controls="special-prices-content"
-              id="special-prices-header"
-            >
-              <Typography sx={{ display: 'flex', alignItems: 'center' }}>
-                <CalendarIcon sx={{ mr: 1 }} />
-                מחיר מיוחד ליום שישי
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                קבע מחיר שונה ליום שישי. מחיר זה יחול באופן אוטומטי על הזמנות עתידיות.
-              </Typography>
-              
-              <List>
-                {/* שישי */}
-                <ListItem>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={specialPrices.friday?.enabled}
-                        onChange={(e) => handleSpecialPriceChange('friday', 'enabled', e.target.checked)}
-                        name="friday"
-                      />
+          {/* מחיר מיוחד ליום שישי */}
+          <Box sx={{ mb: 3, border: '1px solid #e0e0e0', p: 2, borderRadius: 1, bgcolor: 'rgba(0, 0, 0, 0.02)' }}>
+            <Typography sx={{ display: 'flex', alignItems: 'center', mb: 2, fontWeight: 'medium' }}>
+              <CalendarIcon sx={{ mr: 1, color: 'primary.main' }} />
+              מחיר מיוחד ליום שישי
+            </Typography>
+            
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  name="fridayPrice"
+                  label="מחיר לליל שישי (ללא מע״מ)"
+                  type="number"
+                  variant="outlined"
+                  fullWidth
+                  size="small"
+                  value={specialPrices.friday?.price || ''}
+                  onChange={(e) => handleSpecialPriceChange('friday', 'price', Number(e.target.value))}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="מחיר לליל שישי כולל מע״מ"
+                  type="number"
+                  variant="outlined"
+                  fullWidth
+                  size="small"
+                  value={specialPrices.friday?.price ? Math.round(specialPrices.friday.price * 1.18) : ''}
+                  onChange={(e) => {
+                    const withVatPrice = Number(e.target.value);
+                    if (!isNaN(withVatPrice)) {
+                      const withoutVatPrice = Math.round((withVatPrice / 1.18) * 100) / 100;
+                      handleSpecialPriceChange('friday', 'price', withoutVatPrice);
+                      handleSpecialPriceChange('friday', 'enabled', true);
                     }
-                    label="יום שישי"
-                    sx={{ width: '150px' }}
-                  />
-                  <TextField
-                    disabled={!specialPrices.friday?.enabled}
-                    name="fridayPrice"
-                    label="מחיר"
-                    type="number"
-                    variant="outlined"
-                    size="small"
-                    value={specialPrices.friday?.price || 0}
-                    onChange={(e) => handleSpecialPriceChange('friday', 'price', Number(e.target.value))}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                    }}
-                    sx={{ ml: 2, width: '150px' }}
-                  />
-                </ListItem>
-              </List>
-            </AccordionDetails>
-          </Accordion>
+                  }}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                  }}
+                />
+              </Grid>
+            </Grid>
+          </Box>
           
           <TextField
             margin="dense"
