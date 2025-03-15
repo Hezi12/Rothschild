@@ -85,7 +85,7 @@ const PricePeriodSchema = new Schema({
 
   roomTypes: [{
     type: String,
-    enum: ['standard', 'deluxe', 'suite'],
+    enum: ['standard', 'deluxe', 'suite', 'simple', 'simple_with_balcony', 'standard_with_balcony'],
     required: true
   }],
 

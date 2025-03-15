@@ -48,7 +48,7 @@ const calculatePriceWithSpecialPrices = (room, checkInDate, nights) => {
     totalNightsPrice = room.basePrice * nights;
   }
   
-  return { totalNightsPrice, hasSpecialPrices };
+  return { totalBasePrice: totalNightsPrice, hasSpecialPrices };
 };
 
 // פונקציה לחישוב מע"מ ומחיר סופי
@@ -326,7 +326,9 @@ exports.checkAvailability = asyncHandler(async (req, res, next) => {
   try {
     // המרת תאריכים
     const checkInDate = new Date(checkIn);
+    checkInDate.setHours(0, 0, 0, 0); // איפוס השעה
     const checkOutDate = new Date(checkOut);
+    checkOutDate.setHours(0, 0, 0, 0); // איפוס השעה
     
     // בדיקת תקינות התאריכים
     if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
@@ -458,6 +460,12 @@ exports.checkAvailability = asyncHandler(async (req, res, next) => {
 
 // ייבוא פונקציה לבדיקת זמינות חדר ממודול אחר
 const isRoomAvailable = async (roomId, checkInDate, checkOutDate) => {
+  // וידוא שאנחנו עובדים עם אובייקטי תאריך ואיפוס השעה
+  const startDate = new Date(checkInDate);
+  startDate.setHours(0, 0, 0, 0);
+  const endDate = new Date(checkOutDate);
+  endDate.setHours(0, 0, 0, 0);
+
   // בדיקה אם יש הזמנות שחופפות לתאריכים המבוקשים
   const overlappingBookings = await Booking.find({
     room: roomId,
@@ -465,18 +473,18 @@ const isRoomAvailable = async (roomId, checkInDate, checkOutDate) => {
     $or: [
       // מקרה 1: תאריך הגעה חדש בין תאריכי הזמנה קיימת
       {
-        checkIn: { $lte: checkInDate },
-        checkOut: { $gt: checkInDate }
+        checkIn: { $lte: startDate },
+        checkOut: { $gt: startDate }
       },
       // מקרה 2: תאריך עזיבה חדש בין תאריכי הזמנה קיימת
       {
-        checkIn: { $lt: checkOutDate },
-        checkOut: { $gte: checkOutDate }
+        checkIn: { $lt: endDate },
+        checkOut: { $gte: endDate }
       },
       // מקרה 3: תאריכי הזמנה חדשה מכילים הזמנה קיימת
       {
-        checkIn: { $gte: checkInDate },
-        checkOut: { $lte: checkOutDate }
+        checkIn: { $gte: startDate },
+        checkOut: { $lte: endDate }
       }
     ]
   });
@@ -513,10 +521,9 @@ exports.checkMultipleAvailability = asyncHandler(async (req, res, next) => {
         const checkOutDate = new Date(checkOut);
         const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
         
-        // חישוב מחירים לחדר זה
-        const basePrice = room.basePrice * nights;
-        const vatAmount = isTourist ? 0 : basePrice * 0.18;
-        const totalPrice = basePrice + vatAmount;
+        // חישוב מחירים לחדר זה עם התחשבות במחירים מיוחדים
+        const priceInfo = calculatePriceWithSpecialPrices(room, checkInDate, nights);
+        const vatData = calculateVatAndTotalPrice(priceInfo.totalBasePrice, isTourist);
         
         return {
           roomId: room._id,
@@ -525,9 +532,9 @@ exports.checkMultipleAvailability = asyncHandler(async (req, res, next) => {
           isAvailable: available,
           nights,
           basePrice: room.basePrice,
-          nightsTotal: basePrice,
-          vatAmount,
-          totalPrice
+          nightsTotal: priceInfo.totalBasePrice,
+          vatAmount: vatData.vatAmount,
+          totalPrice: vatData.totalPrice
         };
       })
     );

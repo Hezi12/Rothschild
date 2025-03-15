@@ -719,7 +719,9 @@ const RoomsListPage = () => {
                         <Typography variant="body2" color="text.secondary">
                           <BedIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
                           {room.type === 'simple' ? 'פשוט' :
+                           room.type === 'simple_with_balcony' ? 'פשוט עם מרפסת' :
                            room.type === 'standard' ? 'סטנדרט' : 
+                           room.type === 'standard_with_balcony' ? 'סטנדרט עם מרפסת' :
                            room.type === 'deluxe' ? 'דה-לוקס' : 'סוויטה'}
                         </Typography>
                       </Grid>
@@ -823,7 +825,9 @@ const RoomsListPage = () => {
                   label="סוג חדר"
                 >
                   <MenuItem value="simple">Simple</MenuItem>
+                  <MenuItem value="simple_with_balcony">Simple with Balcony</MenuItem>
                   <MenuItem value="standard">Standard</MenuItem>
+                  <MenuItem value="standard_with_balcony">Standard with Balcony</MenuItem>
                   <MenuItem value="deluxe">Deluxe</MenuItem>
                   <MenuItem value="suite">Suite</MenuItem>
                 </Select>

@@ -115,7 +115,10 @@ const RoomPage = () => {
   const typeToDisplayName = {
     'standard': 'Standard',
     'deluxe': 'Deluxe',
-    'suite': 'Suite'
+    'suite': 'Suite',
+    'simple': 'Simple',
+    'simple_with_balcony': 'Simple with Balcony',
+    'standard_with_balcony': 'Standard with Balcony'
   };
 
   useEffect(() => {

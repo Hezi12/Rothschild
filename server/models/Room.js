@@ -16,7 +16,7 @@ const RoomSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['simple', 'standard', 'deluxe', 'suite'],
+    enum: ['simple', 'standard', 'deluxe', 'suite', 'simple_with_balcony', 'standard_with_balcony'],
     default: 'standard'
   },
   basePrice: {

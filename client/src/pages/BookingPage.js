@@ -108,7 +108,10 @@ const BookingPage = () => {
   const typeToDisplayName = {
     'standard': 'Standard',
     'deluxe': 'Deluxe',
-    'suite': 'Suite'
+    'suite': 'Suite',
+    'simple': 'Simple',
+    'simple_with_balcony': 'Simple with Balcony',
+    'standard_with_balcony': 'Standard with Balcony'
   };
 
   useEffect(() => {
@@ -204,10 +207,10 @@ const BookingPage = () => {
             if (data.allRoomsAvailable) {
               setBookingData(prev => ({
                 ...prev,
-                basePrice: data.totalBasePrice || prev.basePrice,
-                vat: data.totalVatAmount || prev.vat,
-                totalPrice: data.totalPrice || prev.totalPrice,
-                nights: data.nights || prev.nights,
+                basePrice: data.totalBasePrice,
+                vat: data.totalVatAmount,
+                totalPrice: data.totalPrice,
+                nights: data.nights,
                 selectedRooms: roomIdsToCheck
               }));
             }
@@ -219,30 +222,15 @@ const BookingPage = () => {
               isTourist: bookingData.isTourist
             });
             
-            if (response.data.isAvailable) {
-              const nights = response.data.nights || calculateNights(bookingData.checkIn, bookingData.checkOut);
-              const basePrice = response.data.nightsTotal || (nights * (room.basePrice || 400));
-              const vatRate = 18;
-              const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
-              const totalPrice = basePrice + vatAmount;
-              
-              if (response.data.totalPrice) {
-                setBookingData(prev => ({
-                  ...prev,
-                  basePrice: response.data.nightsTotal || response.data.basePrice || prev.basePrice,
-                  vat: response.data.vatAmount || prev.vat,
-                  totalPrice: response.data.totalPrice || prev.totalPrice,
-                  nights: response.data.nights || prev.nights
-                }));
-              } else {
-                setBookingData(prev => ({
-                  ...prev,
-                  basePrice: basePrice,
-                  vat: vatAmount,
-                  totalPrice: totalPrice,
-                  nights: nights
-                }));
-              }
+            const data = response.data.data;
+            if (data && data.isAvailable !== false) {
+              setBookingData(prev => ({
+                ...prev,
+                basePrice: data.nightsTotal || data.basePrice * data.nights,
+                vat: data.vatAmount,
+                totalPrice: data.totalPrice,
+                nights: data.nights
+              }));
             }
           }
         } catch (error) {
@@ -253,8 +241,8 @@ const BookingPage = () => {
           const basePricePerRoom = room.basePrice || 400;
           const basePrice = nights * basePricePerRoom * roomCount;
           const vatRate = 18;
-          const vatAmount = bookingData.isTourist ? 0 : basePrice * (vatRate / 100);
-          const totalPrice = basePrice + vatAmount;
+          const vatAmount = bookingData.isTourist ? 0 : Math.round(basePrice * (vatRate / 100) * 100) / 100;
+          const totalPrice = Math.round((basePrice + vatAmount) * 100) / 100;
           
           setBookingData(prev => ({
             ...prev,
@@ -273,8 +261,8 @@ const BookingPage = () => {
   useEffect(() => {
     if (bookingData.basePrice > 0) {
       const vatRate = 18;
-      const vatAmount = bookingData.isTourist ? 0 : bookingData.basePrice * (vatRate / 100);
-      const totalPrice = bookingData.basePrice + vatAmount;
+      const vatAmount = bookingData.isTourist ? 0 : Math.round(bookingData.basePrice * (vatRate / 100) * 100) / 100;
+      const totalPrice = Math.round((bookingData.basePrice + vatAmount) * 100) / 100;
       
       setBookingData(prev => ({
         ...prev,
@@ -724,32 +712,6 @@ const BookingPage = () => {
             </Grid>
             
             <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    name="isTourist"
-                    checked={bookingData.isTourist}
-                    onChange={handleChange}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography fontWeight="medium">
-                      אני תייר (פטור ממע״מ)
-                    </Typography>
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary"
-                    >
-                      תיירים מחו"ל זכאים לפטור ממע"מ בהצגת דרכון בצ'ק-אין. המחירים יוצגו ללא מע"מ (18%).
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
               <Button
                 variant="contained"
                 color="primary"
@@ -910,129 +872,85 @@ const BookingPage = () => {
   );
 
   const renderGuestDetails = () => (
-    <Box>
-      <Paper 
-        elevation={1} 
-        sx={{ 
-          p: 3, 
-          mb: 3, 
-          borderRadius: 2,
-          border: `1px solid ${theme.palette.divider}` 
-        }}
-      >
-        <Typography 
-          variant="h6" 
-          gutterBottom 
-          sx={{ 
-            pb: 1, 
-            mb: 2, 
-            borderBottom: `1px solid ${theme.palette.divider}`,
-            fontWeight: 'bold',
-            color: theme.palette.primary.main
-          }}
-        >
-          פרטי האורח
-        </Typography>
-        
-        <Grid container spacing={3}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              required
-              fullWidth
-              label="שם פרטי"
-              name="guestDetails.firstName"
-              value={bookingData.guestDetails.firstName}
-              onChange={handleChange}
-              InputProps={{
-                sx: { borderRadius: 1.5 }
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              required
-              fullWidth
-              label="שם משפחה"
-              name="guestDetails.lastName"
-              value={bookingData.guestDetails.lastName}
-              onChange={handleChange}
-              InputProps={{
-                sx: { borderRadius: 1.5 }
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              required
-              fullWidth
-              label="טלפון"
-              name="guestDetails.phone"
-              value={bookingData.guestDetails.phone}
-              onChange={handleChange}
-              InputProps={{
-                sx: { borderRadius: 1.5 }
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              required
-              fullWidth
-              label="אימייל"
-              name="guestDetails.email"
-              type="email"
-              value={bookingData.guestDetails.email}
-              onChange={handleChange}
-              placeholder="your@email.com"
-              InputProps={{
-                sx: { borderRadius: 1.5 }
-              }}
-            />
-          </Grid>
-          
-          <Grid item xs={12}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  name="isTourist"
-                  checked={bookingData.isTourist}
-                  onChange={handleChange}
-                  color="primary"
-                />
-              }
-              label={
-                <Box>
-                  <Typography fontWeight="medium">
-                    אני תייר (פטור ממע״מ)
-                  </Typography>
-                  <Typography 
-                    variant="body2" 
-                    color="text.secondary"
-                  >
-                    תיירים מחו"ל זכאים לפטור ממע"מ בהצגת דרכון בצ'ק-אין. המחירים יוצגו ללא מע"מ (18%).
-                  </Typography>
-                </Box>
-              }
-            />
-          </Grid>
-          
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="הערות מיוחדות"
-              name="notes"
-              multiline
-              rows={3}
-              value={bookingData.notes}
-              onChange={handleChange}
-              placeholder="בקשות מיוחדות, זמן הגעה משוער או כל מידע אחר שיעזור לנו להתכונן לביקורך"
-              InputProps={{
-                sx: { borderRadius: 1.5 }
-              }}
-            />
-          </Grid>
+    <Box sx={{ mt: 3 }}>
+      <Typography variant="h6" component="h2" fontWeight="bold" gutterBottom>
+        פרטי האורח
+      </Typography>
+      
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            label="שם משפחה"
+            name="lastName"
+            value={bookingData.guestDetails.lastName}
+            onChange={handleChange}
+            fullWidth
+            required
+            error={Boolean(error && error.includes('שם משפחה'))}
+            helperText={Boolean(error && error.includes('שם משפחה')) ? error : ''}
+            InputLabelProps={{ shrink: true }}
+            sx={{ mb: 2 }}
+          />
         </Grid>
-      </Paper>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            label="שם פרטי"
+            name="firstName"
+            value={bookingData.guestDetails.firstName}
+            onChange={handleChange}
+            fullWidth
+            required
+            error={Boolean(error && error.includes('שם פרטי'))}
+            helperText={Boolean(error && error.includes('שם פרטי')) ? error : ''}
+            InputLabelProps={{ shrink: true }}
+            sx={{ mb: 2 }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            label="אימייל"
+            name="email"
+            type="email"
+            value={bookingData.guestDetails.email}
+            onChange={handleChange}
+            fullWidth
+            required
+            error={Boolean(error && error.includes('אימייל'))}
+            helperText={Boolean(error && error.includes('אימייל')) ? error : ''}
+            InputLabelProps={{ shrink: true }}
+            sx={{ mb: 2 }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            label="טלפון"
+            name="phone"
+            value={bookingData.guestDetails.phone}
+            onChange={handleChange}
+            fullWidth
+            required
+            error={Boolean(error && error.includes('טלפון'))}
+            helperText={Boolean(error && error.includes('טלפון')) ? error : ''}
+            InputLabelProps={{ shrink: true }}
+            sx={{ mb: 2 }}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="הערות מיוחדות"
+            name="notes"
+            multiline
+            rows={3}
+            value={bookingData.notes}
+            onChange={handleChange}
+            placeholder="בקשות מיוחדות, זמן הגעה משוער או כל מידע אחר שיעזור לנו להתכונן לביקורך"
+            InputProps={{
+              sx: { borderRadius: 1.5 }
+            }}
+          />
+        </Grid>
+      </Grid>
     </Box>
   );
 
