@@ -11,38 +11,27 @@ const Navbar = () => {
     const removeGuestBadges = () => {
       const logo = document.querySelector('.MuiToolbar-root a[href="/"]');
       if (logo) {
-        const badges = logo.querySelectorAll('span[class*="badge"], span[class*="Badge"], div[class*="badge"], div[class*="Badge"]');
+        const badges = logo.querySelectorAll('span[class*="badge"], span[class*="Badge"], div[class*="badge"], div[class*="Badge"], span:not(:first-child), div:not(:first-child)');
         badges.forEach(badge => {
           badge.style.display = 'none';
         });
       }
-
-      const selectors = [
-        'div[id^="comp-"] a[href="/"] > div > div[data-testid]',
-        'div[data-testid="linkElement"] span[data-testid="linkTitle"] + div',
-        'div[data-testid="screenWidthBackground"] span[data-testid*="badge"]',
-        'header span[class*="badge"]',
-        'header div[class*="badge"]',
-        'header *[class*="badge"]',
-        'header *[data-testid*="badge"]',
-        'div[id^="comp-"] > div > a[href="/"] > div:last-child',
-        'div[id^="comp-"] > div > div > a > span + div',
-        'header > div[data-testid*="container"] span + div[class*="number"]'
-      ];
       
-      selectors.forEach(selector => {
-        const elements = document.querySelectorAll(selector);
-        elements.forEach(el => {
-          el.style.display = 'none';
-          el.style.opacity = '0';
-          el.style.visibility = 'hidden';
-        });
-      });
-      
-      const wixBadges = document.querySelectorAll('[data-testid*="badge"], [class*="badge"], [class*="Badge"]');
-      wixBadges.forEach(badge => {
-        if (badge.closest('header') || badge.closest('a[href="/"]') || badge.closest('div[id^="comp-"]')) {
+      const appBar = document.querySelector('.MuiAppBar-root');
+      if (appBar) {
+        const allBadges = appBar.querySelectorAll('[class*="MuiBadge-badge"], [class*="badge-count"], .MuiBadge-root, .MuiBadge-badge, [class*="badge"]');
+        allBadges.forEach(badge => {
           badge.style.display = 'none';
+          badge.style.opacity = '0';
+          badge.style.visibility = 'hidden';
+        });
+      }
+      
+      const icons = document.querySelectorAll('.MuiToolbar-root .MuiSvgIcon-root');
+      icons.forEach(icon => {
+        const nextSibling = icon.nextElementSibling;
+        if (nextSibling && nextSibling.tagName.toLowerCase() === 'span') {
+          nextSibling.style.display = 'none';
         }
       });
     };
@@ -50,7 +39,18 @@ const Navbar = () => {
     removeGuestBadges();
     const interval = setInterval(removeGuestBadges, 1000);
     
-    return () => clearInterval(interval);
+    const handleMouseEvents = () => {
+      setTimeout(removeGuestBadges, 50);
+      setTimeout(removeGuestBadges, 100);
+      setTimeout(removeGuestBadges, 300);
+    };
+    
+    document.addEventListener('mouseover', handleMouseEvents);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('mouseover', handleMouseEvents);
+    };
   }, []);
 
   return (
