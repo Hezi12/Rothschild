@@ -124,8 +124,36 @@ a[href="/"] .MuiBadge-root,
   display: none !important;
 }
 
+/* כללים נוספים להסתרת האייקון של מספר האורחים */
+div[id^="comp-"] a[href="/"] > div,
+div[id^="comp-"] a[href="/"] > div > div[data-testid],
+.headerBadge, 
+._1qrS4,
+._3crZQ,
+div[data-testid="linkElement"] span[data-testid="linkTitle"] + div,
+div[data-testid="screenWidthBackground"] span[data-testid*="badge"],
+header span[class*="badge"],
+header div[class*="badge"],
+header *[class*="badge"],
+header *[data-testid*="badge"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
 /* ספציפי לאייקון שנראה בצילום המסך */
 a[href="/"]:after,
-.MuiToolbar-root > div:first-child:after {
+.MuiToolbar-root > div:first-child:after,
+a[data-testid="linkElement"]:after {
   content: none !important;
+}
+
+/* אייקון ספציפי בראש הדף ליד הלוגו - הסתרה אגרסיבית */
+div[id^="comp-"] > div > a[href="/"] > div:last-child,
+div[id^="comp-"] > div > div > a > span + div,
+header > div[data-testid*="container"] span + div[class*="number"],
+div[data-testid*="home"] > div > a > span + span,
+header .MuiSvgIcon-root + span,
+header .MuiSvgIcon-root ~ div {
+  display: none !important;
 } 

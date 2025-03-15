@@ -16,6 +16,35 @@ const Navbar = () => {
           badge.style.display = 'none';
         });
       }
+
+      const selectors = [
+        'div[id^="comp-"] a[href="/"] > div > div[data-testid]',
+        'div[data-testid="linkElement"] span[data-testid="linkTitle"] + div',
+        'div[data-testid="screenWidthBackground"] span[data-testid*="badge"]',
+        'header span[class*="badge"]',
+        'header div[class*="badge"]',
+        'header *[class*="badge"]',
+        'header *[data-testid*="badge"]',
+        'div[id^="comp-"] > div > a[href="/"] > div:last-child',
+        'div[id^="comp-"] > div > div > a > span + div',
+        'header > div[data-testid*="container"] span + div[class*="number"]'
+      ];
+      
+      selectors.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+          el.style.display = 'none';
+          el.style.opacity = '0';
+          el.style.visibility = 'hidden';
+        });
+      });
+      
+      const wixBadges = document.querySelectorAll('[data-testid*="badge"], [class*="badge"], [class*="Badge"]');
+      wixBadges.forEach(badge => {
+        if (badge.closest('header') || badge.closest('a[href="/"]') || badge.closest('div[id^="comp-"]')) {
+          badge.style.display = 'none';
+        }
+      });
     };
     
     removeGuestBadges();
