@@ -63,6 +63,13 @@ const BookingPage = () => {
   
   const initialStep = initialCheckIn && initialCheckOut && (initialRoomId || (initialSelectedRooms && initialSelectedRooms.length > 0)) ? 1 : 0;
   
+  const calculateCancellationDate = (checkInDate) => {
+    if (!checkInDate) return '';
+    const cancellationDate = new Date(checkInDate);
+    cancellationDate.setDate(cancellationDate.getDate() - 3);
+    return new Date(cancellationDate).toLocaleDateString('he-IL');
+  };
+
   const calculateNights = (startDate, endDate) => {
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
@@ -990,7 +997,7 @@ const BookingPage = () => {
             פרטי האשראי נדרשים לצורך הבטחת ההזמנה בלבד (פיקדון).
           </Typography>
           <Typography variant="body2" sx={{ mt: 0.5 }}>
-            התשלום עצמו יתבצע בעת הצ'ק-אין במזומן, בהעברה בנקאית, או באמצעות ביט/פייבוקס.
+            התשלום יתבצע בעת הצ'ק-אין במזומן, באשראי, או באמצעות ביט/פייבוקס.
           </Typography>
         </Alert>
         
@@ -1156,7 +1163,7 @@ const BookingPage = () => {
                           <span style={{ marginRight: '8px', color: 'text.secondary' }}>
                             {bookingData.isTourist ? 
                               `${(roomItem.basePrice || 400) * bookingData.nights} ₪` : 
-                              `${Math.round((roomItem.basePrice || 400) * 1.18 * bookingData.nights)} ₪ (כולל מע״מ)`}
+                              `${Math.round((roomItem.basePrice || 400) * 1.18 * bookingData.nights)} ₪ (כולל מע"מ)`}
                           </span>
                         </Typography>
                       </Box>
@@ -1316,11 +1323,11 @@ const BookingPage = () => {
               <Box sx={{ pl: 3, mt: 1 }}>
                 <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                   <EventAvailableIcon sx={{ mr: 1, color: 'success.main', fontSize: '1rem' }} />
-                  ביטול עד 3 ימים לפני ההגעה - ללא עלות
+                  ביטול עד {calculateCancellationDate(bookingData.checkIn)} - ללא עלות
                 </Typography>
                 <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
                   <EventBusyIcon sx={{ mr: 1, color: 'error.main', fontSize: '1rem' }} />
-                  ביטול פחות מ-3 ימים לפני ההגעה - חיוב במחיר מלא
+                  ביטול לאחר {calculateCancellationDate(bookingData.checkIn)} - חיוב במחיר מלא
                 </Typography>
               </Box>
             </Box>
