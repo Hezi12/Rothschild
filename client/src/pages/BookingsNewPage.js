@@ -70,6 +70,7 @@ const BookingsNewPage = () => {
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
   const [openHardDeleteDialog, setOpenHardDeleteDialog] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [selectedBookingIds, setSelectedBookingIds] = useState([]);
   const [formData, setFormData] = useState({
     roomId: '',
     checkIn: null,
@@ -448,23 +449,57 @@ const BookingsNewPage = () => {
   };
   
   const handleHardDeleteBooking = async () => {
-    if (!selectedBooking) return;
-    
+    if (!selectedBooking && selectedBookingIds.length === 0) return;
+
     try {
-      await axios.delete(`${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}/hard-delete`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      if (selectedBookingIds.length > 0) {
+        // מחיקת מספר הזמנות
+        await axios.post(`${process.env.REACT_APP_API_URL}/bookings/hard-delete-many`, 
+          { bookingIds: selectedBookingIds },
+          {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+        alert(`${selectedBookingIds.length} הזמנות נמחקו לצמיתות בהצלחה`);
+        setSelectedBookingIds([]);
+      } else {
+        // מחיקת הזמנה בודדת
+        await axios.delete(`${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}/hard-delete`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        alert('ההזמנה נמחקה לצמיתות בהצלחה');
+      }
       
       setOpenHardDeleteDialog(false);
       setSelectedBooking(null);
       fetchBookings(); // רענון הזמנות
-      alert('ההזמנה נמחקה לצמיתות בהצלחה');
     } catch (error) {
       console.error('שגיאה במחיקת ההזמנה לצמיתות:', error);
       setError(error.response?.data?.message || 'שגיאה במחיקת ההזמנה לצמיתות');
       alert(`שגיאה: ${error.response?.data?.message || 'שגיאה במחיקת ההזמנה לצמיתות'}`);
+    }
+  };
+  
+  // פונקציה לטיפול בבחירת/ביטול בחירת כל ההזמנות
+  const handleSelectAllBookings = (event) => {
+    if (event.target.checked) {
+      const allBookingIds = bookings.map(booking => booking._id);
+      setSelectedBookingIds(allBookingIds);
+    } else {
+      setSelectedBookingIds([]);
+    }
+  };
+
+  // פונקציה לטיפול בבחירת/ביטול בחירת הזמנה בודדת
+  const handleSelectBooking = (event, bookingId) => {
+    if (event.target.checked) {
+      setSelectedBookingIds(prev => [...prev, bookingId]);
+    } else {
+      setSelectedBookingIds(prev => prev.filter(id => id !== bookingId));
     }
   };
   
@@ -770,159 +805,172 @@ const BookingsNewPage = () => {
               {error}
             </Alert>
           ) : (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>מס' הזמנה</TableCell>
-                    <TableCell>חדר</TableCell>
-                    <TableCell>אורח</TableCell>
-                    <TableCell>צ'ק אין</TableCell>
-                    <TableCell>צ'ק אאוט</TableCell>
-                    <TableCell>לילות</TableCell>
-                    <TableCell>מחיר</TableCell>
-                    <TableCell>סטטוס</TableCell>
-                    <TableCell>תשלום</TableCell>
-                    <TableCell>פעולות</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {bookings.length === 0 ? (
+            <>
+              {isAdmin() && selectedBookingIds.length > 0 && (
+                <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-start' }}>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => setOpenHardDeleteDialog(true)}
+                  >
+                    מחיקה לצמיתות ({selectedBookingIds.length})
+                  </Button>
+                </Box>
+              )}
+              <TableContainer>
+                <Table>
+                  <TableHead>
                     <TableRow>
-                      <TableCell colSpan={10} align="center">
-                        לא נמצאו הזמנות
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          indeterminate={selectedBookingIds.length > 0 && selectedBookingIds.length < bookings.length}
+                          checked={bookings.length > 0 && selectedBookingIds.length === bookings.length}
+                          onChange={handleSelectAllBookings}
+                        />
                       </TableCell>
+                      <TableCell>מס' הזמנה</TableCell>
+                      <TableCell>חדר</TableCell>
+                      <TableCell>אורח</TableCell>
+                      <TableCell>צ'ק אין</TableCell>
+                      <TableCell>צ'ק אאוט</TableCell>
+                      <TableCell>לילות</TableCell>
+                      <TableCell>מחיר</TableCell>
+                      <TableCell>סטטוס</TableCell>
+                      <TableCell>תשלום</TableCell>
+                      <TableCell>פעולות</TableCell>
                     </TableRow>
-                  ) : (
-                    bookings.map((booking) => (
-                      <TableRow 
-                        key={booking._id}
-                        sx={{ 
-                          backgroundColor: booking.status === 'canceled' ? '#f5f5f5' : 'inherit',
-                          opacity: booking.status === 'canceled' ? 0.7 : 1
-                        }}
-                      >
-                        <TableCell>{booking.bookingNumber}</TableCell>
-                        <TableCell>
-                          {booking.room?.internalName || `חדר ${booking.room?.roomNumber}`}
+                  </TableHead>
+                  <TableBody>
+                    {bookings.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={10} align="center">
+                          לא נמצאו הזמנות
                         </TableCell>
-                        <TableCell>
-                          <Tooltip title={`טלפון: ${booking.guest.phone || 'לא צוין'}\nאימייל: ${booking.guest.email || 'לא צוין'}`}>
-                            <Box component="span" sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                              {booking.guest.firstName} {booking.guest.lastName}
-                              {booking.guest.phone && (
-                                <IconButton 
-                                  size="small" 
-                                  color="primary" 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openWhatsApp(booking.guest.phone);
-                                  }}
-                                  title="פתח בווטסאפ"
-                                  sx={{ ml: 1 }}
-                                >
-                                  <WhatsAppIcon style={{ color: '#25D366' }} fontSize="small" />
-                                </IconButton>
-                              )}
-                            </Box>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(booking.checkIn), 'dd/MM/yyyy')}
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(booking.checkOut), 'dd/MM/yyyy')}
-                        </TableCell>
-                        <TableCell>{booking.nights}</TableCell>
-                        <TableCell>
-                          {booking.totalPrice.toLocaleString()} ₪
-                          {booking.isTourist && (
-                            <Chip size="small" label="תייר" color="info" sx={{ ml: 1 }} />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={getStatusLabel(booking.status)}
-                            color={getStatusColor(booking.status)}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={getPaymentStatusLabel(booking.paymentStatus)}
-                            color={getPaymentStatusColor(booking.paymentStatus)}
-                            size="small"
-                            onClick={() => {
-                              setSelectedBooking(booking);
-                              setOpenPaymentDialog(true);
-                            }}
-                            clickable
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Stack direction="row" spacing={1}>
-                            <IconButton 
-                              color="primary" 
+                      </TableRow>
+                    ) : (
+                      bookings.map((booking) => (
+                        <TableRow 
+                          key={booking._id}
+                          sx={{ 
+                            backgroundColor: booking.status === 'canceled' ? '#f5f5f5' : 'inherit',
+                            opacity: booking.status === 'canceled' ? 0.7 : 1
+                          }}
+                        >
+                          <TableCell padding="checkbox">
+                            <Checkbox
+                              checked={selectedBookingIds.includes(booking._id)}
+                              onChange={(event) => handleSelectBooking(event, booking._id)}
+                            />
+                          </TableCell>
+                          <TableCell>{booking.bookingNumber}</TableCell>
+                          <TableCell>
+                            {booking.room?.internalName || `חדר ${booking.room?.roomNumber}`}
+                          </TableCell>
+                          <TableCell>
+                            <Tooltip title={`טלפון: ${booking.guest.phone || 'לא צוין'}\nאימייל: ${booking.guest.email || 'לא צוין'}`}>
+                              <Box component="span" sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                {booking.guest.firstName} {booking.guest.lastName}
+                                {booking.guest.phone && (
+                                  <IconButton 
+                                    size="small" 
+                                    color="primary" 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openWhatsApp(booking.guest.phone);
+                                    }}
+                                    title="פתח בווטסאפ"
+                                    sx={{ ml: 1 }}
+                                  >
+                                    <WhatsAppIcon style={{ color: '#25D366' }} fontSize="small" />
+                                  </IconButton>
+                                )}
+                              </Box>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell>
+                            {format(new Date(booking.checkIn), 'dd/MM/yyyy')}
+                          </TableCell>
+                          <TableCell>
+                            {format(new Date(booking.checkOut), 'dd/MM/yyyy')}
+                          </TableCell>
+                          <TableCell>{booking.nights}</TableCell>
+                          <TableCell>
+                            {booking.totalPrice.toLocaleString()} ₪
+                            {booking.isTourist && (
+                              <Chip size="small" label="תייר" color="info" sx={{ ml: 1 }} />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={getStatusLabel(booking.status)}
+                              color={getStatusColor(booking.status)}
                               size="small"
-                              onClick={() => handleOpenDialog(booking)}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton 
-                              color="error" 
-                              size="small"
-                              onClick={() => {
-                                setSelectedBooking(booking);
-                                setOpenDeleteDialog(true);
-                              }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton 
-                              color="info" 
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={getPaymentStatusLabel(booking.paymentStatus)}
+                              color={getPaymentStatusColor(booking.paymentStatus)}
                               size="small"
                               onClick={() => {
                                 setSelectedBooking(booking);
                                 setOpenPaymentDialog(true);
                               }}
-                            >
-                              <PaymentsIcon fontSize="small" />
-                            </IconButton>
-                            {isAdmin() && (
-                              <Tooltip title="מחיקה לצמיתות">
-                                <IconButton 
-                                  color="secondary" 
-                                  size="small"
-                                  onClick={() => {
-                                    setSelectedBooking(booking);
-                                    setOpenHardDeleteDialog(true);
-                                  }}
-                                >
-                                  <DeleteIcon fontSize="small" sx={{ color: 'red' }} />
-                                </IconButton>
+                              clickable
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={1}>
+                              <IconButton 
+                                color="primary" 
+                                size="small"
+                                onClick={() => handleOpenDialog(booking)}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton 
+                                color="error" 
+                                size="small"
+                                onClick={() => {
+                                  setSelectedBooking(booking);
+                                  setOpenDeleteDialog(true);
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton 
+                                color="info" 
+                                size="small"
+                                onClick={() => {
+                                  setSelectedBooking(booking);
+                                  setOpenPaymentDialog(true);
+                                }}
+                              >
+                                <PaymentsIcon fontSize="small" />
+                              </IconButton>
+                              {/* אייקון חשבונית */}
+                              <Tooltip title="הפקת חשבונית PDF">
+                               <IconButton 
+                                 color="primary" 
+                                 size="small"
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   handleGenerateInvoice(booking._id);
+                                 }}
+                               >
+                                 <ReceiptIcon fontSize="small" />
+                               </IconButton>
                               </Tooltip>
-                            )}
-                            {/* אייקון חשבונית */}
-                            <Tooltip title="הפקת חשבונית PDF">
-                             <IconButton 
-                               color="primary" 
-                               size="small"
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 handleGenerateInvoice(booking._id);
-                               }}
-                             >
-                               <ReceiptIcon fontSize="small" />
-                             </IconButton>
-                            </Tooltip>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
           )}
         </Paper>
         
@@ -1304,12 +1352,25 @@ const BookingsNewPage = () => {
             <Typography sx={{ mt: 2, mb: 1 }}>
               <strong>אזהרה חמורה!</strong>
             </Typography>
-            <Typography>
-              האם אתה בטוח שברצונך למחוק לצמיתות את ההזמנה {selectedBooking?.bookingNumber}?
-            </Typography>
-            <Typography sx={{ mt: 2, color: 'error.main' }}>
-              פעולה זו תמחק את ההזמנה באופן מוחלט מהמערכת ואינה ניתנת לשחזור!
-            </Typography>
+            {selectedBookingIds.length > 0 ? (
+              <>
+                <Typography>
+                  האם אתה בטוח שברצונך למחוק לצמיתות {selectedBookingIds.length} הזמנות?
+                </Typography>
+                <Typography sx={{ mt: 2, color: 'error.main' }}>
+                  פעולה זו תמחק את כל ההזמנות שנבחרו באופן מוחלט מהמערכת ואינה ניתנת לשחזור!
+                </Typography>
+              </>
+            ) : (
+              <>
+                <Typography>
+                  האם אתה בטוח שברצונך למחוק לצמיתות את ההזמנה {selectedBooking?.bookingNumber}?
+                </Typography>
+                <Typography sx={{ mt: 2, color: 'error.main' }}>
+                  פעולה זו תמחק את ההזמנה באופן מוחלט מהמערכת ואינה ניתנת לשחזור!
+                </Typography>
+              </>
+            )}
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenHardDeleteDialog(false)} color="inherit">

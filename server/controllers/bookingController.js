@@ -748,6 +748,43 @@ exports.hardDeleteBooking = async (req, res) => {
   }
 };
 
+// מחיקה מוחלטת של מספר הזמנות
+exports.hardDeleteManyBookings = async (req, res) => {
+  try {
+    const { bookingIds } = req.body;
+    
+    if (!bookingIds || !Array.isArray(bookingIds) || bookingIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'נדרש מערך תקין של מזהי הזמנות'
+      });
+    }
+    
+    // מחיקה מוחלטת של ההזמנות מהמסד נתונים
+    const result = await Booking.deleteMany({ _id: { $in: bookingIds } });
+    
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'לא נמצאו הזמנות למחיקה'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: `${result.deletedCount} הזמנות נמחקו לצמיתות בהצלחה`,
+      deletedCount: result.deletedCount
+    });
+  } catch (error) {
+    console.error('שגיאה במחיקת הזמנות לצמיתות:', error);
+    res.status(500).json({
+      success: false,
+      message: 'אירעה שגיאה במחיקת ההזמנות לצמיתות',
+      error: error.message
+    });
+  }
+};
+
 // עדכון סטטוס תשלום
 exports.updatePaymentStatus = async (req, res) => {
   try {

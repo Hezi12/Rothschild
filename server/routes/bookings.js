@@ -33,6 +33,11 @@ router
   .route('/:id/hard-delete')
   .delete(protect, admin, bookingController.hardDeleteBooking);
 
+// מחיקה מוחלטת של מספר הזמנות
+router
+  .route('/hard-delete-many')
+  .post(protect, admin, bookingController.hardDeleteManyBookings);
+
 // יצירת חשבונית PDF
 router
   .route('/:id/invoice')
