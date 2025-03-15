@@ -537,10 +537,211 @@ const BookingListView = () => {
         
         {activeTab === 1 && (
           <Box sx={{ p: 2 }}>
-            <Typography variant="h6">רשימת הזמנות - לשונית בפיתוח</Typography>
-            <Typography variant="body2">
-              לשונית זו תציג את כל ההזמנות בתצוגת רשימה מסורתית יותר.
-            </Typography>
+            <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    variant="outlined"
+                    label="חיפוש לפי שם אורח, מספר הזמנה או חדר"
+                    InputProps={{
+                      startAdornment: (
+                        <SearchIcon color="action" sx={{ mr: 1 }} />
+                      ),
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>סטטוס הזמנה</InputLabel>
+                    <Select label="סטטוס הזמנה" defaultValue="all">
+                      <MenuItem value="all">כל ההזמנות</MenuItem>
+                      <MenuItem value="confirmed">מאושרות</MenuItem>
+                      <MenuItem value="pending">ממתינות</MenuItem>
+                      <MenuItem value="cancelled">מבוטלות</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} md={3}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    startIcon={<RefreshIcon />}
+                    onClick={fetchBookings}
+                  >
+                    רענון נתונים
+                  </Button>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : error ? (
+              <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+            ) : (
+              <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 'calc(100vh - 300px)', overflow: 'auto' }}>
+                <Table stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>פרטי הזמנה</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>פרטי אורח</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>חדר</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>תאריכים</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>מחיר</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>סטטוס</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>פעולות</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {bookings.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center">
+                          <Typography variant="subtitle1">אין הזמנות להצגה</Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      bookings.map(booking => (
+                        <TableRow 
+                          key={booking._id}
+                          sx={{ 
+                            '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' },
+                            bgcolor: booking.isMultiRoomBooking ? 'rgba(144, 202, 249, 0.08)' : 'inherit'
+                          }}
+                        >
+                          <TableCell>
+                            <Box>
+                              <Typography variant="subtitle2" component="div">
+                                מס' הזמנה: {booking.bookingNumber || 'לא זמין'}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                תאריך הזמנה: {format(new Date(booking.bookingDate), 'dd/MM/yyyy')}
+                              </Typography>
+                              {booking.isMultiRoomBooking && (
+                                <Chip 
+                                  size="small" 
+                                  color="info" 
+                                  label={`הזמנה של ${booking.totalRooms || '+'} חדרים`} 
+                                  sx={{ mt: 1 }} 
+                                />
+                              )}
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <PersonIcon color="action" sx={{ mr: 1 }} />
+                              <Box>
+                                <Typography variant="body2">
+                                  {booking.guest.firstName} {booking.guest.lastName}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  {booking.guest.phone}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {booking.guest.email}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Box>
+                              {booking.isMultiRoomBooking ? (
+                                <Typography variant="body2">
+                                  {booking.rooms.length} חדרים
+                                </Typography>
+                              ) : (
+                                <Typography variant="body2">
+                                  {booking.room.internalName || `חדר ${booking.room.roomNumber}`}
+                                </Typography>
+                              )}
+                              <Typography variant="caption" color="text.secondary">
+                                {booking.isMultiRoomBooking ? 
+                                  'הזמנה מרובת חדרים' : 
+                                  booking.room.type === 'standard' ? 'סטנדרט' : 
+                                  booking.room.type === 'deluxe' ? 'דלוקס' : 
+                                  booking.room.type === 'suite' ? 'סוויטה' : 
+                                  booking.room.type === 'simple' ? 'פשוט' : 
+                                  booking.room.type === 'simple_with_balcony' ? 'פשוט עם מרפסת' : 
+                                  booking.room.type === 'standard_with_balcony' ? 'סטנדרט עם מרפסת' : 
+                                  booking.room.type}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Box>
+                              <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
+                                <EventAvailableIcon fontSize="small" sx={{ mr: 0.5 }} /> צ'ק-אין: {format(new Date(booking.checkIn), 'dd/MM/yyyy')}
+                              </Typography>
+                              <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                                <EventBusyIcon fontSize="small" sx={{ mr: 0.5 }} /> צ'ק-אאוט: {format(new Date(booking.checkOut), 'dd/MM/yyyy')}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {booking.nights} לילות
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                              ₪{booking.totalPrice}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {booking.isTourist ? 'תייר (ללא מע"מ)' : 'כולל מע"מ'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {booking.paymentStatus === 'paid' ? 'שולם' : 
+                               booking.paymentStatus === 'pending' ? 'ממתין לתשלום' : 
+                               booking.paymentStatus === 'cancelled' ? 'בוטל' :
+                               booking.paymentStatus === 'completed' ? 'הושלמה' :
+                               booking.paymentStatus || 'לא ידוע'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              size="small"
+                              label={booking.status === 'confirmed' ? 'מאושרת' : 
+                                    booking.status === 'pending' ? 'ממתינה' :
+                                    booking.status === 'cancelled' ? 'בוטלה' :
+                                    booking.status === 'completed' ? 'הושלמה' :
+                                    booking.status}
+                              color={booking.status === 'confirmed' ? 'success' : 
+                                    booking.status === 'pending' ? 'warning' :
+                                    booking.status === 'cancelled' ? 'error' :
+                                    booking.status === 'completed' ? 'info' :
+                                    'default'}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex' }}>
+                              <IconButton 
+                                size="small" 
+                                color="primary" 
+                                onClick={() => handleViewBooking(booking._id)}
+                                sx={{ mr: 0.5 }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              {isAdmin() && (
+                                <IconButton 
+                                  size="small"
+                                  color="error"
+                                  onClick={() => alert(`למחוק הזמנה ${booking._id}?`)}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Box>
         )}
       </Paper>
