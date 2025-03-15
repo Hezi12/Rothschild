@@ -285,7 +285,31 @@ const SearchResultsPage = () => {
   const typeToDisplayName = {
     'standard': 'Standard',
     'deluxe': 'Deluxe',
-    'suite': 'Suite'
+    'suite': 'Suite',
+    'simple': 'Simple',
+    'simple_room': 'Simple',
+    'standard_room': 'Standard',
+    'deluxe_room': 'Deluxe',
+    'suite_room': 'Suite',
+    'family': 'Family',
+    'family_room': 'Family'
+  };
+  
+  // פונקציה לקבלת שם תצוגה עבור סוג החדר
+  const getRoomDisplayName = (room) => {
+    if (typeToDisplayName[room.type]) {
+      return typeToDisplayName[room.type];
+    } else if (room.name) {
+      return room.name;
+    } else if (room.type) {
+      // המרה של snake_case או camelCase לטקסט מרווח עם אות ראשונה גדולה
+      return room.type
+        .replace(/_/g, ' ')
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^\w/, c => c.toUpperCase());
+    } else {
+      return 'Standard'; // ברירת מחדל
+    }
   };
   
   // רנדור של כפתור "המשך להזמנה" והמידע על חדרים שנבחרו
@@ -425,7 +449,7 @@ const SearchResultsPage = () => {
                   component="img"
                   height={180}
                   image={room.images.find(img => img.isPrimary)?.url || room.images[0].url}
-                  alt={`תמונה של ${room.name || typeToDisplayName[room.type] || 'חדר'}`}
+                  alt={`תמונה של ${room.name || getRoomDisplayName(room) || 'חדר'}`}
                   sx={{ objectFit: 'cover' }}
                 />
               ) : (
@@ -459,7 +483,7 @@ const SearchResultsPage = () => {
                     display: 'inline-block'
                   }}
                 >
-                  {typeToDisplayName[room.type] || room.name}
+                  {getRoomDisplayName(room)}
                 </Typography>
                 
                 <Box sx={{ display: 'flex', gap: 0.7, flexWrap: 'wrap', mb: 1.2 }}>
@@ -863,7 +887,7 @@ const SearchResultsPage = () => {
                             <ListItemText 
                               primary={
                                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                  חדר {typeToDisplayName[room.type] || room.type}
+                                  חדר {getRoomDisplayName(room)}
                                 </Typography>
                               }
                               secondary={
