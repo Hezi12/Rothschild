@@ -124,30 +124,24 @@ a[href="/"] .MuiBadge-root,
   display: none !important;
 }
 
+/* כללים נוספים ספציפיים לאייקון האיש הירוק */
+.MuiToolbar-root svg[data-testid="PersonIcon"],
+.MuiToolbar-root [class*="MuiBadge"],
+.MuiAppBar-root [class*="MuiBadge"],
+.MuiAppBar-root svg[data-testid="PersonIcon"],
+.MuiToolbar-root span[class*="MuiBadge"],
+[aria-label*="guest"],
+[class*="guest-count"],
+[class*="guestCount"],
+[class*="personIcon"],
+[class*="PersonIcon"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
 /* ספציפי לאייקון שנראה בצילום המסך */
 a[href="/"]:after,
 .MuiToolbar-root > div:first-child:after {
   content: none !important;
-}
-
-/* הסתרה נוספת לאייקון שמופיע כשעוברים עם העכבר על החדרים */
-.MuiToolbar-root span[class*="MuiBadge"],
-.MuiToolbar-root div[class*="MuiBadge"],
-[class*="MuiBadge-badge"],
-[class*="badge-count"],
-.MuiToolbar-root .MuiBadge-root,
-.MuiAppBar-root .MuiBadge-root,
-.MuiToolbar-root .MuiBadge-badge,
-header [class*="MuiBadge-badge"],
-.MuiAppBar-root [class*="badge"],
-.MuiAppBar-root .MuiBadge-standard,
-div[role="tooltip"] + span,
-a[href="/"] + span,
-a[href="/"] > span:not(:first-child),
-.MuiAppBar-root .MuiSvgIcon-root + span,
-.MuiToolbar-root > div .MuiSvgIcon-root ~ span {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
 } 

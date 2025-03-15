@@ -49,8 +49,7 @@ import {
   Tv as TvIcon,
   Kitchen as KitchenIcon,
   Bathtub as BathtubIcon,
-  ErrorOutline as ErrorOutlineIcon,
-  Bed as BedIcon
+  ErrorOutline as ErrorOutlineIcon
 } from '@mui/icons-material';
 
 const SearchResultsPage = () => {
@@ -61,7 +60,6 @@ const SearchResultsPage = () => {
   const [error, setError] = useState('');
   const [selectedRooms, setSelectedRooms] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-  const [multiRoomInfo, setMultiRoomInfo] = useState(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
@@ -72,9 +70,6 @@ const SearchResultsPage = () => {
   const guests = Number(guestsParam) || 1;
   const roomsCount = location.state?.rooms || 1;
   const isTourist = location.state?.isTourist || false;
-
-  // חישוב מספר האורחים הדרוש לכל חדר (בהנחה שמתחלק שווה)
-  const guestsPerRoom = Math.ceil(guests / roomsCount);
   
   useEffect(() => {
     // אם אין תאריכים, חזור לדף הבית
@@ -95,6 +90,8 @@ const SearchResultsPage = () => {
           isTourist: isTourist
         });
         
+        console.log('סוג של guests:', typeof guests, 'ערך:', guests);
+        
         // שליחת בקשה לבדיקת זמינות אמיתית מול השרת
         const response = await axios.post(`${process.env.REACT_APP_API_URL}/rooms/check-availability`, {
           checkIn: new Date(checkIn).toISOString(),
@@ -105,17 +102,6 @@ const SearchResultsPage = () => {
         });
         
         console.log('תשובה מהשרת:', response.data);
-        
-        // בדיקה אם זו הזמנה מרובת חדרים
-        if (response.data.multiRoomBooking) {
-          setMultiRoomInfo({
-            requestedRooms: response.data.requestedRooms,
-            requestedGuests: response.data.requestedGuests,
-            message: response.data.message
-          });
-        } else {
-          setMultiRoomInfo(null);
-        }
         
         let availableRooms = response.data.data || [];
         
@@ -130,15 +116,9 @@ const SearchResultsPage = () => {
           }
         }
         
-        // סינון חדרים לפי מספר אורחים בכל חדר בהזמנה מרובת חדרים
-        if (roomsCount > 1) {
-          console.log(`הזמנה מרובת חדרים: ${roomsCount} חדרים, ${guests} אורחים כוללים`);
-          // מיון החדרים לפי מחיר מהנמוך לגבוה
-          availableRooms.sort((a, b) => a.totalPrice - b.totalPrice);
-        } 
         // סינון נוסף בצד הקליינט למקרה שהשרת לא סינן נכון
-        // צריך להיות רק חדר אחד מכל סוג עבור 1-2 אורחים בחדר אחד
-        else if (guests <= 2 && roomsCount === 1) {
+        // צריך להיות רק חדר אחד מכל סוג עבור 1-2 אורחים
+        if (guests <= 2 && roomsCount === 1) {
           console.log('מבצע סינון נוסף בצד הקליינט עבור 1-2 אורחים');
           
           // מפה לשמירת החדר הזול ביותר מכל סוג
@@ -231,6 +211,7 @@ const SearchResultsPage = () => {
         if (prev.length < roomsCount) {
           return [...prev, room];
         } else {
+          // שימוש ב-showMessage במקום toast.warning
           showMessage(`ניתן לבחור מקסימום ${roomsCount} חדרים. עדכן את מספר החדרים כדי לבחור יותר.`, 'warning');
           return prev;
         }
@@ -238,40 +219,11 @@ const SearchResultsPage = () => {
     });
   };
 
-  // בדיקה אם סך כל המקומות בחדרים שנבחרו מספיק לכל האורחים
-  const getTotalCapacity = () => {
-    return selectedRooms.reduce((total, room) => total + (room.maxOccupancy || 0), 0);
-  };
-
-  // בדיקה אם ניתן להמשיך להזמנה (מספיק חדרים ומספיק מקומות)
-  const canProceedToBooking = () => {
-    if (selectedRooms.length === 0) return false;
-    
-    if (roomsCount > 1) {
-      // במקרה של הזמנה מרובת חדרים
-      return selectedRooms.length === roomsCount && getTotalCapacity() >= guests;
-    } else {
-      // במקרה של חדר בודד
-      return selectedRooms.length === 1 && selectedRooms[0].maxOccupancy >= guests;
-    }
-  };
-
   // המשך לדף ההזמנה עם כל החדרים שנבחרו
   const handleContinueBooking = () => {
     if (selectedRooms.length === 0) {
+      // שימוש ב-showMessage במקום toast.error
       showMessage('אנא בחר לפחות חדר אחד להזמנה', 'error');
-      return;
-    }
-    
-    // בדיקה שיש מספיק חדרים ומקומות
-    if (roomsCount > 1 && selectedRooms.length < roomsCount) {
-      showMessage(`נדרש לבחור ${roomsCount} חדרים`, 'warning');
-      return;
-    }
-    
-    // בדיקה שיש מספיק מקומות לכל האורחים
-    if (getTotalCapacity() < guests) {
-      showMessage(`החדרים שנבחרו אינם מספיקים ל-${guests} אורחים`, 'warning');
       return;
     }
     
@@ -336,14 +288,65 @@ const SearchResultsPage = () => {
     'suite': 'Suite'
   };
   
-  // פונקציה לחישוב התוצאה של סה"כ מקומות בחדרים
-  const getCapacityState = () => {
-    const totalCapacity = getTotalCapacity();
-    if (totalCapacity === 0) return { text: `0/${guests}`, color: 'text.secondary' };
-    if (totalCapacity < guests) return { text: `${totalCapacity}/${guests}`, color: 'error.main' };
-    return { text: `${totalCapacity}/${guests}`, color: 'success.main' };
+  // רנדור של כפתור "המשך להזמנה" והמידע על חדרים שנבחרו
+  const renderBookingButton = () => {
+    // מחזיר null כדי לא להציג את הסרגל התחתון בכלל
+    return null;
+    
+    /* 
+    // הקוד המקורי מושבת:
+    return (
+      <Box
+        sx={{
+          position: 'sticky',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 10,
+          backgroundColor: 'background.paper',
+          boxShadow: '0px -2px 10px rgba(0,0,0,0.1)',
+          padding: { xs: 2, sm: 3 },
+          borderTop: `1px solid ${theme.palette.divider}`
+        }}
+      >
+        <Container maxWidth="lg">
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ mb: { xs: 2, sm: 0 } }}>
+              <Typography variant="subtitle1" fontWeight="bold">
+                {selectedRooms.length > 0 
+                  ? `נבחרו ${selectedRooms.length} חדרים מתוך ${roomsCount}`
+                  : 'לא נבחרו חדרים עדיין'
+                }
+              </Typography>
+              {selectedRooms.length > 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  {selectedRooms.map(room => `חדר ${room.roomNumber} (${room.type})`).join(', ')}
+                </Typography>
+              )}
+            </Box>
+            
+            <Button
+              variant="contained"
+              color="primary"
+              size="large"
+              disabled={selectedRooms.length === 0}
+              onClick={handleContinueBooking}
+              startIcon={<HotelIcon />}
+              sx={{ 
+                fontWeight: 'bold',
+                px: 4,
+                borderRadius: '30px'
+              }}
+            >
+              המשך להזמנה
+            </Button>
+          </Box>
+        </Container>
+      </Box>
+    );
+    */
   };
-  
+
   // רנדור הכרטיסים של החדרים עם האפשרות לבחירה
   const renderRooms = () => {
     if (loading) {
@@ -383,399 +386,255 @@ const SearchResultsPage = () => {
     }
 
     return (
-      <>
-        {/* הוספת הנחיות להזמנה מרובת חדרים */}
-        {roomsCount > 1 && (
-          <Paper 
-            elevation={2}
-            sx={{ 
-              p: 2, 
-              mb: 3, 
-              borderRadius: 2,
-              bgcolor: alpha(theme.palette.info.light, 0.1),
-              border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <InfoIcon color="info" />
-              <Box>
-                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                  הזמנה מרובת חדרים
-                </Typography>
-                <Typography variant="body2">
-                  בחרת לחפש {roomsCount} חדרים עבור {guests} אורחים. 
-                  אנא בחר בדיוק {roomsCount} חדרים מהרשימה שיספיקו לכל האורחים.
-                </Typography>
-                <Box sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 2,
-                  mt: 1.5,
-                  bgcolor: alpha(theme.palette.background.paper, 0.7),
-                  p: 1,
-                  borderRadius: 1
-                }}>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 0.5 
-                  }}>
-                    <Typography variant="body2" fontWeight="medium">חדרים:</Typography>
-                    <Chip 
-                      label={`${selectedRooms.length}/${roomsCount}`} 
-                      size="small" 
-                      color={selectedRooms.length === roomsCount ? "success" : "default"}
-                      sx={{ fontWeight: 'bold' }}
-                    />
-                  </Box>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 0.5 
-                  }}>
-                    <Typography variant="body2" fontWeight="medium">מקומות:</Typography>
-                    <Chip 
-                      label={getCapacityState().text} 
-                      size="small" 
-                      sx={{ 
-                        fontWeight: 'bold',
-                        color: getCapacityState().color,
-                        bgcolor: (theme) => {
-                          const colorParts = getCapacityState().color.split('.');
-                          const colorMain = colorParts[0];
-                          const colorVariant = colorParts[1] || 'main';
-                          
-                          if (theme.palette[colorMain]) {
-                            return alpha(theme.palette[colorMain][colorVariant] || theme.palette[colorMain].main, 0.1);
-                          }
-                          return alpha(theme.palette.grey[300], 0.1);
-                        },
-                        borderColor: (theme) => {
-                          const colorParts = getCapacityState().color.split('.');
-                          const colorMain = colorParts[0];
-                          const colorVariant = colorParts[1] || 'main';
-                          
-                          if (theme.palette[colorMain]) {
-                            return alpha(theme.palette[colorMain][colorVariant] || theme.palette[colorMain].main, 0.3);
-                          }
-                          return alpha(theme.palette.grey[300], 0.3);
-                        },
-                        border: '1px solid'
-                      }}
-                    />
-                  </Box>
-                </Box>
-              </Box>
-            </Box>
-          </Paper>
-        )}
-      
-        <Grid container spacing={4}>
-          {roomsList.map((room) => (
-            <Grid item xs={12} sm={6} md={4} key={room._id}>
-              <Card 
-                sx={{ 
-                  height: '100%',
-                  display: 'flex', 
-                  flexDirection: 'column',
-                  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                  '&:hover': {
-                    transform: 'translateY(-5px)',
-                    boxShadow: 6,
-                  },
-                  border: selectedRooms.some(r => r._id === room._id) ? `2px solid ${theme.palette.success.main}` : 'none',
-                }}
-              >
-                {/* סימון לחדרים שנבחרו */}
-                {selectedRooms.some(r => r._id === room._id) && (
-                  <Chip
-                    icon={<CheckIcon />}
-                    label="נבחר"
-                    color="primary"
-                    size="small"
-                    sx={{ 
-                      position: 'absolute', 
-                      top: 10, 
-                      right: 10, 
-                      zIndex: 10,
-                      fontWeight: 'bold',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                    }}
-                  />
-                )}
-                
-                {/* תג המציין כמה אורחים יכולים להתארח בחדר */}
-                <Box 
+      <Grid container spacing={4}>
+        {roomsList.map((room) => (
+          <Grid item xs={12} sm={6} md={4} key={room._id}>
+            <Card 
+              sx={{ 
+                height: '100%',
+                display: 'flex', 
+                flexDirection: 'column',
+                transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-5px)',
+                  boxShadow: 6,
+                },
+                border: selectedRooms.some(r => r._id === room._id) ? `2px solid ${theme.palette.success.main}` : 'none',
+              }}
+            >
+              {/* סימון לחדרים שנבחרו */}
+              {selectedRooms.some(r => r._id === room._id) && (
+                <Chip
+                  icon={<CheckIcon />}
+                  label="נבחר"
+                  color="primary"
+                  size="small"
                   sx={{ 
                     position: 'absolute', 
                     top: 10, 
-                    left: 10, 
+                    right: 10, 
                     zIndex: 10,
-                    display: 'flex',
-                    gap: 0.5,
-                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                    borderRadius: '4px',
-                    padding: '2px 6px',
-                    alignItems: 'center',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
+                    fontWeight: 'bold',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                  }}
+                />
+              )}
+              
+              {room.images && room.images.length > 0 ? (
+                <CardMedia
+                  component="img"
+                  height={180}
+                  image={room.images.find(img => img.isPrimary)?.url || room.images[0].url}
+                  alt={`תמונה של ${room.name || typeToDisplayName[room.type] || 'חדר'}`}
+                  sx={{ objectFit: 'cover' }}
+                />
+              ) : (
+                <Box sx={{ 
+                  height: 180, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  bgcolor: 'grey.100'
+                }}>
+                  <HotelIcon sx={{ fontSize: 60, color: 'grey.400' }} />
+                </Box>
+              )}
+              
+              <CardContent sx={{ 
+                flexGrow: 1, 
+                pb: 0,
+                px: 1.7,
+                pt: 1.7
+              }}>
+                <Typography 
+                  variant="h6" 
+                  component="h2" 
+                  gutterBottom
+                  sx={{ 
+                    fontWeight: 'bold',
+                    fontSize: '1rem',
+                    borderBottom: `2px solid ${theme.palette.primary.main}`,
+                    pb: 0.5,
+                    mb: 1.2,
+                    display: 'inline-block'
                   }}
                 >
-                  <PersonIcon 
-                    fontSize="small" 
-                    sx={{ 
-                      fontSize: '0.8rem', 
-                      color: room.maxOccupancy >= guestsPerRoom 
-                        ? theme.palette.success.main 
-                        : theme.palette.text.secondary
-                    }} 
-                  />
+                  {typeToDisplayName[room.type] || room.name}
+                </Typography>
+                
+                <Box sx={{ display: 'flex', gap: 0.7, flexWrap: 'wrap', mb: 1.2 }}>
+                  {room.amenities && room.amenities.slice(0, 4).map((amenity, index) => {
+                    // המרת מיזוג אוויר למיטה זוגית בתצוגה בלבד אם צריך
+                    const displayText = amenity === "מיזוג אוויר" ? "מיטה זוגית" : amenity;
+                    const displayIcon = amenity === "מיזוג אוויר" 
+                      ? amenityIcons["מיטה זוגית"] 
+                      : getAmenityIcon(amenity);
+                    
+                    return (
+                      <Chip
+                        key={index}
+                        icon={displayIcon}
+                        label={displayText}
+                        size="small"
+                        sx={{ 
+                          fontSize: '0.7rem', 
+                          height: '22px',
+                          bgcolor: alpha(theme.palette.primary.main, 0.1),
+                          '& .MuiChip-label': { px: 1 }
+                        }}
+                      />
+                    );
+                  })}
+                </Box>
+                
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary" 
+                  sx={{ 
+                    mb: 1.5,
+                    display: '-webkit-box',
+                    overflow: 'hidden',
+                    WebkitBoxOrient: 'vertical',
+                    WebkitLineClamp: 2,
+                    minHeight: '2.4em',
+                    fontSize: '0.8rem',
+                    lineHeight: 1.2
+                  }}
+                >
+                  {room.description}
+                </Typography>
+                
+                {/* מדיניות ביטול בקצרה */}
+                <Box sx={{ 
+                  mb: 1.5, 
+                  p: 0.8, 
+                  bgcolor: alpha(theme.palette.info.main, 0.08),
+                  borderRadius: 1,
+                  border: `1px dashed ${alpha(theme.palette.info.main, 0.3)}`
+                }}>
                   <Typography 
-                    variant="caption" 
+                    variant="body2" 
                     sx={{ 
-                      fontWeight: 'medium',
+                      display: 'flex', 
+                      alignItems: 'center', 
                       fontSize: '0.7rem',
-                      color: room.maxOccupancy >= guestsPerRoom 
-                        ? theme.palette.success.main 
-                        : theme.palette.text.secondary
+                      color: theme.palette.info.dark
                     }}
                   >
-                    {room.maxOccupancy}
+                    <InfoIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.8rem' }} />
+                    <b>מדיניות ביטול: </b> ביטול חינם עד {calculateCancellationDate()}
                   </Typography>
                 </Box>
                 
-                {room.images && room.images.length > 0 ? (
-                  <CardMedia
-                    component="img"
-                    height={180}
-                    image={room.images.find(img => img.isPrimary)?.url || room.images[0].url}
-                    alt={`תמונה של ${room.name || typeToDisplayName[room.type] || 'חדר'}`}
-                    sx={{ objectFit: 'cover' }}
-                  />
-                ) : (
-                  <Box sx={{ 
-                    height: 180, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    bgcolor: 'grey.100'
-                  }}>
-                    <HotelIcon sx={{ fontSize: 60, color: 'grey.400' }} />
-                  </Box>
-                )}
-                
-                <CardContent sx={{ 
-                  flexGrow: 1, 
-                  pb: 0,
-                  px: 1.7,
-                  pt: 1.7
-                }}>
-                  <Typography 
-                    variant="h6" 
-                    component="h2" 
-                    gutterBottom
-                    sx={{ 
-                      fontWeight: 'bold',
-                      fontSize: '1rem',
-                      borderBottom: `2px solid ${theme.palette.primary.main}`,
-                      pb: 0.5,
-                      mb: 1.2,
-                      display: 'inline-block'
-                    }}
-                  >
-                    {typeToDisplayName[room.type] || room.name}
-                  </Typography>
-                  
-                  <Box sx={{ display: 'flex', gap: 0.7, flexWrap: 'wrap', mb: 1.2 }}>
-                    {room.amenities && room.amenities.slice(0, 4).map((amenity, index) => {
-                      // המרת מיזוג אוויר למיטה זוגית בתצוגה בלבד אם צריך
-                      const displayText = amenity === "מיזוג אוויר" ? "מיטה זוגית" : amenity;
-                      const displayIcon = amenity === "מיזוג אוויר" 
-                        ? amenityIcons["מיטה זוגית"] 
-                        : getAmenityIcon(amenity);
-                      
-                      return (
-                        <Chip
-                          key={index}
-                          icon={displayIcon}
-                          label={displayText}
-                          size="small"
-                          sx={{ 
-                            fontSize: '0.7rem', 
-                            height: '22px',
-                            bgcolor: alpha(theme.palette.primary.main, 0.1),
-                            '& .MuiChip-label': { px: 1 }
-                          }}
-                        />
-                      );
-                    })}
-                  </Box>
-                  
-                  <Typography 
-                    variant="body2" 
-                    color="text.secondary" 
-                    sx={{ 
-                      mb: 1.5,
-                      display: '-webkit-box',
-                      overflow: 'hidden',
-                      WebkitBoxOrient: 'vertical',
-                      WebkitLineClamp: 2,
-                      minHeight: '2.4em',
-                      fontSize: '0.8rem',
-                      lineHeight: 1.2
-                    }}
-                  >
-                    {room.description}
-                  </Typography>
-                  
-                  {/* מדיניות ביטול בקצרה */}
-                  <Box sx={{ 
-                    mb: 1.5, 
-                    p: 0.8, 
-                    bgcolor: alpha(theme.palette.info.main, 0.08),
-                    borderRadius: 1,
-                    border: `1px dashed ${alpha(theme.palette.info.main, 0.3)}`
-                  }}>
+                <Grid container spacing={1} alignItems="center" sx={{ mt: 'auto' }}>
+                  <Grid item xs={6}>
                     <Typography 
                       variant="body2" 
-                      sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        fontSize: '0.7rem',
-                        color: theme.palette.info.dark
-                      }}
+                      color="text.secondary"
+                      sx={{ fontSize: '0.75rem' }}
                     >
-                      <InfoIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.8rem' }} />
-                      <b>מדיניות ביטול: </b> ביטול חינם עד {calculateCancellationDate()}
-                    </Typography>
-                  </Box>
-                  
-                  <Grid container spacing={1} alignItems="center" sx={{ mt: 'auto' }}>
-                    <Grid item xs={6}>
-                      <Typography 
-                        variant="body2" 
-                        color="text.secondary"
-                        sx={{ fontSize: '0.75rem' }}
-                      >
-                        מחיר ללילה:
-                        {isTourist && (
-                          <Typography 
-                            component="span" 
-                            sx={{ 
-                              display: 'block', 
-                              fontSize: '0.65rem', 
-                              color: 'success.main',
-                              fontWeight: 'medium'
-                            }}
-                          >
-                            (פטור ממע״מ)
-                          </Typography>
-                        )}
-                      </Typography>
-                      <Box sx={{ mt: 0.3 }}>
+                      מחיר ללילה:
+                      {isTourist && (
                         <Typography 
-                          variant="h6" 
+                          component="span" 
                           sx={{ 
-                            fontWeight: 'bold',
-                            color: theme.palette.primary.main,
-                            fontSize: '1.1rem'
+                            display: 'block', 
+                            fontSize: '0.65rem', 
+                            color: 'success.main',
+                            fontWeight: 'medium'
                           }}
                         >
-                          ₪{isTourist 
-                            ? (room.nightsTotal ? Math.round(room.nightsTotal / calculateNights()) : room.basePrice) 
-                            : (room.totalPrice ? Math.round(room.totalPrice / calculateNights()) : Math.round((room.basePrice || 0) * 1.18))}
+                          (פטור ממע״מ)
                         </Typography>
-                        {!isTourist && (
-                          <Typography 
-                            variant="caption" 
-                            color="text.secondary"
-                            sx={{ display: 'block', fontSize: '0.65rem' }}
-                          >
-                            כולל מע״מ (18%)
-                          </Typography>
-                        )}
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.7 }}>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          onClick={() => navigate(`/room/${room._id}`, {
-                            state: {
-                              checkIn,
-                              checkOut,
-                              guests
-                            }
-                          })}
-                          sx={{ 
-                            borderRadius: '50px',
-                            px: 2,
-                            py: 0.4,
-                            fontSize: '0.75rem',
-                            fontWeight: 'medium',
-                            flexGrow: 1,
-                            minWidth: 0
-                          }}
-                        >
-                          פרטים
-                        </Button>
-                        <Button
-                          variant="contained"
-                          size="small"
-                          color={selectedRooms.some(r => r._id === room._id) ? "success" : "primary"}
-                          onClick={() => handleSelectRoom(room)}
-                          sx={{ 
-                            borderRadius: '50px',
-                            px: 1.5,
-                            py: 0.4,
-                            fontSize: '0.75rem',
-                            fontWeight: 'bold',
-                            flexGrow: 1,
-                            minWidth: 0
-                          }}
-                        >
-                          {selectedRooms.some(r => r._id === room._id) ? "נבחר ✓" : "בחר"}
-                        </Button>
-                      </Box>
-                      
-                      {/* תצוגת אייקוני האנשים */}
-                      <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'flex-end', 
-                        mt: 0.7,
-                        color: theme.palette.text.secondary, 
-                        fontWeight: 'medium',
-                        fontSize: '0.75rem'
-                      }}>
+                      )}
+                    </Typography>
+                    <Box sx={{ mt: 0.3 }}>
+                      <Typography 
+                        variant="h6" 
+                        sx={{ 
+                          fontWeight: 'bold',
+                          color: theme.palette.primary.main,
+                          fontSize: '1.1rem'
+                        }}
+                      >
+                        ₪{isTourist 
+                          ? (room.nightsTotal ? Math.round(room.nightsTotal / calculateNights()) : room.basePrice) 
+                          : (room.totalPrice ? Math.round(room.totalPrice / calculateNights()) : Math.round((room.basePrice || 0) * 1.18))}
+                      </Typography>
+                      {!isTourist && (
                         <Typography 
                           variant="caption" 
-                          sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center',
-                            gap: 0.5,
-                            color: room.maxOccupancy >= guestsPerRoom 
-                              ? theme.palette.success.main 
-                              : theme.palette.text.secondary
-                          }}
+                          color="text.secondary"
+                          sx={{ display: 'block', fontSize: '0.65rem' }}
                         >
-                          <BedIcon fontSize="small" sx={{ fontSize: '0.9rem' }} />
-                          קיבולת: {room.maxOccupancy} אורחים
-                          {roomsCount > 1 && room.maxOccupancy < guestsPerRoom && (
-                            <Tooltip title={`יש לבחור חדר נוסף כדי להכיל את כל ${guests} האורחים`}>
-                              <InfoIcon fontSize="small" sx={{ fontSize: '0.9rem', opacity: 0.8 }} />
-                            </Tooltip>
-                          )}
+                          כולל מע״מ (18%)
                         </Typography>
-                      </Box>
-                    </Grid>
+                      )}
+                    </Box>
                   </Grid>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      </>
+                  <Grid item xs={6}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 0.7 }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => navigate(`/room/${room._id}`, {
+                          state: {
+                            checkIn,
+                            checkOut,
+                            guests
+                          }
+                        })}
+                        sx={{ 
+                          borderRadius: '50px',
+                          px: 2,
+                          py: 0.4,
+                          fontSize: '0.75rem',
+                          fontWeight: 'medium',
+                          flexGrow: 1,
+                          minWidth: 0
+                        }}
+                      >
+                        פרטים
+                      </Button>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        color={selectedRooms.some(r => r._id === room._id) ? "success" : "primary"}
+                        onClick={() => handleSelectRoom(room)}
+                        sx={{ 
+                          borderRadius: '50px',
+                          px: 1.5,
+                          py: 0.4,
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          flexGrow: 1,
+                          minWidth: 0
+                        }}
+                      >
+                        {selectedRooms.some(r => r._id === room._id) ? "נבחר ✓" : "בחר"}
+                      </Button>
+                    </Box>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'flex-end', 
+                      mt: 0.7,
+                      color: 'text.primary', 
+                      fontWeight: 'medium',
+                      fontSize: '0.75rem'
+                    }}>
+                      {Array.from({ length: room.maxGuests || guests }).map((_, index) => (
+                        <PersonIcon key={index} sx={{ fontSize: '0.85rem', color: theme.palette.primary.main }} />
+                      ))}
+                      <span style={{ marginRight: '3px' }}>{room.maxGuests || guests} אורחים</span>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
     );
   };
 
@@ -788,26 +647,23 @@ const SearchResultsPage = () => {
     }}>
       {/* פרטי החיפוש והחדרים שנבחרו */}
       <Paper 
-        elevation={3}
+        elevation={2}
         sx={{ 
           p: { xs: 2, sm: 2.5 }, 
           mb: 3, 
-          maxWidth: '1000px', 
+          maxWidth: '850px', 
           mx: 'auto',
           borderRadius: 2,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
           border: `1px solid ${alpha(theme.palette.primary.main, 0.15)}`,
-          position: 'sticky',
-          top: 16,
-          zIndex: 10,
-          overflow: 'hidden',
-          transition: 'all 0.3s ease-in-out'
+          position: 'relative',
+          overflow: 'hidden'
         }}
       >
         {/* כותרת האריח */}
         <Box 
           sx={{ 
-            bgcolor: alpha(theme.palette.primary.main, 0.1),
+            bgcolor: alpha(theme.palette.primary.main, 0.07),
             mx: -2.5,
             mt: -2.5,
             mb: 2,
@@ -832,17 +688,14 @@ const SearchResultsPage = () => {
         </Box>
         
         <Grid container spacing={2} alignItems="flex-start">
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} sm={6}>
             <Box sx={{ 
               display: 'flex', 
               flexDirection: 'column',
               height: '100%',
               justifyContent: 'space-between',
-              pr: { xs: 0, md: 2 },
-              borderRight: { xs: 'none', md: `1px solid ${alpha(theme.palette.divider, 0.7)}` },
-              pb: { xs: 2, md: 0 },
-              borderBottom: { xs: `1px solid ${alpha(theme.palette.divider, 0.7)}`, md: 'none' },
-              mb: { xs: 1, md: 0 }
+              pr: { xs: 0, sm: 2 },
+              borderRight: { xs: 'none', sm: `1px solid ${alpha(theme.palette.divider, 0.7)}` }
             }}>
               <Box>
                 <Typography 
@@ -857,8 +710,6 @@ const SearchResultsPage = () => {
                 
                 <Box sx={{ 
                   display: 'flex',
-                  flexDirection: { xs: 'column', sm: 'row' },
-                  alignItems: { xs: 'flex-start', sm: 'center' },
                   justifyContent: 'space-between',
                   mb: 1.5,
                   mx: 1
@@ -914,7 +765,7 @@ const SearchResultsPage = () => {
             </Box>
           </Grid>
           
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} sm={6}>
             <Box>
               <Box sx={{ 
                 display: 'flex', 
@@ -980,7 +831,7 @@ const SearchResultsPage = () => {
                 ) : (
                   <>
                     <Box sx={{ 
-                      maxHeight: { xs: '80px', sm: '120px' }, 
+                      maxHeight: '120px', 
                       overflowY: 'auto',
                       mb: 1.5,
                       pr: 1
@@ -1017,13 +868,9 @@ const SearchResultsPage = () => {
                               }
                               secondary={
                                 <Typography variant="caption" color="text.secondary">
-                                  {isTourist ? 
-                                    (room.nightsTotal ? 
-                                      `${room.nightsTotal} ₪ ל-${calculateNights()} לילות` : 
-                                      `${room.basePrice * calculateNights()} ₪ ל-${calculateNights()} לילות`) :
-                                    (room.totalPrice ? 
-                                      `${room.totalPrice} ₪ ל-${calculateNights()} לילות` : 
-                                      `${Math.round((room.basePrice || 0) * 1.18 * calculateNights())} ₪ ל-${calculateNights()} לילות (כולל מע״מ)`)
+                                  {room.nightsTotal ? 
+                                    `${room.nightsTotal} ₪ ל-${calculateNights()} לילות` : 
+                                    `${room.basePrice * calculateNights()} ₪ ל-${calculateNights()} לילות`
                                   }
                                 </Typography>
                               }
@@ -1048,19 +895,13 @@ const SearchResultsPage = () => {
                         size="medium"
                         onClick={handleContinueBooking}
                         endIcon={<ArrowBackIcon />}
-                        disabled={!canProceedToBooking()}
                         sx={{ 
                           borderRadius: '50px',
                           px: 2.5, 
-                          py: 0.8,
+                          py: 0.6,
                           fontSize: '0.85rem',
                           fontWeight: 'bold',
-                          boxShadow: '0 4px 8px rgba(25, 118, 210, 0.25)',
-                          background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
-                          '&:hover': {
-                            background: 'linear-gradient(45deg, #1565c0, #1976d2)',
-                            boxShadow: '0 6px 12px rgba(25, 118, 210, 0.35)'
-                          }
+                          boxShadow: 1
                         }}
                       >
                         המשך להזמנה {selectedRooms.length > 0 && `(${selectedRooms.length})`}

@@ -9,47 +9,62 @@ const Navbar = () => {
 
   React.useEffect(() => {
     const removeGuestBadges = () => {
-      const logo = document.querySelector('.MuiToolbar-root a[href="/"]');
-      if (logo) {
-        const badges = logo.querySelectorAll('span[class*="badge"], span[class*="Badge"], div[class*="badge"], div[class*="Badge"], span:not(:first-child), div:not(:first-child)');
-        badges.forEach(badge => {
-          badge.style.display = 'none';
+      // חיפוש מורחב וספציפי יותר של אלמנטים רלוונטיים
+      const selectors = [
+        '.MuiToolbar-root a[href="/"]',
+        '.MuiAppBar-root a[href="/"]',
+        'a[href="/"]',
+        '.MuiToolbar-root',
+        'header'
+      ];
+
+      selectors.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(element => {
+          // חיפוש כל סוגי האייקונים והבאדג'ים האפשריים
+          const badgeSelectors = [
+            'span[class*="badge"], span[class*="Badge"]', 
+            'div[class*="badge"], div[class*="Badge"]',
+            'svg[data-testid="PersonIcon"]',
+            '[class*="MuiBadge"]',
+            '[aria-label*="guest"]',
+            '[class*="guest-count"]',
+            '[class*="guestCount"]'
+          ];
+
+          badgeSelectors.forEach(badgeSelector => {
+            const badges = element.querySelectorAll(badgeSelector);
+            badges.forEach(badge => {
+              badge.style.display = 'none';
+              badge.style.opacity = '0';
+              badge.style.visibility = 'hidden';
+            });
+          });
+
+          // הסרת אלמנטים שעשויים להיות מקוננים
+          const nestedElements = element.querySelectorAll('div > svg + div, div > div:last-child');
+          nestedElements.forEach(nestedEl => {
+            if (nestedEl.textContent.match(/\d+/)) { // אם יש מספר בתוכן
+              nestedEl.style.display = 'none';
+            }
+          });
         });
-      }
-      
-      const appBar = document.querySelector('.MuiAppBar-root');
-      if (appBar) {
-        const allBadges = appBar.querySelectorAll('[class*="MuiBadge-badge"], [class*="badge-count"], .MuiBadge-root, .MuiBadge-badge, [class*="badge"]');
-        allBadges.forEach(badge => {
-          badge.style.display = 'none';
-          badge.style.opacity = '0';
-          badge.style.visibility = 'hidden';
-        });
-      }
-      
-      const icons = document.querySelectorAll('.MuiToolbar-root .MuiSvgIcon-root');
-      icons.forEach(icon => {
-        const nextSibling = icon.nextElementSibling;
-        if (nextSibling && nextSibling.tagName.toLowerCase() === 'span') {
-          nextSibling.style.display = 'none';
-        }
       });
     };
     
+    // הפעלה ראשונית
     removeGuestBadges();
+    
+    // הפעלה בכל שינוי בDOM
+    const observer = new MutationObserver(removeGuestBadges);
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    // גם הפעלה חוזרת בכל שנייה למקרה של שינויים דינמיים
     const interval = setInterval(removeGuestBadges, 1000);
-    
-    const handleMouseEvents = () => {
-      setTimeout(removeGuestBadges, 50);
-      setTimeout(removeGuestBadges, 100);
-      setTimeout(removeGuestBadges, 300);
-    };
-    
-    document.addEventListener('mouseover', handleMouseEvents);
     
     return () => {
       clearInterval(interval);
-      document.removeEventListener('mouseover', handleMouseEvents);
+      observer.disconnect();
     };
   }, []);
 
