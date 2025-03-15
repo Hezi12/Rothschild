@@ -42,6 +42,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 const roomRoutes = require('./routes/rooms');
 const roomRoutesNew = require('./routes/roomRoutes');
 const bookingRoutes = require('./routes/bookings');
+const bookingRoutesNew = require('./routes/bookingRoutes');
 const authRoutes = require('./routes/auth');
 const chatRoutes = require('./routes/chatRoutes');
 const galleryRoutes = require('./routes/gallery');
@@ -53,6 +54,7 @@ const pricePeriodRoutes = require('./routes/pricePeriods');
 app.use('/api/rooms', roomRoutes);
 app.use('/api/rooms', roomRoutesNew);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/bookings', bookingRoutesNew);
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/gallery', galleryRoutes);
