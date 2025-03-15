@@ -881,7 +881,7 @@ const BookingPage = () => {
         <Grid item xs={12} sm={6}>
           <TextField
             label="שם משפחה"
-            name="lastName"
+            name="guestDetails.lastName"
             value={bookingData.guestDetails.lastName}
             onChange={handleChange}
             fullWidth
@@ -895,7 +895,7 @@ const BookingPage = () => {
         <Grid item xs={12} sm={6}>
           <TextField
             label="שם פרטי"
-            name="firstName"
+            name="guestDetails.firstName"
             value={bookingData.guestDetails.firstName}
             onChange={handleChange}
             fullWidth
@@ -909,7 +909,7 @@ const BookingPage = () => {
         <Grid item xs={12} sm={6}>
           <TextField
             label="אימייל"
-            name="email"
+            name="guestDetails.email"
             type="email"
             value={bookingData.guestDetails.email}
             onChange={handleChange}
@@ -924,7 +924,7 @@ const BookingPage = () => {
         <Grid item xs={12} sm={6}>
           <TextField
             label="טלפון"
-            name="phone"
+            name="guestDetails.phone"
             value={bookingData.guestDetails.phone}
             onChange={handleChange}
             fullWidth
