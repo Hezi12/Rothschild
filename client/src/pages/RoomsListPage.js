@@ -71,13 +71,7 @@ const RoomsListPage = () => {
   const [roomImages, setRoomImages] = useState([]);
   // מחירים מיוחדים לימים בשבוע
   const [specialPrices, setSpecialPrices] = useState({
-    sunday: { enabled: false, price: 0 },
-    monday: { enabled: false, price: 0 },
-    tuesday: { enabled: false, price: 0 },
-    wednesday: { enabled: false, price: 0 },
-    thursday: { enabled: false, price: 0 },
-    friday: { enabled: false, price: 0 },
-    saturday: { enabled: false, price: 0 }
+    friday: { enabled: false, price: 0 }
   });
 
   // טעינת חדרים
@@ -242,15 +236,9 @@ const RoomsListPage = () => {
   };
 
   const handleEditRoom = (room = {}) => {
-    // איפוס מחירים מיוחדים
+    // איפוס מחירים מיוחדים - רק שישי במקום כל הימים
     const defaultSpecialPrices = {
-      sunday: { enabled: false, price: 0 },
-      monday: { enabled: false, price: 0 },
-      tuesday: { enabled: false, price: 0 },
-      wednesday: { enabled: false, price: 0 },
-      thursday: { enabled: false, price: 0 },
-      friday: { enabled: false, price: 0 },
-      saturday: { enabled: false, price: 0 }
+      friday: { enabled: false, price: 0 }
     };
     
     // טעינת מחירים מיוחדים אם זה חדר קיים
@@ -273,13 +261,11 @@ const RoomsListPage = () => {
           console.log('מחירים מיוחדים שהתקבלו מהשרת:', roomSpecialPrices);
           
           // עדכון המחירים המיוחדים מתוך הנתונים שהתקבלו
-          // כעת המפתחות הם כבר שמות ימים באנגלית (sunday, monday, וכו')
-          Object.entries(roomSpecialPrices).forEach(([day, price]) => {
-            if (updatedPrices[day]) { // וידוא שמדובר ביום תקין
-              updatedPrices[day] = { enabled: true, price: Number(price) };
-              console.log(`נטען מחיר מיוחד ליום ${day}: ${price}₪`);
-            }
-          });
+          // במקרה שלנו אנחנו רק בודקים את יום שישי
+          if (roomSpecialPrices.friday) {
+            updatedPrices.friday = { enabled: true, price: Number(roomSpecialPrices.friday) };
+            console.log(`נטען מחיר מיוחד ליום שישי: ${roomSpecialPrices.friday}₪`);
+          }
           
           setSpecialPrices(updatedPrices);
         } else {
@@ -305,13 +291,7 @@ const RoomsListPage = () => {
   const handleCloseEditDialog = () => {
     setCurrentRoom(null);
     setSpecialPrices({
-      sunday: { enabled: false, price: 0 },
-      monday: { enabled: false, price: 0 },
-      tuesday: { enabled: false, price: 0 },
-      wednesday: { enabled: false, price: 0 },
-      thursday: { enabled: false, price: 0 },
-      friday: { enabled: false, price: 0 },
-      saturday: { enabled: false, price: 0 }
+      friday: { enabled: false, price: 0 }
     });
     setEditDialogOpen(false);
   };
@@ -337,23 +317,15 @@ const RoomsListPage = () => {
       );
       
       // עדכון מחירים דינמיים לטווח תאריכים עתידי
-      // עבור כל יום עם מחיר מיוחד מופעל
-      const enabledDays = Object.keys(specialPrices).filter(day => specialPrices[day].enabled);
-      
-      if (enabledDays.length > 0) {
-        // מיפוי ימים למספרים
+      // בדיקה אם יש מחיר מיוחד ליום שישי
+      if (specialPrices.friday?.enabled && specialPrices.friday?.price > 0) {
+        // מיפוי יום שישי למספר
         const dayMap = {
-          sunday: 0,
-          monday: 1, 
-          tuesday: 2,
-          wednesday: 3,
-          thursday: 4,
-          friday: 5,
-          saturday: 6
+          friday: 5
         };
         
-        // הכנת מערך של ימי שבוע עם מחיר מיוחד
-        const daysOfWeek = enabledDays.map(day => dayMap[day]);
+        // הכנת מערך של ימי שבוע עם מחיר מיוחד - במקרה שלנו רק יום שישי
+        const daysOfWeek = [5]; // 5 = יום שישי
         
         // תאריכים עתידיים - 3 חודשים קדימה
         const startDate = new Date();
@@ -361,12 +333,9 @@ const RoomsListPage = () => {
         endDate.setMonth(endDate.getMonth() + 3);
         
         // יצירת אובייקט של מחירים מיוחדים לפי ימים
-        const priceDayMap = {};
-        enabledDays.forEach(day => {
-          if (specialPrices[day].enabled && specialPrices[day].price > 0) {
-            priceDayMap[dayMap[day]] = specialPrices[day].price;
-          }
-        });
+        const priceDayMap = {
+          5: specialPrices.friday.price // 5 = יום שישי
+        };
         
         // עדכון מחירים לתקופה עתידית
         await axios.put(`${process.env.REACT_APP_API_URL}/prices/bulk`, {
@@ -378,7 +347,7 @@ const RoomsListPage = () => {
           specialPrices: priceDayMap
         });
         
-        toast.success('המחירים המיוחדים עודכנו בהצלחה');
+        toast.success('המחיר המיוחד ליום שישי עודכן בהצלחה');
       }
     } catch (error) {
       console.error('שגיאה בעדכון מחירים מיוחדים:', error);
@@ -877,166 +846,21 @@ const RoomsListPage = () => {
             >
               <Typography sx={{ display: 'flex', alignItems: 'center' }}>
                 <CalendarIcon sx={{ mr: 1 }} />
-                מחירים מיוחדים לפי ימי שבוע
+                מחיר מיוחד ליום שישי
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                קבע מחירים שונים לימים ספציפיים בשבוע. מחירים אלה יחולו באופן אוטומטי על הזמנות עתידיות.
+                קבע מחיר שונה ליום שישי. מחיר זה יחול באופן אוטומטי על הזמנות עתידיות.
               </Typography>
               
               <List>
-                {/* ראשון */}
-                <ListItem divider>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={specialPrices.sunday.enabled}
-                        onChange={(e) => handleSpecialPriceChange('sunday', 'enabled', e.target.checked)}
-                        name="sunday"
-                      />
-                    }
-                    label="יום ראשון"
-                    sx={{ width: '150px' }}
-                  />
-                  <TextField
-                    disabled={!specialPrices.sunday.enabled}
-                    name="sundayPrice"
-                    label="מחיר"
-                    type="number"
-                    variant="outlined"
-                    size="small"
-                    value={specialPrices.sunday.price}
-                    onChange={(e) => handleSpecialPriceChange('sunday', 'price', Number(e.target.value))}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                    }}
-                    sx={{ ml: 2, width: '150px' }}
-                  />
-                </ListItem>
-                
-                {/* שני */}
-                <ListItem divider>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={specialPrices.monday.enabled}
-                        onChange={(e) => handleSpecialPriceChange('monday', 'enabled', e.target.checked)}
-                        name="monday"
-                      />
-                    }
-                    label="יום שני"
-                    sx={{ width: '150px' }}
-                  />
-                  <TextField
-                    disabled={!specialPrices.monday.enabled}
-                    name="mondayPrice"
-                    label="מחיר"
-                    type="number"
-                    variant="outlined"
-                    size="small"
-                    value={specialPrices.monday.price}
-                    onChange={(e) => handleSpecialPriceChange('monday', 'price', Number(e.target.value))}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                    }}
-                    sx={{ ml: 2, width: '150px' }}
-                  />
-                </ListItem>
-                
-                {/* שלישי */}
-                <ListItem divider>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={specialPrices.tuesday.enabled}
-                        onChange={(e) => handleSpecialPriceChange('tuesday', 'enabled', e.target.checked)}
-                        name="tuesday"
-                      />
-                    }
-                    label="יום שלישי"
-                    sx={{ width: '150px' }}
-                  />
-                  <TextField
-                    disabled={!specialPrices.tuesday.enabled}
-                    name="tuesdayPrice"
-                    label="מחיר"
-                    type="number"
-                    variant="outlined"
-                    size="small"
-                    value={specialPrices.tuesday.price}
-                    onChange={(e) => handleSpecialPriceChange('tuesday', 'price', Number(e.target.value))}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                    }}
-                    sx={{ ml: 2, width: '150px' }}
-                  />
-                </ListItem>
-                
-                {/* רביעי */}
-                <ListItem divider>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={specialPrices.wednesday.enabled}
-                        onChange={(e) => handleSpecialPriceChange('wednesday', 'enabled', e.target.checked)}
-                        name="wednesday"
-                      />
-                    }
-                    label="יום רביעי"
-                    sx={{ width: '150px' }}
-                  />
-                  <TextField
-                    disabled={!specialPrices.wednesday.enabled}
-                    name="wednesdayPrice"
-                    label="מחיר"
-                    type="number"
-                    variant="outlined"
-                    size="small"
-                    value={specialPrices.wednesday.price}
-                    onChange={(e) => handleSpecialPriceChange('wednesday', 'price', Number(e.target.value))}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                    }}
-                    sx={{ ml: 2, width: '150px' }}
-                  />
-                </ListItem>
-                
-                {/* חמישי */}
-                <ListItem divider>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={specialPrices.thursday.enabled}
-                        onChange={(e) => handleSpecialPriceChange('thursday', 'enabled', e.target.checked)}
-                        name="thursday"
-                      />
-                    }
-                    label="יום חמישי"
-                    sx={{ width: '150px' }}
-                  />
-                  <TextField
-                    disabled={!specialPrices.thursday.enabled}
-                    name="thursdayPrice"
-                    label="מחיר"
-                    type="number"
-                    variant="outlined"
-                    size="small"
-                    value={specialPrices.thursday.price}
-                    onChange={(e) => handleSpecialPriceChange('thursday', 'price', Number(e.target.value))}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                    }}
-                    sx={{ ml: 2, width: '150px' }}
-                  />
-                </ListItem>
-                
                 {/* שישי */}
-                <ListItem divider>
+                <ListItem>
                   <FormControlLabel
                     control={
                       <Checkbox
-                        checked={specialPrices.friday.enabled}
+                        checked={specialPrices.friday?.enabled}
                         onChange={(e) => handleSpecialPriceChange('friday', 'enabled', e.target.checked)}
                         name="friday"
                       />
@@ -1045,43 +869,14 @@ const RoomsListPage = () => {
                     sx={{ width: '150px' }}
                   />
                   <TextField
-                    disabled={!specialPrices.friday.enabled}
+                    disabled={!specialPrices.friday?.enabled}
                     name="fridayPrice"
                     label="מחיר"
                     type="number"
                     variant="outlined"
                     size="small"
-                    value={specialPrices.friday.price}
+                    value={specialPrices.friday?.price || 0}
                     onChange={(e) => handleSpecialPriceChange('friday', 'price', Number(e.target.value))}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                    }}
-                    sx={{ ml: 2, width: '150px' }}
-                  />
-                </ListItem>
-                
-                {/* שבת */}
-                <ListItem>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={specialPrices.saturday.enabled}
-                        onChange={(e) => handleSpecialPriceChange('saturday', 'enabled', e.target.checked)}
-                        name="saturday"
-                      />
-                    }
-                    label="יום שבת"
-                    sx={{ width: '150px' }}
-                  />
-                  <TextField
-                    disabled={!specialPrices.saturday.enabled}
-                    name="saturdayPrice"
-                    label="מחיר"
-                    type="number"
-                    variant="outlined"
-                    size="small"
-                    value={specialPrices.saturday.price}
-                    onChange={(e) => handleSpecialPriceChange('saturday', 'price', Number(e.target.value))}
                     InputProps={{
                       startAdornment: <InputAdornment position="start">₪</InputAdornment>,
                     }}
