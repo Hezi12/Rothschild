@@ -86,7 +86,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // הגדרת פורט
-const PORT = process.env.PORT || 5501;
+const PORT = process.env.PORT || 5000;
 
 // הפעלת השרת
 app.listen(PORT, () => {

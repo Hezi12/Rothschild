@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import axios from 'axios';
-import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, isSameDay, getDay } from 'date-fns';
+import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, isSameDay, getDay, subDays, differenceInDays } from 'date-fns';
 import { he } from 'date-fns/locale';
 import {
   Container,
@@ -37,8 +37,7 @@ import {
   useTheme,
   useMediaQuery,
   Tab,
-  Tabs,
-  InputAdornment
+  Tabs
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -56,7 +55,10 @@ import {
   Hotel as HotelIcon,
   Person as PersonIcon,
   EventAvailable as EventAvailableIcon,
-  EventBusy as EventBusyIcon
+  EventBusy as EventBusyIcon,
+  CheckCircle as CheckCircleIcon,
+  Pending as PendingIcon,
+  Error as ErrorIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -304,24 +306,43 @@ const BookingListView = () => {
   };
   
   // קבלת צבע רקע לפי סטטוס
-  const getCellBgColor = (isBooked, isPast, paymentStatus, isCheckInDay, isCheckOutDay) => {
+  const getCellBgColor = (isBooked, isPast, paymentStatus, isMultiDay) => {
     if (isPast) {
-      return '#f5f5f5'; // אפור לתאריך שעבר
+      return '#f1f1f1'; // אפור בהיר לתאריך שעבר
     } else if (isBooked) {
-      // שיפור - צבעים שונים לצ'ק-אין, צ'ק-אאוט, ושהייה רגילה
-      if (isCheckInDay) {
-        // הדגשה קלה ליום הצ'ק-אין
-        return paymentStatus === 'paid' ? '#e3efff' : '#ebf7f0';
-      } else if (isCheckOutDay) {
-        // הדגשה קלה ליום הצ'ק-אאוט
-        return paymentStatus === 'paid' ? '#e3efff' : '#ebf7f0';
+      if (paymentStatus === 'paid') {
+        return isMultiDay ? 'linear-gradient(135deg, #b3e5fc 0%, #4fc3f7 100%)' : '#4fc3f7'; // גרדיאנט כחול
+      } else if (paymentStatus === 'partial') {
+        return isMultiDay ? 'linear-gradient(135deg, #c8e6c9 0%, #66bb6a 100%)' : '#66bb6a'; // גרדיאנט ירוק
       } else {
-        // ימי שהייה רגילים בהזמנה
-        return paymentStatus === 'paid' ? '#e6f7ff' : '#d5f2e3';
+        return isMultiDay ? 'linear-gradient(135deg, #fff9c4 0%, #ffee58 100%)' : '#ffee58'; // גרדיאנט צהוב
       }
     } else {
-      return '#e8f5e9'; // ירוק לפנוי
+      return '#ffffff'; // לבן לתא פנוי
     }
+  };
+  
+  // פונקציה חדשה - בדיקה אם הזמנה היא חלק משהייה מרובת-ימים
+  const isPartOfMultiDayStay = (roomBooking, roomId, date) => {
+    const currentDate = date;
+    const bookingId = roomBooking._id;
+    
+    // בדיקה ליום לפני
+    const prevDay = subDays(currentDate, 1);
+    const prevDayBookings = getBookingsForRoomAndDate(roomId, prevDay);
+    const hasPrevDayBooking = prevDayBookings.some(b => b._id === bookingId);
+    
+    // בדיקה ליום אחרי
+    const nextDay = addDays(currentDate, 1);
+    const nextDayBookings = getBookingsForRoomAndDate(roomId, nextDay);
+    const hasNextDayBooking = nextDayBookings.some(b => b._id === bookingId);
+    
+    return {
+      isMultiDay: hasPrevDayBooking || hasNextDayBooking,
+      isStart: !hasPrevDayBooking && hasNextDayBooking,
+      isMiddle: hasPrevDayBooking && hasNextDayBooking,
+      isEnd: hasPrevDayBooking && !hasNextDayBooking
+    };
   };
   
   // פונקציה לקבלת רכיב תא בטבלה
@@ -337,319 +358,171 @@ const BookingListView = () => {
     // השתמש בפונקציה החדשה לקבלת מחיר דינמי או לפי יום בשבוע
     let price = getPriceForRoomAndDate(room._id, date);
     
-    // בדיקה אם זה היום הראשון או האחרון של שהות (צ'ק-אין או צק-אאוט)
-    let isCheckInDay = false;
-    let isCheckOutDay = false;
-    let bookingId = '';
-    let nights = 0;
-    
     if (isBooked) {
       const booking = roomBookings[0];
-      bookingId = booking._id;
-      nights = booking.nights || 0;
+      const paymentStatus = booking.paymentStatus || '';
+      const multiDayInfo = isPartOfMultiDayStay(booking, room._id, date);
       
-      // המר תאריכים לפורמט ISO לשם השוואה
-      const checkInDate = new Date(booking.checkIn);
-      checkInDate.setHours(0, 0, 0, 0);
+      // חישוב סגנון עבור תאים מרובי ימים
+      const multiDayStyle = {
+        borderRadius: '2px',
+        boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+        position: 'relative',
+        margin: '0 -1px', // הרחבה מעבר לגבולות התא
+        zIndex: 1,
+      };
       
-      const checkOutDate = new Date(booking.checkOut);
-      checkOutDate.setHours(0, 0, 0, 0);
-      
-      const dateToCheck = new Date(date);
-      dateToCheck.setHours(0, 0, 0, 0);
-      
-      isCheckInDay = dateToCheck.getTime() === checkInDate.getTime();
-      isCheckOutDay = dateToCheck.getTime() === checkOutDate.getTime();
-    }
-    
-    // צבעי הרקע ייקבעו לפי הסטטוס, כולל צ'ק-אין וצ'ק-אאוט
-    let paymentStatus = isBooked ? roomBookings[0].paymentStatus : '';
-    let bgColor = getCellBgColor(isBooked, isPast, paymentStatus, isCheckInDay, isCheckOutDay);
-    
-    // קביעת צבע הטקסט
-    let textColor = isPast ? '#9e9e9e' : (isBooked ? '#333333' : '#2e7d32');
-    
-    // צבעים של גבולות הצ'ק-אין וצ'ק-אאוט
-    const checkInColor = '#1976d2'; // כחול בולט לצ'ק-אין
-    const checkOutColor = '#f50057'; // אדום-ורוד לצ'ק-אאוט
-    
-    // קישור בין תאים שמהווים את אותה ההזמנה
-    const getConnectorStyle = () => {
-      // רק אם זה חלק מהזמנה והוא לא צ'ק-אאוט (כי אין צורך בחיבור לימין)
-      if (isBooked && !isCheckOutDay) {
-        return {
-          content: '""',
-          position: 'absolute',
-          right: '-2px', // חפיפה קלה על הגבול
-          top: '50%',
-          width: '4px',
-          height: '30%',
-          transform: 'translateY(-50%)',
-          backgroundColor: paymentStatus === 'paid' ? '#a2d2ff' : '#a5d8bf',
-          zIndex: 2
-        };
+      if (multiDayInfo.isStart) {
+        multiDayStyle.borderTopLeftRadius = '8px';
+        multiDayStyle.borderBottomLeftRadius = '8px';
+        multiDayStyle.marginLeft = '0';
+        multiDayStyle.borderLeft = '5px solid #2196f3';
+      } else if (multiDayInfo.isEnd) {
+        multiDayStyle.borderTopRightRadius = '8px';
+        multiDayStyle.borderBottomRightRadius = '8px';
+        multiDayStyle.marginRight = '0';
+        multiDayStyle.borderRight = '5px solid #2196f3';
+      } else if (multiDayInfo.isMiddle) {
+        multiDayStyle.borderRadius = '0';
+        multiDayStyle.borderTop = '1px dashed rgba(0,0,0,0.1)';
+        multiDayStyle.borderBottom = '1px dashed rgba(0,0,0,0.1)';
       }
-      return {};
-    };
-    
-    return (
-      <Box 
-        sx={{ 
-          p: 1,
-          height: '100%',
-          minHeight: '80px',
-          bgcolor: bgColor,
-          borderRadius: isBooked ? 0 : 1, // ביטול העיגול בפינות עבור תאים מוזמנים
-          // גבולות דקים בין תאים
-          borderTop: '1px solid rgba(0,0,0,0.05)',
-          borderBottom: '1px solid rgba(0,0,0,0.05)',
-          // גבולות חזקים וצבעוניים לצ'ק-אין וצ'ק-אאוט
-          borderLeft: isBooked ? (
-            isCheckInDay ? `6px solid ${checkInColor}` : '1px solid rgba(0,0,0,0.05)'
-          ) : '1px solid rgba(0,0,0,0.05)',
-          borderRight: isBooked ? (
-            isCheckOutDay ? `6px solid ${checkOutColor}` : '1px solid rgba(0,0,0,0.05)'
-          ) : '1px solid rgba(0,0,0,0.05)',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          transition: 'all 0.2s',
-          position: 'relative',
-          boxShadow: isBooked ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-          '&:hover': {
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            transform: 'translateY(-2px)',
-            zIndex: 2,
-            cursor: isBooked ? 'pointer' : 'default'
-          },
-          // הוספת רקע צבעוני לראש התא לסימון צ'ק-אין וצ'ק-אאוט
-          '&::before': isBooked && (isCheckInDay || isCheckOutDay) ? {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '4px',
-            background: isCheckInDay ? checkInColor : checkOutColor
-          } : {},
-          // הוספת קו תחתון צבעוני בתחתית התא לסימון צ'ק-אין וצ'ק-אאוט
-          '&::after': isBooked && (isCheckInDay || isCheckOutDay) ? {
-            content: '""',
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: '4px',
-            background: isCheckInDay ? checkInColor : checkOutColor
-          } : {},
-          // קישור ויזואלי בין תאים של אותה הזמנה
-          '.connector': getConnectorStyle()
-        }}
-        onClick={() => isBooked && handleViewBooking(roomBookings[0]._id)}
-        data-booking-id={bookingId} // להוספת אפשרות זיהוי הזמנות קשורות
-      >
-        {/* קישור ויזואלי לתא הבא */}
-        {isBooked && !isCheckOutDay && <div className="connector" />}
-        
-        {isBooked ? (
-          // כאשר יש הזמנה - הצג מידע משופר עם יותר דגש על ימי צ'ק-אין וצ'ק-אאוט
-          <Box sx={{ 
-            width: '100%', 
-            textAlign: 'center',
-            position: 'relative',
-            p: 1
-          }}>
-            {/* סימון צ'ק-אין */}
-            {isCheckInDay && (
-              <Box sx={{
-                position: 'absolute',
-                top: -8,
-                right: -8,
-                backgroundColor: checkInColor,
-                borderRadius: '50%',
-                width: 24,
-                height: 24,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                zIndex: 1
-              }}>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    color: 'white',
-                    fontWeight: 'bold',
-                    fontSize: '0.65rem'
-                  }}
-                >
-                  IN
-                </Typography>
-              </Box>
-            )}
-            
-            {/* שם האורח */}
-            <Typography 
-              variant="body2" 
-              component="div" 
-              sx={{ 
-                fontWeight: 'bold', 
-                color: textColor, 
-                textAlign: 'center',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                width: '100%',
-                pt: isCheckInDay || isCheckOutDay ? 1 : 0
-              }}
-            >
-              {roomBookings[0].guest && roomBookings[0].guest.firstName ? 
-                `${roomBookings[0].guest.firstName} ${roomBookings[0].guest.lastName || ''}` : 
-                (roomBookings[0].guest && roomBookings[0].guest.name) || 'אורח'}
-            </Typography>
-            
-            {/* מספר לילות אם זה יום צ'ק-אין */}
-            {isCheckInDay && nights > 0 && (
-              <Typography 
-                variant="caption" 
-                component="div" 
-                sx={{ 
-                  color: 'text.secondary',
-                  mt: 0.5,
-                  fontSize: '0.7rem',
-                  backgroundColor: 'rgba(255,255,255,0.5)',
-                  borderRadius: '10px',
-                  padding: '0 4px',
-                  display: 'inline-block'
-                }}
-              >
-                {nights} {nights === 1 ? 'לילה' : 'לילות'}
-              </Typography>
-            )}
-            
-            {/* סימון צ'ק-אאוט */}
-            {isCheckOutDay && (
-              <Box sx={{
-                position: 'absolute',
-                top: -8,
-                left: -8,
-                backgroundColor: checkOutColor,
-                borderRadius: '50%',
-                width: 24,
-                height: 24,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                zIndex: 1
-              }}>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    color: 'white',
-                    fontWeight: 'bold',
-                    fontSize: '0.65rem'
-                  }}
-                >
-                  OUT
-                </Typography>
-              </Box>
-            )}
-            
+      
+      // סגנון הטקסט
+      const guestNameStyle = {
+        fontWeight: 'bold', 
+        textAlign: 'center',
+        fontSize: multiDayInfo.isMultiDay ? '0.9rem' : '1rem',
+        color: '#333333',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        maxWidth: '100%'
+      };
+      
+      // הצגת מספר לילות בתא הראשון
+      const nights = differenceInDays(new Date(booking.checkOut), new Date(booking.checkIn));
+      
+      return (
+        <Box 
+          sx={{ 
+            p: 1,
+            height: '100%',
+            minHeight: '80px',
+            width: '100%',
+            bgcolor: 'transparent',
+            background: getCellBgColor(isBooked, isPast, paymentStatus, multiDayInfo.isMultiDay),
+            transition: 'all 0.3s',
+            '&:hover': {
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              transform: 'translateY(-2px)',
+              cursor: 'pointer'
+            },
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            ...multiDayStyle
+          }}
+          onClick={() => isBooked && handleViewBooking(booking._id)}
+        >
+          {/* אייקון שמציין את סטטוס התשלום */}
+          <Box sx={{ position: 'absolute', top: 5, right: 5 }}>
+            {paymentStatus === 'paid' && <CheckCircleIcon fontSize="small" sx={{ color: '#1976d2' }} />}
+            {paymentStatus === 'partial' && <PendingIcon fontSize="small" sx={{ color: '#388e3c' }} />}
+            {(!paymentStatus || paymentStatus === 'unpaid') && <ErrorIcon fontSize="small" sx={{ color: '#f57c00' }} />}
           </Box>
-        ) : isPast ? (
-          // תאריך שעבר
-          <Typography variant="body2" component="div" sx={{ color: textColor, opacity: 0.7 }}>
+          
+          <Typography variant="body1" component="div" sx={guestNameStyle}>
+            {booking.guest && booking.guest.firstName 
+              ? `${booking.guest.firstName} ${booking.guest.lastName || ''}` 
+              : (booking.guest && booking.guest.name) || 'אורח'}
+          </Typography>
+          
+          {multiDayInfo.isStart && nights > 1 && (
+            <Chip 
+              size="small" 
+              label={`${nights} לילות`} 
+              color="primary" 
+              variant="outlined" 
+              sx={{ mt: 1, fontSize: '0.7rem' }} 
+            />
+          )}
+        </Box>
+      );
+    } else if (isPast) {
+      // תאריך שעבר
+      return (
+        <Box 
+          sx={{ 
+            p: 1,
+            height: '100%',
+            minHeight: '80px',
+            bgcolor: getCellBgColor(isBooked, isPast),
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            opacity: 0.6
+          }}
+        >
+          <Typography variant="body2" component="div" sx={{ color: '#9e9e9e' }}>
             עבר
           </Typography>
-        ) : (
-          // תא פנוי - הצג מחיר בעיצוב משופר
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="caption" component="div" sx={{ color: 'text.secondary', mb: 0.5 }}>
-              מחיר ללילה
-            </Typography>
-            <Typography 
-              variant="h6" 
-              component="div" 
-              sx={{ 
-                fontWeight: 'bold', 
-                color: textColor,
-                background: 'linear-gradient(45deg, #2e7d32, #43a047)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
-              }}
-            >
-              ₪{price}
-            </Typography>
-          </Box>
-        )}
-        
-        {isAdmin() && (
-          <Box sx={{ 
-            position: 'absolute', 
-            bottom: 2, 
-            right: 2, 
-            display: 'flex', 
-            opacity: 0,
-            transition: 'opacity 0.2s',
-            '.MuiBox-root:hover > &': {
-              opacity: 1
+        </Box>
+      );
+    } else {
+      // תא פנוי - הצג מחיר בעיצוב מודרני
+      return (
+        <Box 
+          sx={{ 
+            p: 1,
+            height: '100%',
+            minHeight: '80px',
+            bgcolor: '#ffffff',
+            border: '1px solid #e0e0e0',
+            borderRadius: '4px',
+            transition: 'all 0.2s',
+            '&:hover': {
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              borderColor: '#bbdefb'
+            },
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}
+          onClick={(e) => {
+            if (isAdmin()) {
+              e.stopPropagation();
+              handleUpdatePrice(room._id, date);
             }
+          }}
+        >
+          <Typography variant="h6" component="div" sx={{ 
+            fontWeight: 'bold', 
+            color: '#1976d2',
+            fontFamily: 'Roboto Condensed, sans-serif'
           }}>
-            {!isBooked && (
-              <>
-                <IconButton 
-                  size="small" 
-                  color="primary" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handlePriceDialogOpen(room._id, date, price);
-                  }}
-                  sx={{ 
-                    p: 0.5,
-                    background: 'rgba(255,255,255,0.8)',
-                    '&:hover': {
-                      background: 'rgba(255,255,255,0.95)'
-                    }
-                  }}
-                >
-                  <AttachMoneyIcon fontSize="small" />
-                </IconButton>
-                
-                <IconButton 
-                  size="small" 
-                  color="success" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAddBooking(room._id, date);
-                  }}
-                  sx={{ 
-                    p: 0.5, 
-                    ml: 0.5,
-                    background: 'rgba(255,255,255,0.8)',
-                    '&:hover': {
-                      background: 'rgba(255,255,255,0.95)'
-                    }
-                  }}
-                >
-                  <AddIcon fontSize="small" />
-                </IconButton>
-              </>
-            )}
-          </Box>
-        )}
-      </Box>
-    );
+            ₪{price}
+          </Typography>
+        </Box>
+      );
+    }
+  };
+  
+  // פונקציה לפתיחת דיאלוג עדכון מחיר חדש
+  const handleUpdatePrice = (roomId, date) => {
+    const price = getPriceForRoomAndDate(roomId, date);
+    handlePriceDialogOpen(roomId, date, price);
   };
   
   // פונקציה לפתיחת דיאלוג עריכת מחיר
-  const handlePriceDialogOpen = (roomId, date, currentPrice) => {
+  const handlePriceDialogOpen = (roomId, date, price) => {
     setPriceDialog({
       open: true,
       roomId,
       date,
-      price: currentPrice
+      price
     });
   };
   
@@ -946,144 +819,140 @@ const BookingListView = () => {
   }, [daysInView]);
   
   return (
-    <Container maxWidth="xl" sx={{ mt: 2, mb: 4 }}>
-      <Paper 
-        elevation={3} 
-        sx={{ 
-          p: 0,
-          mb: 2,
-          overflow: 'hidden',
-          borderRadius: 2,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
-        }}
-      >
-        <Box
-          sx={{
-            background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
-            p: 2,
-            color: 'white',
-            borderBottom: '1px solid rgba(0,0,0,0.08)'
+    <Box sx={{ 
+      background: 'linear-gradient(to bottom, #f9fbfd 0%, #ffffff 100%)',
+      minHeight: '100vh',
+      py: 3
+    }}>
+      <Container maxWidth="xl">
+        <Paper 
+          elevation={3} 
+          sx={{ 
+            p: { xs: 1, sm: 2, md: 3 }, 
+            mb: 3, 
+            borderRadius: 2,
+            overflow: 'hidden',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
           }}
         >
-          <Grid container spacing={2} alignItems="center">
-            <Grid item>
+          <Grid container spacing={2} alignItems="center" sx={{ mb: 3 }}>
+            <Grid item xs={12} md={5}>
               <Typography 
                 variant="h5" 
                 component="h1" 
                 sx={{ 
-                  fontWeight: 'bold',
+                  fontWeight: 'bold', 
+                  color: '#1976d2',
                   display: 'flex',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  '& svg': { mr: 1, color: 'primary.main' }
                 }}
               >
-                <CalendarMonthIcon sx={{ mr: 1 }} />
+                <CalendarMonthIcon />
                 לוח זמינות וניהול הזמנות
               </Typography>
             </Grid>
             
-            <Grid item sx={{ flexGrow: 1 }} />
-            
-            <Grid item>
-              <Button 
-                variant="contained" 
-                disableElevation
-                startIcon={<TodayIcon />}
-                onClick={handleToday}
-                sx={{
-                  backgroundColor: 'rgba(255,255,255,0.2)',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255,255,255,0.3)'
-                  }
-                }}
-              >
-                היום
-              </Button>
-            </Grid>
-            
-            <Grid item>
+            <Grid item xs={12} md={7}>
               <Box sx={{ 
                 display: 'flex', 
-                alignItems: 'center',
-                backgroundColor: 'rgba(255,255,255,0.15)',
-                borderRadius: 1,
-                px: 1
+                flexWrap: 'wrap',
+                justifyContent: { xs: 'center', md: 'flex-end' },
+                gap: 1
               }}>
-                <IconButton 
-                  onClick={showPrevDays}
-                  sx={{ color: 'white' }}
+                <Button 
+                  variant="outlined" 
+                  startIcon={<TodayIcon />}
+                  onClick={handleToday}
+                  size="small"
+                  sx={{ borderRadius: 4 }}
                 >
-                  <ChevronRightIcon />
-                </IconButton>
+                  היום
+                </Button>
                 
-                <Typography 
-                  variant="subtitle2" 
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: 4,
+                  px: 1,
+                  bgcolor: 'white',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.05)'
+                }}>
+                  <IconButton 
+                    onClick={showPrevDays}
+                    size="small"
+                    color="primary"
+                  >
+                    <ChevronRightIcon />
+                  </IconButton>
+                  
+                  <Typography variant="subtitle2" sx={{ mx: 1, textAlign: 'center', fontWeight: 'bold' }}>
+                    {daysInView.length > 0 
+                      ? `${format(daysInView[0], 'dd/MM/yyyy')} - ${format(daysInView[daysInView.length - 1], 'dd/MM/yyyy')}` 
+                      : 'טוען...'}
+                  </Typography>
+                  
+                  <IconButton 
+                    onClick={showNextDays}
+                    size="small"
+                    color="primary"
+                  >
+                    <ChevronLeftIcon />
+                  </IconButton>
+                </Box>
+                
+                <Button 
+                  variant="contained" 
+                  color="primary" 
+                  startIcon={<AddIcon />}
+                  onClick={() => handleAddBooking(null, new Date())}
                   sx={{ 
-                    mx: 1, 
-                    minWidth: '180px', 
-                    textAlign: 'center',
-                    fontWeight: 'medium'
+                    borderRadius: 4,
+                    boxShadow: '0 4px 10px rgba(25, 118, 210, 0.3)',
+                    '&:hover': { boxShadow: '0 6px 15px rgba(25, 118, 210, 0.4)' }
                   }}
                 >
-                  {daysInView.length > 0 
-                    ? `${format(daysInView[0], 'dd/MM/yyyy')} - ${format(daysInView[daysInView.length - 1], 'dd/MM/yyyy')}` 
-                    : 'טוען...'}
-                </Typography>
-                
-                <IconButton 
-                  onClick={showNextDays}
-                  sx={{ color: 'white' }}
-                >
-                  <ChevronLeftIcon />
-                </IconButton>
+                  הזמנה חדשה
+                </Button>
               </Box>
             </Grid>
-            
-            <Grid item>
-              <Button 
-                variant="contained" 
-                disableElevation
-                startIcon={<AddIcon />}
-                onClick={() => handleAddBooking(null, new Date())}
-                sx={{
-                  backgroundColor: '#2e7d32',
-                  '&:hover': {
-                    backgroundColor: '#1b5e20'
-                  }
-                }}
-              >
-                הזמנה חדשה
-              </Button>
-            </Grid>
           </Grid>
-        </Box>
-        
-        <Box sx={{ p: 2 }}>
-          <Tabs 
-            value={activeTab} 
-            onChange={handleTabChange} 
-            sx={{ 
-              mb: 2,
-              '& .MuiTab-root': {
-                fontWeight: 'medium',
-                py: 1.5
-              },
-              '& .Mui-selected': {
-                fontWeight: 'bold'
-              }
-            }}
-          >
-            <Tab 
-              label="זמינות חדרים" 
-              icon={<HotelIcon />} 
-              iconPosition="start" 
-            />
-            <Tab 
-              label="הזמנות" 
-              icon={<CalendarMonthIcon />} 
-              iconPosition="start" 
-            />
-          </Tabs>
           
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+            <Tabs 
+              value={activeTab} 
+              onChange={handleTabChange} 
+              variant="fullWidth"
+              sx={{ 
+                '& .MuiTab-root': { 
+                  fontWeight: 'bold',
+                  py: 1.5,
+                  transition: 'all 0.3s'
+                },
+                '& .Mui-selected': {
+                  color: 'primary.main',
+                  fontWeight: 'bold',
+                },
+                '& .MuiTabs-indicator': {
+                  height: 3,
+                  borderRadius: '3px 3px 0 0'
+                }
+              }}
+            >
+              <Tab 
+                label="זמינות חדרים" 
+                icon={<HotelIcon />} 
+                iconPosition="start" 
+              />
+              <Tab 
+                label="הזמנות" 
+                icon={<CalendarMonthIcon />} 
+                iconPosition="start" 
+              />
+            </Tabs>
+          </Box>
+        
           {activeTab === 0 && (
             <>
               {loading ? (
@@ -1093,224 +962,148 @@ const BookingListView = () => {
               ) : error ? (
                 <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
               ) : (
-                <TableContainer 
-                  component={Paper} 
-                  variant="outlined" 
-                  sx={{ 
-                    maxHeight: 'calc(100vh - 280px)', 
+                <Box sx={{ 
+                  borderRadius: 2, 
+                  overflow: 'hidden',
+                  bgcolor: 'white',
+                  boxShadow: 'inset 0 0 5px rgba(0,0,0,0.05)'
+                }}>
+                  <TableContainer sx={{ 
+                    maxHeight: 'calc(100vh - 300px)', 
                     overflow: 'auto',
-                    borderRadius: 0,
-                    borderLeft: 'none',
-                    borderRight: 'none',
-                    borderBottom: 'none',
                     '&::-webkit-scrollbar': {
-                      width: '8px',
-                      height: '8px',
+                      width: '10px',
+                      height: '10px'
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      background: '#bbdefb',
+                      borderRadius: '8px',
+                      '&:hover': {
+                        background: '#90caf9'
+                      }
                     },
                     '&::-webkit-scrollbar-track': {
                       background: '#f1f1f1',
-                    },
-                    '&::-webkit-scrollbar-thumb': {
-                      background: '#bbbbbb',
-                      borderRadius: '4px',
-                    },
-                    '&::-webkit-scrollbar-thumb:hover': {
-                      background: '#888888',
+                      borderRadius: '8px'
                     }
-                  }}
-                >
-                  <Table stickyHeader>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ 
-                          fontWeight: 'bold', 
-                          minWidth: '150px',
-                          background: '#f8f9fa',
-                          position: 'sticky',
-                          left: 0,
-                          top: 0,
-                          zIndex: 3,
-                          borderBottom: '2px solid #e0e0e0'
-                        }}>חדר</TableCell>
-                        
-                        {daysInView.map((day, index) => {
-                          const isToday = isSameDay(day, new Date());
-                          const dayName = format(day, 'EEEE', { locale: he });
-                          const dayNum = format(day, 'dd');
-                          const monthNum = format(day, 'MM');
-                          
-                          return (
-                            <TableCell 
-                              key={index} 
-                              align="center" 
-                              sx={{ 
-                                minWidth: '120px',
-                                bgcolor: isToday ? '#e3f2fd' : '#f8f9fa',
-                                fontWeight: isToday ? 'bold' : 'normal',
-                                padding: '8px 4px',
-                                borderBottom: '2px solid #e0e0e0'
-                              }}
-                            >
-                              <Box sx={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center'
-                              }}>
-                                <Typography 
-                                  variant="caption" 
-                                  component="div" 
-                                  sx={{ 
-                                    color: 'text.secondary',
-                                    fontWeight: 'normal'
-                                  }}
-                                >
-                                  {dayName}
-                                </Typography>
-                                <Box 
-                                  sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    position: 'relative'
-                                  }}
-                                >
-                                  <Typography 
-                                    variant="h6" 
-                                    component="div" 
-                                    sx={{ 
-                                      fontWeight: isToday ? 'bold' : 'normal',
-                                      color: isToday ? 'primary.main' : 'text.primary'
-                                    }}
-                                  >
-                                    {dayNum}
-                                  </Typography>
-                                  <Typography 
-                                    variant="caption" 
-                                    component="div"
-                                    sx={{
-                                      position: 'absolute',
-                                      right: -12,
-                                      top: 0,
-                                      color: 'text.secondary',
-                                      fontSize: '0.7rem'
-                                    }}
-                                  >
-                                    {monthNum}/
-                                  </Typography>
-                                </Box>
-                              </Box>
-                            </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    </TableHead>
-                    
-                    <TableBody>
-                      {rooms.length === 0 ? (
+                  }}>
+                    <Table stickyHeader>
+                      <TableHead>
                         <TableRow>
-                          <TableCell colSpan={daysInView.length + 1} align="center">
-                            <Typography variant="subtitle1">אין חדרים להצגה</Typography>
+                          <TableCell sx={{ 
+                            fontWeight: 'bold', 
+                            minWidth: '150px', 
+                            bgcolor: '#f5f5f5', 
+                            position: 'sticky',
+                            left: 0,
+                            zIndex: 2,
+                            boxShadow: '2px 0 5px rgba(0,0,0,0.05)'
+                          }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <HotelIcon sx={{ mr: 1 }} />
+                              <Typography variant="subtitle1">חדר</Typography>
+                            </Box>
                           </TableCell>
-                        </TableRow>
-                      ) : (
-                        rooms.map(room => (
-                          <TableRow key={room._id} sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.02)' } }}>
-                            <TableCell 
-                              component="th" 
-                              scope="row" 
-                              sx={{ 
-                                fontWeight: 'medium',
-                                position: 'sticky',
-                                left: 0,
-                                bgcolor: 'background.paper',
-                                zIndex: 1,
-                                borderLeft: '6px solid',
-                                borderLeftColor: room.type === 'standard' ? 'primary.main' : 
-                                                room.type === 'deluxe' ? 'secondary.main' : 
-                                                room.type === 'suite' ? 'success.main' : 
-                                                room.type === 'simple' ? 'info.main' : 
-                                                room.type === 'simple_with_balcony' ? 'warning.main' :
-                                                room.type === 'standard_with_balcony' ? 'warning.light' :
-                                                'warning.main',
-                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                                p: 1 // פדינג קטן יותר
-                              }}
-                            >
-                              <Box sx={{ 
-                                display: 'flex', 
-                                alignItems: 'center',
-                                justifyContent: 'space-between' 
-                              }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <HotelIcon sx={{ 
-                                    mr: 1, 
-                                    color: room.type === 'standard' ? 'primary.main' : 
-                                          room.type === 'deluxe' ? 'secondary.main' : 
-                                          room.type === 'suite' ? 'success.main' : 
-                                          room.type === 'simple' ? 'info.main' : 
-                                          room.type === 'simple_with_balcony' ? 'warning.main' :
-                                          room.type === 'standard_with_balcony' ? 'warning.light' :
-                                          'warning.main'
-                                  }} />
-                                  <Box>
-                                    <Typography 
-                                      variant="subtitle2" 
-                                      component="div" 
-                                      sx={{ 
-                                        fontWeight: 'bold', 
-                                        display: 'flex',
-                                        alignItems: 'center'
-                                      }}
-                                    >
-                                      {room.internalName || `חדר ${room.roomNumber}`}
-                                    </Typography>
-                                    
-                                    {/* הצגת סמל קטן אם יש מרפסת */}
-                                    {(room.type === 'simple_with_balcony' || room.type === 'standard_with_balcony') && (
-                                      <Typography 
-                                        variant="caption" 
-                                        sx={{ 
-                                          fontSize: '0.65rem', 
-                                          color: 'text.secondary',
-                                          display: 'flex',
-                                          alignItems: 'center'
-                                        }}
-                                      >
-                                        <span style={{ marginRight: '2px' }}>⊙</span> עם מרפסת
-                                      </Typography>
-                                    )}
-                                  </Box>
+                          
+                          {daysInView.map((day, index) => {
+                            const isToday = isSameDay(day, new Date());
+                            const isWeekend = getDay(day) === 5 || getDay(day) === 6; // שישי או שבת
+                            return (
+                              <TableCell 
+                                key={index} 
+                                align="center" 
+                                sx={{ 
+                                  minWidth: '120px',
+                                  bgcolor: isToday ? '#e3f2fd' : isWeekend ? '#fff8e1' : '#f5f5f5',
+                                  fontWeight: isToday ? 'bold' : 'normal',
+                                  borderBottom: isToday ? '2px solid #2196f3' : '1px solid rgba(224, 224, 224, 1)',
+                                  position: 'sticky',
+                                  top: 0,
+                                  zIndex: 1
+                                }}
+                              >
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <Typography variant="subtitle2" component="div" sx={{ fontWeight: 'bold', color: isWeekend ? '#ff9800' : 'inherit' }}>
+                                    {format(day, 'EEEE', { locale: he })}
+                                  </Typography>
+                                  <Typography variant="body2" component="div">
+                                    {format(day, 'dd/MM')}
+                                  </Typography>
                                 </Box>
-                                
-                                {/* מספר החדר בצד שמאל */}
-                                <Typography 
-                                  variant="body2" 
-                                  sx={{ 
-                                    backgroundColor: 'rgba(0,0,0,0.05)',
-                                    color: 'text.secondary',
-                                    borderRadius: '12px',
-                                    px: 1,
-                                    py: 0.2,
-                                    fontWeight: 'medium',
-                                    fontSize: '0.75rem'
-                                  }}
-                                >
-                                  {room.roomNumber}
-                                </Typography>
-                              </Box>
-                            </TableCell>
-                            
-                            {daysInView.map((day, index) => (
-                              <TableCell key={index} sx={{ p: 1 }}>
-                                {getCellContent(room, day)}
                               </TableCell>
-                            ))}
+                            );
+                          })}
+                        </TableRow>
+                      </TableHead>
+                      
+                      <TableBody>
+                        {rooms.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={daysInView.length + 1} align="center">
+                              <Typography variant="subtitle1">אין חדרים להצגה</Typography>
+                            </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                        ) : (
+                          rooms.map(room => (
+                            <TableRow key={room._id}>
+                              <TableCell 
+                                component="th" 
+                                scope="row" 
+                                sx={{ 
+                                  fontWeight: 'bold',
+                                  position: 'sticky',
+                                  left: 0,
+                                  bgcolor: 'background.paper',
+                                  zIndex: 1,
+                                  boxShadow: '2px 0 5px rgba(0,0,0,0.05)',
+                                  minWidth: '150px'
+                                }}
+                              >
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <HotelIcon sx={{ mr: 1, color: 'primary.main' }} />
+                                  <Typography variant="subtitle2" component="div">
+                                    {room.internalName || `חדר ${room.roomNumber}`}
+                                  </Typography>
+                                </Box>
+                              </TableCell>
+                              
+                              {daysInView.map((day, index) => (
+                                <TableCell key={index} sx={{ p: 1, borderLeft: '1px solid rgba(224, 224, 224, 0.4)' }}>
+                                  {getCellContent(room, day)}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                  
+                  <Box sx={{ 
+                    mt: 2, 
+                    display: 'flex', 
+                    justifyContent: 'center',
+                    flexWrap: 'wrap',
+                    gap: 2
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box sx={{ width: 16, height: 16, borderRadius: 1, bgcolor: '#4fc3f7', mr: 1 }} />
+                      <Typography variant="caption">הזמנה - שולם</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box sx={{ width: 16, height: 16, borderRadius: 1, bgcolor: '#66bb6a', mr: 1 }} />
+                      <Typography variant="caption">הזמנה - שולם חלקית</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box sx={{ width: 16, height: 16, borderRadius: 1, bgcolor: '#ffee58', mr: 1 }} />
+                      <Typography variant="caption">הזמנה - לא שולם</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box sx={{ width: 16, height: 16, borderRadius: 1, bgcolor: '#f1f1f1', mr: 1 }} />
+                      <Typography variant="caption">תאריך שעבר</Typography>
+                    </Box>
+                  </Box>
+                </Box>
               )}
             </>
           )}
@@ -1323,352 +1116,410 @@ const BookingListView = () => {
               </Typography>
             </Box>
           )}
-        </Box>
+        </Paper>
         
         {/* דיאלוג עדכון מחיר */}
-        <Dialog 
-          open={priceDialog.open} 
-          onClose={handlePriceDialogClose}
-          PaperProps={{
-            sx: {
-              borderRadius: 2,
-              minWidth: '350px'
-            }
-          }}
-        >
-          <DialogTitle sx={{ 
-            background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
-            color: 'white',
-            fontWeight: 'bold',
-            display: 'flex',
-            alignItems: 'center'
-          }}>
-            <AttachMoneyIcon sx={{ mr: 1 }} />
-            עדכון מחיר
-          </DialogTitle>
-          <DialogContent sx={{ pt: 3 }}>
+        <Dialog open={priceDialog.open} onClose={handlePriceDialogClose}>
+          <DialogTitle>עדכון מחיר</DialogTitle>
+          <DialogContent>
             <Box sx={{ pt: 1 }}>
-              <Typography variant="subtitle2" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-                <HotelIcon sx={{ mr: 1, fontSize: '1rem', color: 'primary.main' }} />
+              <Typography variant="subtitle2" sx={{ mb: 2 }}>
                 חדר: {rooms.find(r => r._id === priceDialog.roomId)?.internalName || 'טוען...'}
               </Typography>
-              <Typography variant="subtitle2" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-                <TodayIcon sx={{ mr: 1, fontSize: '1rem', color: 'primary.main' }} />
+              <Typography variant="subtitle2" sx={{ mb: 2 }}>
                 תאריך: {priceDialog.date ? format(priceDialog.date, 'dd/MM/yyyy') : 'טוען...'}
               </Typography>
-              
               <TextField
                 label="מחיר חדש"
                 type="number"
                 fullWidth
-                variant="outlined"
                 value={priceDialog.price}
-                onChange={(e) => setPriceDialog({...priceDialog, price: e.target.value})}
+                onChange={(e) => setPriceDialog({ ...priceDialog, price: Number(e.target.value) })}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                  startAdornment: <Typography sx={{ mr: 1 }}>₪</Typography>
                 }}
-                sx={{ mt: 2 }}
+                sx={{ mt: 1 }}
               />
             </Box>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button 
-              onClick={handlePriceDialogClose}
-              color="inherit"
-              sx={{ borderRadius: 1 }}
-            >
-              ביטול
-            </Button>
-            <Button 
-              onClick={handleSavePrice} 
-              variant="contained" 
-              disableElevation
-              sx={{ borderRadius: 1 }}
-            >
+          <DialogActions>
+            <Button onClick={handlePriceDialogClose} color="inherit">ביטול</Button>
+            <Button onClick={handleSavePrice} color="primary" variant="contained">
               שמירה
             </Button>
           </DialogActions>
         </Dialog>
         
-        {/* דיאלוג ערטי הזמנה */}
+        {/* דיאלוג עריכת הזמנה */}
         <Dialog 
           open={bookingDialog.open} 
-          onClose={closeBookingDialog}
+          onClose={closeBookingDialog} 
+          maxWidth="md" 
           fullWidth
-          maxWidth="md"
-          PaperProps={{
-            sx: {
-              borderRadius: 2
-            }
-          }}
         >
-          <DialogTitle sx={{ 
-            background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
-            color: 'white',
-            fontWeight: 'bold',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between'
-          }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <CalendarMonthIcon sx={{ mr: 1 }} />
-              פרטי הזמנה
+          <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6">
+                עריכת הזמנה #{bookingDialog.bookingData?.bookingNumber || '251003'}
+              </Typography>
+              <IconButton
+                aria-label="סגור"
+                onClick={closeBookingDialog}
+              >
+                <CloseIcon />
+              </IconButton>
             </Box>
-            <IconButton 
-              onClick={closeBookingDialog} 
-              size="small"
-              sx={{ color: 'white' }}
-            >
-              <CloseIcon />
-            </IconButton>
           </DialogTitle>
           
-          <DialogContent sx={{ pt: 3 }}>
+          <DialogContent sx={{ pt: 2 }}>
             {bookingDialog.loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
                 <CircularProgress />
               </Box>
             ) : bookingDialog.bookingData ? (
-              <Box>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
-                    <Paper 
-                      variant="outlined" 
-                      sx={{ 
-                        p: 2, 
-                        height: '100%',
-                        borderRadius: 1,
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.05)'
+              <Grid container spacing={2}>
+                {/* כפתורי פעולה מהירים */}
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2, justifyContent: 'flex-end' }}>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      startIcon={<CloseIcon />}
+                      onClick={() => {
+                        const updatedData = { ...bookingDialog.bookingData, paymentStatus: 'cancelled' };
+                        handleUpdateBooking(updatedData);
                       }}
+                      sx={{ fontWeight: 'bold' }}
                     >
-                      <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: 'primary.main' }}>
-                        פרטי אורח
-                      </Typography>
-                      
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            label="שם פרטי"
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            value={bookingDialog.bookingData.guest?.firstName || ''}
-                            InputProps={{
-                              readOnly: true,
-                            }}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            label="שם משפחה"
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            value={bookingDialog.bookingData.guest?.lastName || ''}
-                            InputProps={{
-                              readOnly: true,
-                            }}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            label="אימייל"
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            value={bookingDialog.bookingData.guest?.email || ''}
-                            InputProps={{
-                              readOnly: true,
-                            }}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            label="טלפון"
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            value={bookingDialog.bookingData.guest?.phone || ''}
-                            InputProps={{
-                              readOnly: true,
-                            }}
-                          />
-                        </Grid>
+                      ביטול הזמנה
+                    </Button>
+                    
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      startIcon={<CheckIcon />}
+                      onClick={() => {
+                        const updatedData = { ...bookingDialog.bookingData, paymentStatus: 'paid' };
+                        handleUpdateBooking(updatedData);
+                      }}
+                      sx={{ fontWeight: 'bold' }}
+                    >
+                      סמן כשולם
+                    </Button>
+                  </Box>
+                </Grid>
+                
+                {/* חלק עליון - פרטי הזמנה ראשיים */}
+                <Grid item xs={12}>
+                  <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1, mb: 2 }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">מחיר בסך הכל</Typography>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                            ₪{bookingDialog.bookingData.totalPrice || 0}
+                          </Typography>
+                        </Box>
                       </Grid>
-                    </Paper>
+                      
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">סטטוס</Typography>
+                          <Box>
+                            <Chip 
+                              size="small" 
+                              color={bookingDialog.bookingData.paymentStatus === 'paid' ? "success" : "warning"} 
+                              label={bookingDialog.bookingData.paymentStatus === 'paid' ? "שולם" : "לא שולם"} 
+                            />
+                          </Box>
+                        </Box>
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">תאריך צ'ק אין</Typography>
+                          <Typography variant="body1">
+                            {bookingDialog.bookingData.checkIn ? format(new Date(bookingDialog.bookingData.checkIn), 'dd/MM/yyyy') : '---'}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">תאריך צ'ק אאוט</Typography>
+                          <Typography variant="body1">
+                            {bookingDialog.bookingData.checkOut ? format(new Date(bookingDialog.bookingData.checkOut), 'dd/MM/yyyy') : '---'}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                </Grid>
+                
+                {/* פרטי אורח */}
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>פרטי אורח</Typography>
+                  
+                  <TextField
+                    label="שם פרטי"
+                    fullWidth
+                    margin="normal"
+                    defaultValue={bookingDialog.bookingData.guest?.firstName || ''}
+                    InputProps={{
+                      startAdornment: <PersonIcon sx={{ color: 'text.secondary', mr: 1 }} />
+                    }}
+                  />
+                  
+                  <TextField
+                    label="שם משפחה"
+                    fullWidth
+                    margin="normal"
+                    defaultValue={bookingDialog.bookingData.guest?.lastName || ''}
+                  />
+                  
+                  <TextField
+                    label="דוא״ל"
+                    fullWidth
+                    margin="normal"
+                    defaultValue={bookingDialog.bookingData.guest?.email || ''}
+                    type="email"
+                    InputProps={{
+                      startAdornment: <Box sx={{ color: 'text.secondary', mr: 1 }}>@</Box>
+                    }}
+                  />
+                  
+                  <TextField
+                    label="טלפון"
+                    fullWidth
+                    margin="normal"
+                    defaultValue={bookingDialog.bookingData.guest?.phone || ''}
+                  />
+                </Grid>
+                
+                {/* פרטי הזמנה */}
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>פרטי הזמנה</Typography>
+                  
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <TextField
+                        label="תאריך צ'ק אין"
+                        type="date"
+                        fullWidth
+                        margin="normal"
+                        defaultValue={bookingDialog.bookingData.checkIn ? format(new Date(bookingDialog.bookingData.checkIn), 'yyyy-MM-dd') : ''}
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{ 
+                          max: bookingDialog.bookingData.checkOut ? format(new Date(bookingDialog.bookingData.checkOut), 'yyyy-MM-dd') : '' 
+                        }}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={6}>
+                      <TextField
+                        label="תאריך צ'ק אאוט"
+                        type="date"
+                        fullWidth
+                        margin="normal"
+                        defaultValue={bookingDialog.bookingData.checkOut ? format(new Date(bookingDialog.bookingData.checkOut), 'yyyy-MM-dd') : ''}
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{ 
+                          min: bookingDialog.bookingData.checkIn ? format(new Date(bookingDialog.bookingData.checkIn), 'yyyy-MM-dd') : '' 
+                        }}
+                      />
+                    </Grid>
                   </Grid>
                   
-                  <Grid item xs={12} md={6}>
-                    <Paper 
-                      variant="outlined" 
-                      sx={{ 
-                        p: 2, 
-                        height: '100%',
-                        borderRadius: 1,
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.05)'
-                      }}
-                    >
-                      <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: 'primary.main' }}>
-                        פרטי הזמנה
-                      </Typography>
-                      
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            label="חדר"
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            value={bookingDialog.bookingData.room?.internalName || bookingDialog.bookingData.room?.roomNumber || ''}
-                            InputProps={{
-                              readOnly: true,
-                            }}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            label="מספר לילות"
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            value={bookingDialog.bookingData.nights || ''}
-                            InputProps={{
-                              readOnly: true,
-                            }}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            label="צ'ק-אין"
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            value={bookingDialog.bookingData.checkIn ? format(new Date(bookingDialog.bookingData.checkIn), 'dd/MM/yyyy') : ''}
-                            InputProps={{
-                              readOnly: true,
-                            }}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField
-                            label="צ'ק-אאוט"
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            value={bookingDialog.bookingData.checkOut ? format(new Date(bookingDialog.bookingData.checkOut), 'dd/MM/yyyy') : ''}
-                            InputProps={{
-                              readOnly: true,
-                            }}
-                          />
-                        </Grid>
-                      </Grid>
-                    </Paper>
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <TextField
+                        label="לילות"
+                        type="number"
+                        fullWidth
+                        margin="normal"
+                        defaultValue={bookingDialog.bookingData.nights || 1}
+                        InputProps={{ 
+                          readOnly: true,
+                          startAdornment: <Typography sx={{ mr: 1 }}>לילות:</Typography>
+                        }}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={6}>
+                      <TextField
+                        label="מחיר כולל"
+                        fullWidth
+                        margin="normal"
+                        defaultValue={bookingDialog.bookingData.totalPrice || 0}
+                        InputProps={{
+                          startAdornment: <Typography sx={{ mr: 1 }}>₪</Typography>
+                        }}
+                      />
+                    </Grid>
                   </Grid>
                   
-                  <Grid item xs={12}>
-                    <Paper 
-                      variant="outlined" 
-                      sx={{ 
-                        p: 2,
-                        borderRadius: 1,
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.05)'
-                      }}
-                    >
-                      <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: 'primary.main' }}>
-                        פרטי תשלום
-                      </Typography>
-                      
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6} md={3}>
-                          <TextField
-                            label="סטטוס תשלום"
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            value={
-                              bookingDialog.bookingData.paymentStatus === 'paid' ? 'שולם' :
-                              bookingDialog.bookingData.paymentStatus === 'partial' ? 'חלקי' :
-                              bookingDialog.bookingData.paymentStatus === 'pending' ? 'ממתין' : 
-                              'לא ידוע'
-                            }
-                            InputProps={{
-                              readOnly: true,
-                            }}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                          <TextField
-                            label="אמצעי תשלום"
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            value={
-                              bookingDialog.bookingData.paymentMethod === 'credit' ? 'כרטיס אשראי' :
-                              bookingDialog.bookingData.paymentMethod === 'cash' ? 'מזומן' :
-                              bookingDialog.bookingData.paymentMethod === 'transfer' ? 'העברה בנקאית' : 
-                              'לא ידוע'
-                            }
-                            InputProps={{
-                              readOnly: true,
-                            }}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                          <TextField
-                            label="מחיר ללילה"
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            value={`₪${bookingDialog.bookingData.pricePerNight || 0}`}
-                            InputProps={{
-                              readOnly: true,
-                            }}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                          <TextField
-                            label="סה״כ"
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            value={`₪${bookingDialog.bookingData.totalPrice || 0}`}
-                            InputProps={{
-                              readOnly: true,
-                            }}
-                          />
-                        </Grid>
-                      </Grid>
-                    </Paper>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth margin="normal">
+                        <InputLabel>סטטוס תשלום</InputLabel>
+                        <Select
+                          defaultValue={bookingDialog.bookingData.paymentStatus || 'pending'}
+                          label="סטטוס תשלום"
+                        >
+                          <MenuItem value="pending">ממתין לתשלום</MenuItem>
+                          <MenuItem value="paid">שולם</MenuItem>
+                          <MenuItem value="cancelled">בוטל</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth margin="normal">
+                        <InputLabel>חדר</InputLabel>
+                        <Select
+                          value={bookingDialog.bookingData.room?._id || ''}
+                          label="חדר"
+                        >
+                          {rooms.map(room => (
+                            <MenuItem key={room._id} value={room._id}>
+                              {room.internalName || `חדר ${room.roomNumber}`}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
                   </Grid>
                 </Grid>
-              </Box>
+                
+                {/* פרטי כרטיס אשראי */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mt: 2 }}>פרטי כרטיס אשראי</Typography>
+                  
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="שם בעל הכרטיס"
+                        fullWidth
+                        margin="normal"
+                        defaultValue={bookingDialog.bookingData.creditCard?.cardholderName || ''}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="מספר כרטיס"
+                        fullWidth
+                        margin="normal"
+                        defaultValue={formatCreditCardNumber(bookingDialog.bookingData.creditCard?.cardNumber)}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={6} sm={3}>
+                      <TextField
+                        label="תוקף (MM/YY)"
+                        fullWidth
+                        margin="normal"
+                        placeholder="MM/YY"
+                        defaultValue={formatCreditCardExpiry(bookingDialog.bookingData.creditCard)}
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{
+                          maxLength: 5,
+                          pattern: "[0-9]{2}/[0-9]{2}"
+                        }}
+                        id="creditCardExpiry"
+                        onChange={(e) => {
+                          let value = e.target.value;
+                          
+                          // אם המשתמש מכניס 2 ספרות, הוסף את הסימן '/' אוטומטית
+                          if (value.length === 2 && !value.includes('/')) {
+                            value = value + '/';
+                            e.target.value = value;
+                          }
+                          
+                          // מסנן: רק ספרות ו-'/'
+                          value = value.replace(/[^\d/]/g, '');
+                          
+                          // מבטיח פורמט MM/YY
+                          if (value.length > 0) {
+                            const parts = value.split('/');
+                            if (parts[0] && parseInt(parts[0]) > 12) {
+                              parts[0] = '12';
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              parts[1] = parts[1].substring(0, 2);
+                            }
+                            value = parts.join('/');
+                          }
+                          
+                          e.target.value = value;
+                          
+                          // עדכון הנתונים בסטייט
+                          setBookingDialog(prev => ({
+                            ...prev,
+                            bookingData: {
+                              ...prev.bookingData,
+                              creditCard: {
+                                ...prev.bookingData.creditCard,
+                                expiry: value
+                              }
+                            }
+                          }));
+                        }}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={6} sm={3}>
+                      <TextField
+                        label="CVV"
+                        fullWidth
+                        margin="normal"
+                        defaultValue={bookingDialog.bookingData.creditCard?.cvv || ''}
+                        inputProps={{
+                          maxLength: 3,
+                          pattern: "[0-9]{3}"
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Grid>
+                
+                {/* הערות */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mt: 2 }}>הערות</Typography>
+                  
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={4}
+                    margin="normal"
+                    defaultValue={bookingDialog.bookingData.notes || ''}
+                  />
+                </Grid>
+                
+                {/* כפתורי שמירה וביטול */}
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3 }}>
+                    <Button onClick={closeBookingDialog} color="inherit" variant="outlined">
+                      ביטול
+                    </Button>
+                    <Button 
+                      onClick={() => handleUpdateBooking(bookingDialog.bookingData)} 
+                      color="primary" 
+                      variant="contained"
+                      startIcon={<CheckIcon />}
+                    >
+                      שמירה
+                    </Button>
+                  </Box>
+                </Grid>
+              </Grid>
             ) : (
-              <Typography variant="body1">לא נמצאו נתונים להזמנה</Typography>
+              <Typography>לא נמצאו פרטי הזמנה</Typography>
             )}
           </DialogContent>
-          
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button 
-              onClick={closeBookingDialog} 
-              color="inherit"
-              sx={{ borderRadius: 1 }}
-            >
-              סגירה
-            </Button>
-            {bookingDialog.bookingData && (
-              <Button 
-                variant="contained" 
-                disableElevation
-                sx={{ borderRadius: 1 }}
-                onClick={() => {/* פתיחת דף עריכת הזמנה */}}
-              >
-                עריכת הזמנה
-              </Button>
-            )}
-          </DialogActions>
         </Dialog>
-      </Paper>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 
