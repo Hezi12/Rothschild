@@ -117,48 +117,28 @@ const SearchResultsPage = () => {
         }
         
         // סינון נוסף בצד הקליינט למקרה שהשרת לא סינן נכון
-        // הגבלת מספר החדרים המוצגים לפי קטגוריה בהתאם לדרישות
-        console.log('לפני סינון בקליינט, מספר חדרים:', availableRooms.length);
-        
-        // מיון לפי סוג חדר ומחיר
-        availableRooms.sort((a, b) => {
-          // קודם מיון לפי סוג חדר
-          if (a.type !== b.type) {
-            return a.type.localeCompare(b.type);
-          }
-          // אם מאותו סוג, מיין לפי מחיר מהנמוך לגבוה
-          return a.totalPrice - b.totalPrice;
-        });
-        
-        // אם מחפשים חדר אחד, הגבל למקסימום חדר אחד מכל קטגוריה
-        if (roomsCount === 1) {
-          console.log('מבצע סינון: מקסימום חדר אחד מכל קטגוריה');
-          const uniqueRoomsByType = {};
+        // צריך להיות רק חדר אחד מכל סוג עבור 1-2 אורחים
+        if (guests <= 2 && roomsCount === 1) {
+          console.log('מבצע סינון נוסף בצד הקליינט עבור 1-2 אורחים');
           
-          const filteredRooms = availableRooms.filter(room => {
-            if (!uniqueRoomsByType[room.type]) {
-              uniqueRoomsByType[room.type] = true;
-              return true;
+          // מפה לשמירת החדר הזול ביותר מכל סוג
+          const roomTypeMap = {};
+          
+          // עבור על כל החדרים ושמור את הזול ביותר מכל סוג
+          availableRooms.forEach(room => {
+            if (!roomTypeMap[room.type] || room.totalPrice < roomTypeMap[room.type].totalPrice) {
+              roomTypeMap[room.type] = room;
             }
-            return false;
           });
           
-          availableRooms = filteredRooms;
-        } 
-        // אם מחפשים שני חדרים או יותר, הגבל למקסימום 2 חדרים מכל קטגוריה
-        else if (roomsCount > 1) {
-          console.log('מבצע סינון: מקסימום 2 חדרים מכל קטגוריה');
-          const roomTypeCount = {};
+          // המר את המפה בחזרה למערך
+          availableRooms = Object.values(roomTypeMap);
           
-          const filteredRooms = availableRooms.filter(room => {
-            roomTypeCount[room.type] = (roomTypeCount[room.type] || 0) + 1;
-            return roomTypeCount[room.type] <= 2; // מגביל ל-2 חדרים מכל קטגוריה
-          });
+          // מיין לפי מחיר
+          availableRooms.sort((a, b) => a.totalPrice - b.totalPrice);
           
-          availableRooms = filteredRooms;
+          console.log('לאחר סינון נוסף בקליינט נשארו:', availableRooms.length, 'חדרים');
         }
-        
-        console.log('לאחר סינון בקליינט נשארו:', availableRooms.length, 'חדרים');
         
         // עדכון רשימת החדרים הזמינים
         setRoomsList(availableRooms);
@@ -247,14 +227,6 @@ const SearchResultsPage = () => {
       return;
     }
     
-    // בדיקה אם החדרים שנבחרו יכולים להכיל את כל האורחים
-    const totalCapacity = selectedRooms.reduce((total, room) => total + room.maxOccupancy, 0);
-    
-    if (totalCapacity < guests) {
-      showMessage(`החדרים שנבחרו יכולים להכיל מקסימום ${totalCapacity} אורחים, אך בקשת ההזמנה היא עבור ${guests} אורחים. אנא בחר חדרים נוספים או חדרים עם קיבולת גדולה יותר.`, 'error');
-      return;
-    }
-    
     // אם נבחר רק חדר אחד, עבור ישירות לדף ההזמנה עם החדר הזה
     if (selectedRooms.length === 1) {
       navigate('/booking', { 
@@ -315,8 +287,6 @@ const SearchResultsPage = () => {
     'deluxe': 'Deluxe',
     'suite': 'Suite',
     'simple': 'Simple',
-    'simple_with_balcony': 'Simple with Balcony',
-    'standard_with_balcony': 'Standard with Balcony',
     'simple_room': 'Simple',
     'standard_room': 'Standard',
     'deluxe_room': 'Deluxe',
@@ -611,14 +581,9 @@ const SearchResultsPage = () => {
                           fontSize: '1.1rem'
                         }}
                       >
-                        {/* תמיד משתמש במחיר שהתקבל מהשרת, שכבר מחושב עם/בלי מע"מ לפי סטטוס התייר */}
-                        {room.totalPrice > 0 
-                          ? Math.round(room.totalPrice / calculateNights())
-                          : room.basePrice // אם המחיר הכולל הוא 0, נציג את מחיר הבסיס
-                        }
-                        <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
-                          ₪ / לילה
-                        </Typography>
+                        ₪{isTourist 
+                          ? (room.nightsTotal ? Math.round(room.nightsTotal / calculateNights()) : room.basePrice) 
+                          : (room.totalPrice ? Math.round(room.totalPrice / calculateNights()) : Math.round((room.basePrice || 0) * 1.18))}
                       </Typography>
                       {!isTourist && (
                         <Typography 
@@ -682,37 +647,10 @@ const SearchResultsPage = () => {
                       fontWeight: 'medium',
                       fontSize: '0.75rem'
                     }}>
-                      {/* חישוב מספר האורחים לחדר */}
-                      {(() => {
-                        // חישוב מספר האורחים לחדר בהתאם למספר החדרים והאורחים הכולל
-                        let guestsPerRoom = guests;
-                        
-                        // אם יש יותר מחדר אחד, מחלקים את האורחים בין החדרים
-                        if (roomsCount > 1) {
-                          guestsPerRoom = Math.ceil(guests / roomsCount);
-                          
-                          // מגבילים למקסימום תפוסת החדר
-                          if (guestsPerRoom > room.maxOccupancy) {
-                            guestsPerRoom = room.maxOccupancy;
-                          }
-                        } else {
-                          // אם יש רק חדר אחד, מספר האורחים יהיה מספר האורחים הכולל
-                          // אבל עדיין מוגבל למקסימום תפוסת החדר
-                          if (guestsPerRoom > room.maxOccupancy) {
-                            guestsPerRoom = room.maxOccupancy;
-                          }
-                        }
-                        
-                        // הצגת האייקונים בהתאם למספר האורחים המחושב
-                        return (
-                          <>
-                            {Array.from({ length: guestsPerRoom }).map((_, index) => (
-                              <PersonIcon key={index} sx={{ fontSize: '0.85rem', color: theme.palette.primary.main }} />
-                            ))}
-                            <span style={{ marginRight: '3px' }}>{guestsPerRoom} {guestsPerRoom === 1 ? 'אורח' : 'אורחים'}</span>
-                          </>
-                        );
-                      })()}
+                      {Array.from({ length: room.maxGuests || 2 }).map((_, index) => (
+                        <PersonIcon key={index} sx={{ fontSize: '0.85rem', color: theme.palette.primary.main }} />
+                      ))}
+                      <span style={{ marginRight: '3px' }}>{room.maxGuests || 2} אורחים</span>
                     </Box>
                   </Grid>
                 </Grid>
@@ -954,8 +892,10 @@ const SearchResultsPage = () => {
                               }
                               secondary={
                                 <Typography variant="caption" color="text.secondary">
-                                  {/* תמיד שימוש במחיר הכולל שהתקבל מהשרת */}
-                                  {`${room.totalPrice > 0 ? room.totalPrice : (room.basePrice * calculateNights())} ₪ ל-${calculateNights()} לילות`}
+                                  {room.nightsTotal ? 
+                                    `${room.nightsTotal} ₪ ל-${calculateNights()} לילות` : 
+                                    `${room.basePrice * calculateNights()} ₪ ל-${calculateNights()} לילות`
+                                  }
                                 </Typography>
                               }
                               sx={{ margin: 0 }}
