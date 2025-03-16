@@ -1,6 +1,17 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import axios from 'axios';
-import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { 
+  format, 
+  addDays, 
+  addMonths, 
+  subMonths, 
+  startOfMonth, 
+  endOfMonth, 
+  isSameDay, 
+  startOfDay, 
+  differenceInDays,
+  isBefore,
+} from 'date-fns';
 import { he } from 'date-fns/locale';
 import {
   Container,
@@ -130,69 +141,116 @@ const BookingListView = () => {
   
   // טעינת הזמנות
   const fetchBookings = async () => {
-    try {
-      if (daysInView.length === 0) return;
-      
-      setLoading(true);
-      
-      // טווח תאריכים מורחב - נטען 3 ימים נוספים לפני ואחרי הטווח הנוכחי
-      const startDate = format(addDays(daysInView[0], -3), 'yyyy-MM-dd');
-      const endDate = format(addDays(daysInView[daysInView.length - 1], 3), 'yyyy-MM-dd');
-      
-      console.log(`טוען הזמנות מ-${startDate} עד ${endDate}`);
-      
-      // ניסיון טעינה עם מספר ניסיונות חוזרים במקרה של כישלון
-      let attempts = 0;
-      let success = false;
-      let error = null;
-      
-      while (attempts < 3 && !success) {
-        try {
-          const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings`, {
-            params: { startDate, endDate },
+    setLoading(true);
+    setError(null);
+    
+    // הרחבת טווח התאריכים שנטען ב-3 ימים לפני ואחרי כדי לכלול הזמנות שחופפות
+    const startDate = format(addDays(daysInView[0], -3), 'yyyy-MM-dd');
+    const endDate = format(addDays(daysInView[daysInView.length - 1], 3), 'yyyy-MM-dd');
+    
+    // ניסיון לטעון הזמנות עם מנגנון ניסיון מחדש
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    while (attempts < maxAttempts) {
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_URL}/bookings`,
+          {
+            params: { 
+              startDate,
+              endDate,
+              includeGuests: true,
+              includeRooms: true
+            },
             headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          }
+        );
+    
+        if (response.data.success && Array.isArray(response.data.data)) {
+          // סינון הזמנות לא תקינות לפני שמירה במצב
+          const validatedBookings = response.data.data.filter(booking => {
+            // בדיקה שיש לנו את כל המידע ההכרחי להצגת ההזמנה
+            if (!booking || !booking.checkIn || !booking.checkOut) {
+              console.warn("נמצאה הזמנה ללא תאריכי צ'ק-אין/צ'ק-אאוט:", booking);
+              return false;
+            }
+            
+            // בדיקה שיש לנו מידע על החדר
+            if (!booking.room) {
+              console.warn('נמצאה הזמנה ללא פרטי חדר:', booking);
+              
+              // אם יש מזהה חדר אבל לא אובייקט חדר מלא, ננסה למצוא את החדר מתוך רשימת החדרים
+              if (booking.roomId) {
+                const room = rooms.find(r => r._id === booking.roomId);
+                if (room) {
+                  booking.room = room;
+                } else {
+                  return false;
+                }
+              } else {
+                return false;
+              }
+            }
+            
+            // ודא שלחדר יש מזהה
+            if (!booking.room._id) {
+              console.warn('נמצאה הזמנה עם פרטי חדר חלקיים:', booking);
+              return false;
+            }
+            
+            return true;
           });
           
-          if (response.data.success) {
-            console.log(`נטענו ${response.data.data.length} הזמנות`);
-            setBookings(response.data.data);
-            success = true;
-          } else {
-            throw new Error('השרת החזיר תשובה שגויה');
-          }
-        } catch (err) {
-          error = err;
-          attempts++;
-          if (attempts < 3) {
-            // המתנה לפני ניסיון חוזר
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
+          console.log(`נטענו ${validatedBookings.length} הזמנות תקינות מתוך ${response.data.data.length} סה"כ`);
+          setBookings(validatedBookings);
+          setLoading(false);
+          return; // יציאה מהפונקציה אם הצלחנו
+        } else {
+          throw new Error('תגובת שרת לא תקינה');
         }
-      }
-      
-      if (!success) {
-        console.error('שגיאה בטעינת ההזמנות לאחר מספר ניסיונות:', error);
-        setError('אירעה שגיאה בטעינת ההזמנות');
+      } catch (error) {
+        console.error(`ניסיון ${attempts + 1}/${maxAttempts} נכשל:`, error);
+        attempts++;
         
-        // יתכן שיש token לא תקין - בדיקה
-        const token = localStorage.getItem('token');
-        if (!token) {
-          setError('נראה שאינך מחובר. אנא התחבר מחדש.');
+        if (attempts >= maxAttempts) {
+          console.error('כל הניסיונות לטעינת הזמנות נכשלו');
+          setError('אירעה שגיאה בטעינת ההזמנות. אנא נסה שוב מאוחר יותר.');
+          setLoading(false);
+        } else {
+          // המתנה לפני ניסיון חוזר (1 שניה, 2 שניות, וכו')
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
         }
       }
-    } catch (error) {
-      console.error('שגיאה בטעינת ההזמנות:', error);
-      setError('אירעה שגיאה בטעינת ההזמנות');
-    } finally {
-      setLoading(false);
     }
   };
   
   // פונקציה לקבלת הזמנות לחדר ספציפי ביום ספציפי
   const getBookingsForRoomAndDate = (roomId, date) => {
+    if (!roomId || !date || !bookings || !Array.isArray(bookings)) {
+      return [];
+    }
+
     const formattedDate = format(date, 'yyyy-MM-dd');
     
     return bookings.filter(booking => {
+      // בדיקה שיש לנו את כל הנתונים הדרושים
+      if (!booking || !booking.checkIn || !booking.checkOut) {
+        return false;
+      }
+
+      // בדיקה שיש לנו מידע תקין על החדר
+      if (!booking.room) {
+        console.warn('הזמנה ללא מידע על חדר:', booking);
+        return false;
+      }
+
+      if (!booking.room._id) {
+        console.warn('הזמנה עם מידע חלקי על חדר (חסר מזהה):', booking);
+        return false;
+      }
+
+      // בדיקה אם זה החדר הנכון והתאריך נמצא בטווח ההזמנה
       const checkInDate = format(new Date(booking.checkIn), 'yyyy-MM-dd');
       const checkOutDate = format(new Date(booking.checkOut), 'yyyy-MM-dd');
       
@@ -203,228 +261,69 @@ const BookingListView = () => {
   };
   
   // פונקציה לקבלת רכיב תא בטבלה
-  const getCellContent = (room, date) => {
-    const roomBookings = getBookingsForRoomAndDate(room._id, date);
+  const getCellContent = (roomId, date) => {
+    // בדיקה אם התאריך עבר כבר
+    const isPastDate = isBefore(date, startOfDay(new Date()));
+    
+    // קבלת ההזמנות לחדר ספציפי בתאריך ספציפי
+    const roomBookings = getBookingsForRoomAndDate(roomId, date);
     const isBooked = roomBookings.length > 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const cellDate = new Date(date);
-    cellDate.setHours(0, 0, 0, 0);
-    const isPast = cellDate < today;
     
-    // בדיקה האם תאריך הצ'ק-אין של ההזמנה
-    const isCheckInDate = roomBookings.length > 0 && 
-      format(new Date(roomBookings[0].checkIn), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+    // הגדרת המחיר הברירת מחדל או המחיר מהתעריף אם יש
+    let price = 400; // מחיר ברירת מחדל
+    const roomData = rooms.find(r => r._id === roomId);
     
-    // בדיקה האם תאריך הצ'ק-אאוט של ההזמנה
-    const isCheckOutDate = roomBookings.length > 0 && 
-      format(new Date(roomBookings[0].checkOut), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+    let bookingDetails = null;
+    let isCheckInDate = false;
+    let isCheckOutDate = false;
+    let totalNights = 0;
     
-    // קביעת צבע רקע מתאים
-    let bgColor = '';
-    if (isPast) {
-      bgColor = '#f5f5f5'; // אפור לתאריכים שעברו
-    } else if (isCheckInDate) {
-      bgColor = '#ffecb3'; // צהוב בהיר לתאריך צ'ק-אין
-    } else if (isCheckOutDate) {
-      bgColor = '#c8e6c9'; // ירוק בהיר לתאריך צ'ק-אאוט
-    } else if (isBooked) {
-      bgColor = '#ffcdd2'; // אדום בהיר לתאריכים תפוסים
-    } else {
-      bgColor = '#e8f5e9'; // ירוק בהיר לתאריכים פנויים
+    // אם החדר תפוס, קבל פרטי הזמנה
+    if (isBooked && roomBookings[0]) {
+      const booking = roomBookings[0];
+      
+      // בדיקה שיש לנו את כל פרטי ההזמנה שאנחנו צריכים
+      if (booking && booking.checkIn && booking.checkOut) {
+        // בדיקה אם התאריך הנוכחי הוא תאריך צ'ק-אין
+        isCheckInDate = format(new Date(booking.checkIn), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+        
+        // בדיקה אם התאריך הנוכחי הוא תאריך צ'ק-אאוט
+        isCheckOutDate = format(new Date(booking.checkOut), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+        
+        // חישוב מספר הלילות
+        totalNights = differenceInDays(new Date(booking.checkOut), new Date(booking.checkIn));
+        
+        bookingDetails = booking;
+      }
     }
     
-    // מחיר ברירת מחדל הוא מחיר הבסיס של החדר
-    let price = room.basePrice;
+    // קביעת הצבע של התא בהתאם לסטטוס ההזמנה
+    let bgColor = '#ffffff'; // צבע ברירת מחדל - לבן
     
-    // אם יש מחיר מיוחד לתאריך זה, השתמש בו במקום
-    // (כאן אפשר להוסיף לוגיקה לקבלת מחירים דינמיים)
-    
-    // פונקציית הלחיצה על התא
-    const handleCellClick = () => {
-      if (isBooked && roomBookings[0]) {
-        // אם התא תפוס, פתח את פרטי ההזמנה
-        handleViewBooking(roomBookings[0]._id);
-      } else if (!isPast) {
-        // אם התא פנוי, פתח יצירת הזמנה חדשה
-        handleAddBooking(room._id, date);
+    if (isPastDate) {
+      bgColor = '#f5f5f5'; // אפור בהיר לתאריכים שעברו
+    } else if (isBooked) {
+      if (isCheckInDate) {
+        bgColor = '#c8e6c9'; // ירוק בהיר לצ'ק-אין
+      } else if (isCheckOutDate) {
+        bgColor = '#ffcdd2'; // אדום בהיר לצ'ק-אאוט
+      } else {
+        bgColor = '#ffccbc'; // כתום/סלמון להזמנה פעילה
       }
-    };
+    }
     
-    return (
-      <Box 
-        sx={{ 
-          p: 1,
-          height: '100%',
-          minHeight: '80px',
-          bgcolor: bgColor,
-          borderRadius: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          transition: 'all 0.2s',
-          '&:hover': {
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            transform: 'scale(1.02)',
-            zIndex: 2
-          },
-          position: 'relative',
-          border: isCheckInDate ? '2px solid #ff9800' : 
-                 isCheckOutDate ? '2px solid #4caf50' : 
-                 'none',
-          cursor: isPast ? 'default' : 'pointer'
-        }}
-        onClick={handleCellClick}
-      >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Typography variant="h6" component="div" 
-            sx={{ fontSize: '1rem', fontWeight: 'bold', color: isBooked ? '#d32f2f' : isPast ? '#9e9e9e' : '#2e7d32' }}>
-            ₪{price}
-          </Typography>
-          
-          {isCheckInDate ? (
-            <Chip 
-              size="small" 
-              icon={<EventAvailableIcon />} 
-              label="צ'ק-אין" 
-              color="warning" 
-              sx={{ fontSize: '0.7rem' }} 
-            />
-          ) : isCheckOutDate ? (
-            <Chip 
-              size="small" 
-              icon={<EventAvailableIcon />} 
-              label="צ'ק-אאוט" 
-              color="success" 
-              sx={{ fontSize: '0.7rem' }} 
-            />
-          ) : isBooked ? (
-            <Chip 
-              size="small" 
-              icon={<EventBusyIcon />} 
-              label="תפוס" 
-              color="error" 
-              sx={{ fontSize: '0.7rem' }} 
-            />
-          ) : isPast ? (
-            <Chip 
-              size="small" 
-              icon={<CloseIcon />} 
-              label="עבר" 
-              color="default" 
-              sx={{ fontSize: '0.7rem' }} 
-            />
-          ) : (
-            <Chip 
-              size="small" 
-              icon={<EventAvailableIcon />} 
-              label="פנוי" 
-              color="success" 
-              sx={{ fontSize: '0.7rem' }} 
-            />
-          )}
-        </Box>
-        
-        {isBooked && roomBookings[0] && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="caption" component="div" sx={{ display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
-              <PersonIcon fontSize="inherit" sx={{ mr: 0.5 }} />
-              {roomBookings[0].guest.firstName} {roomBookings[0].guest.lastName}
-            </Typography>
-            
-            {isCheckInDate && (
-              <Typography variant="caption" component="div" sx={{ display: 'flex', alignItems: 'center', mt: 0.5, color: '#ff9800' }}>
-                כניסה היום
-              </Typography>
-            )}
-            
-            {isCheckOutDate && (
-              <Typography variant="caption" component="div" sx={{ display: 'flex', alignItems: 'center', mt: 0.5, color: '#4caf50' }}>
-                יציאה היום
-              </Typography>
-            )}
-            
-            {!isCheckInDate && !isCheckOutDate && (
-              <Typography variant="caption" component="div" sx={{ mt: 0.5, color: '#666' }}>
-                {roomBookings[0].nights} לילות
-              </Typography>
-            )}
-          </Box>
-        )}
-        
-        {isAdmin() && (
-          <Box sx={{ 
-            position: 'absolute', 
-            bottom: 2, 
-            right: 2, 
-            display: 'flex', 
-            opacity: isBooked ? 0.7 : 0,
-            transition: 'opacity 0.2s',
-            '.MuiBox-root:hover > &': {
-              opacity: 1
-            }
-          }}>
-            <Tooltip title="עדכון מחיר">
-              <IconButton 
-                size="small" 
-                color="primary" 
-                onClick={(e) => {
-                  e.stopPropagation(); // מניעת הפעלת אירוע הלחיצה על התא
-                  handlePriceDialogOpen(room._id, date, price);
-                }}
-                sx={{ 
-                  p: 0.5,
-                  bgcolor: 'rgba(255, 255, 255, 0.7)',
-                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.9)' } 
-                }}
-              >
-                <AttachMoneyIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            
-            {isBooked ? (
-              <Tooltip title="צפייה בהזמנה">
-                <IconButton 
-                  size="small" 
-                  color="error" 
-                  onClick={(e) => {
-                    e.stopPropagation(); // מניעת הפעלת אירוע הלחיצה על התא
-                    handleViewBooking(roomBookings[0]._id);
-                  }}
-                  sx={{ 
-                    p: 0.5, 
-                    ml: 0.5,
-                    bgcolor: 'rgba(255, 255, 255, 0.7)',
-                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.9)' } 
-                  }}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            ) : (
-              <Tooltip title="הזמנה חדשה">
-                <IconButton 
-                  size="small" 
-                  color="success" 
-                  onClick={(e) => {
-                    e.stopPropagation(); // מניעת הפעלת אירוע הלחיצה על התא
-                    handleAddBooking(room._id, date);
-                  }}
-                  sx={{ 
-                    p: 0.5,
-                    ml: 0.5,
-                    bgcolor: 'rgba(255, 255, 255, 0.7)',
-                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.9)' } 
-                  }}
-                >
-                  <AddIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Box>
-        )}
-      </Box>
-    );
+    return {
+      roomId,
+      date,
+      price,
+      isBooked,
+      isPastDate,
+      isCheckInDate,
+      isCheckOutDate,
+      totalNights,
+      bookingDetails,
+      bgColor
+    };
   };
   
   // פונקציה לפתיחת דיאלוג עריכת מחיר
@@ -472,6 +371,11 @@ const BookingListView = () => {
   // פונקציה לצפייה בהזמנה
   const handleViewBooking = async (bookingId) => {
     try {
+      if (!bookingId) {
+        toast.error('מזהה הזמנה לא תקין');
+        return;
+      }
+      
       // פתיחת הדיאלוג עם מצב טעינה
       setViewBookingDialog({
         open: true,
@@ -485,10 +389,26 @@ const BookingListView = () => {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       
-      if (response.data.success) {
+      if (response.data.success && response.data.data) {
+        // בדיקת תקינות הנתונים
+        const bookingData = response.data.data;
+        
+        // בדיקה אם יש נתוני חדר חסרים, וניסיון למצוא אותם
+        if (!bookingData.room || !bookingData.room._id) {
+          console.warn('הזמנה ללא פרטי חדר מלאים:', bookingData);
+          
+          // אם יש roomId נפרד, ננסה למצוא את החדר
+          if (bookingData.roomId) {
+            const room = rooms.find(r => r._id === bookingData.roomId);
+            if (room) {
+              bookingData.room = room;
+            }
+          }
+        }
+        
         setViewBookingDialog(prev => ({
           ...prev,
-          bookingData: response.data.data,
+          bookingData: bookingData,
           loading: false
         }));
       } else {
@@ -562,6 +482,210 @@ const BookingListView = () => {
     setActiveTab(newValue);
   };
   
+  // פונקציה לרינדור תא בטבלה
+  const TableCellContent = ({ cellData }) => {
+    const {
+      roomId,
+      date,
+      price,
+      isBooked,
+      isPastDate,
+      isCheckInDate,
+      isCheckOutDate,
+      totalNights,
+      bookingDetails,
+      bgColor
+    } = cellData;
+
+    // פונקציית לחיצה על התא
+    const handleCellClick = () => {
+      if (isBooked && bookingDetails && bookingDetails._id) {
+        // אם התא תפוס, פתח את פרטי ההזמנה
+        handleViewBooking(bookingDetails._id);
+      } else if (!isPastDate) {
+        // אם התא פנוי, פתח יצירת הזמנה חדשה
+        handleAddBooking(roomId, date);
+      }
+    };
+
+    return (
+      <Box 
+        sx={{ 
+          p: 1,
+          height: '100%',
+          minHeight: '80px',
+          bgcolor: bgColor,
+          borderRadius: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          transition: 'all 0.2s',
+          '&:hover': {
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            transform: 'scale(1.02)',
+            zIndex: 2
+          },
+          position: 'relative',
+          border: isCheckInDate ? '2px solid #4caf50' : 
+                  isCheckOutDate ? '2px solid #f44336' : 
+                  'none',
+          cursor: isPastDate ? 'default' : 'pointer'
+        }}
+        onClick={handleCellClick}
+      >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Typography variant="h6" component="div" 
+            sx={{ fontSize: '1rem', fontWeight: 'bold', color: isBooked ? '#d32f2f' : isPastDate ? '#9e9e9e' : '#2e7d32' }}>
+            ₪{price}
+          </Typography>
+          
+          {isCheckInDate ? (
+            <Chip 
+              size="small" 
+              icon={<EventAvailableIcon />} 
+              label="צ'ק-אין" 
+              color="success" 
+              sx={{ fontSize: '0.7rem' }} 
+            />
+          ) : isCheckOutDate ? (
+            <Chip 
+              size="small" 
+              icon={<EventAvailableIcon />} 
+              label="צ'ק-אאוט" 
+              color="error" 
+              sx={{ fontSize: '0.7rem' }} 
+            />
+          ) : isBooked ? (
+            <Chip 
+              size="small" 
+              icon={<EventBusyIcon />} 
+              label="תפוס" 
+              color="warning" 
+              sx={{ fontSize: '0.7rem' }} 
+            />
+          ) : isPastDate ? (
+            <Chip 
+              size="small" 
+              icon={<CloseIcon />} 
+              label="עבר" 
+              color="default" 
+              sx={{ fontSize: '0.7rem' }} 
+            />
+          ) : (
+            <Chip 
+              size="small" 
+              icon={<EventAvailableIcon />} 
+              label="פנוי" 
+              color="success" 
+              sx={{ fontSize: '0.7rem' }} 
+            />
+          )}
+        </Box>
+        
+        {isBooked && bookingDetails && bookingDetails.guest && (
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="caption" component="div" sx={{ display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
+              <PersonIcon fontSize="inherit" sx={{ mr: 0.5 }} />
+              {bookingDetails.guest.firstName} {bookingDetails.guest.lastName}
+            </Typography>
+            
+            {isCheckInDate && (
+              <Typography variant="caption" component="div" sx={{ display: 'flex', alignItems: 'center', mt: 0.5, color: '#4caf50' }}>
+                כניסה היום
+              </Typography>
+            )}
+            
+            {isCheckOutDate && (
+              <Typography variant="caption" component="div" sx={{ display: 'flex', alignItems: 'center', mt: 0.5, color: '#f44336' }}>
+                יציאה היום
+              </Typography>
+            )}
+            
+            {!isCheckInDate && !isCheckOutDate && (
+              <Typography variant="caption" component="div" sx={{ mt: 0.5, color: '#666' }}>
+                {totalNights} לילות
+              </Typography>
+            )}
+          </Box>
+        )}
+        
+        {isAdmin() && (
+          <Box sx={{ 
+            position: 'absolute', 
+            bottom: 2, 
+            right: 2, 
+            display: 'flex', 
+            opacity: 0.7,
+            transition: 'opacity 0.2s',
+            '.MuiBox-root:hover > &': {
+              opacity: 1
+            }
+          }}>
+            <Tooltip title="עדכון מחיר">
+              <IconButton 
+                size="small" 
+                color="primary" 
+                onClick={(e) => {
+                  e.stopPropagation(); // מניעת הפעלת אירוע הלחיצה על התא
+                  handlePriceDialogOpen(roomId, date, price);
+                }}
+                sx={{ 
+                  p: 0.5,
+                  bgcolor: 'rgba(255, 255, 255, 0.7)',
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.9)' } 
+                }}
+              >
+                <AttachMoneyIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            
+            {isBooked && bookingDetails && bookingDetails._id ? (
+              <Tooltip title="צפייה בהזמנה">
+                <IconButton 
+                  size="small" 
+                  color="error" 
+                  onClick={(e) => {
+                    e.stopPropagation(); // מניעת הפעלת אירוע הלחיצה על התא
+                    if (bookingDetails && bookingDetails._id) {
+                      handleViewBooking(bookingDetails._id);
+                    }
+                  }}
+                  sx={{ 
+                    p: 0.5, 
+                    ml: 0.5,
+                    bgcolor: 'rgba(255, 255, 255, 0.7)',
+                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.9)' } 
+                  }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Tooltip title="הזמנה חדשה">
+                <IconButton 
+                  size="small" 
+                  color="success" 
+                  onClick={(e) => {
+                    e.stopPropagation(); // מניעת הפעלת אירוע הלחיצה על התא
+                    handleAddBooking(roomId, date);
+                  }}
+                  sx={{ 
+                    p: 0.5,
+                    ml: 0.5,
+                    bgcolor: 'rgba(255, 255, 255, 0.7)',
+                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.9)' } 
+                  }}
+                >
+                  <AddIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
   return (
     <Container maxWidth="xl" sx={{ mt: 2, mb: 4 }}>
       <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
@@ -632,80 +756,83 @@ const BookingListView = () => {
             ) : error ? (
               <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
             ) : (
-              <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 'calc(100vh - 250px)', overflow: 'auto' }}>
+              <TableContainer 
+                component={Paper} 
+                sx={{ 
+                  mt: 2, 
+                  mb: 4, 
+                  maxHeight: 'calc(100vh - 250px)', 
+                  overflowY: 'auto',
+                  borderRadius: 2,
+                  boxShadow: 3
+                }}
+              >
                 <Table stickyHeader>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', minWidth: '150px' }}>חדר</TableCell>
-                      
-                      {daysInView.map((day, index) => {
-                        const isToday = isSameDay(day, new Date());
-                        return (
-                          <TableCell key={index} align="center" sx={{ 
-                            minWidth: '120px',
-                            bgcolor: isToday ? '#e3f2fd' : 'inherit',
-                            fontWeight: isToday ? 'bold' : 'normal'
-                          }}>
-                            <Typography variant="subtitle2" component="div">
+                      <TableCell 
+                        sx={{ 
+                          width: 150, 
+                          bgcolor: (theme) => theme.palette.primary.main, 
+                          color: 'white',
+                          position: 'sticky',
+                          left: 0,
+                          zIndex: 3,
+                          borderBottom: 'none',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        חדר
+                      </TableCell>
+                      {daysInView.map((day, index) => (
+                        <TableCell 
+                          key={index} 
+                          align="center" 
+                          sx={{ 
+                            minWidth: 180,
+                            bgcolor: isSameDay(day, new Date()) ? '#e3f2fd' : (theme) => theme.palette.primary.light,
+                            color: (theme) => theme.palette.primary.contrastText,
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          <Box>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                               {format(day, 'EEEE', { locale: he })}
                             </Typography>
-                            <Typography variant="body2" component="div">
-                              {format(day, 'dd/MM/yyyy')}
+                            <Typography variant="caption">
+                              {format(day, 'dd.MM.yyyy', { locale: he })}
                             </Typography>
-                          </TableCell>
-                        );
-                      })}
+                          </Box>
+                        </TableCell>
+                      ))}
                     </TableRow>
                   </TableHead>
-                  
                   <TableBody>
-                    {rooms.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={daysInView.length + 1} align="center">
-                          <Typography variant="subtitle1">אין חדרים להצגה</Typography>
+                    {rooms.map((room) => (
+                      <TableRow key={room._id}>
+                        <TableCell 
+                          sx={{ 
+                            position: 'sticky', 
+                            left: 0, 
+                            bgcolor: '#f5f5f5',
+                            zIndex: 2,
+                            width: 150
+                          }}
+                        >
+                          <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                            {room.name}
+                          </Typography>
+                          <Typography variant="caption" color="textSecondary">
+                            {room.type}
+                          </Typography>
                         </TableCell>
-                      </TableRow>
-                    ) : (
-                      rooms.map(room => (
-                        <TableRow key={room._id}>
-                          <TableCell 
-                            component="th" 
-                            scope="row" 
-                            sx={{ 
-                              fontWeight: 'bold',
-                              position: 'sticky',
-                              left: 0,
-                              bgcolor: 'background.paper',
-                              zIndex: 1
-                            }}
-                          >
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              <HotelIcon sx={{ mr: 1, color: 'primary.main' }} />
-                              <Box>
-                                <Typography variant="subtitle2" component="div">
-                                  {room.internalName || `חדר ${room.roomNumber}`}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {room.type === 'standard' ? 'סטנדרט' : 
-                                   room.type === 'deluxe' ? 'דלוקס' : 
-                                   room.type === 'suite' ? 'סוויטה' : 
-                                   room.type === 'simple' ? 'פשוט' : 
-                                   room.type === 'simple_with_balcony' ? 'פשוט עם מרפסת' : 
-                                   room.type === 'standard_with_balcony' ? 'סטנדרט עם מרפסת' : 
-                                   room.type}
-                                </Typography>
-                              </Box>
-                            </Box>
+                        {daysInView.map((day, index) => (
+                          <TableCell key={index} sx={{ p: 1 }}>
+                            <TableCellContent cellData={getCellContent(room._id, day)} />
                           </TableCell>
-                          
-                          {daysInView.map((day, index) => (
-                            <TableCell key={index} sx={{ p: 1 }}>
-                              {getCellContent(room, day)}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))
-                    )}
+                        ))}
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </TableContainer>
