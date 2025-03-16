@@ -308,17 +308,17 @@ const BookingListView = () => {
   // קבלת צבע רקע לפי סטטוס
   const getCellBgColor = (isBooked, isPast, paymentStatus, isMultiDay) => {
     if (isPast) {
-      return '#f1f1f1'; // אפור בהיר לתאריך שעבר
+      return '#f5f7fa'; // אפור בהיר יותר לתאריך שעבר
     } else if (isBooked) {
       if (paymentStatus === 'paid') {
-        return isMultiDay ? 'linear-gradient(135deg, #b3e5fc 0%, #4fc3f7 100%)' : '#4fc3f7'; // גרדיאנט כחול
+        return isMultiDay ? 'linear-gradient(135deg, #e3f2fd 0%, #42a5f5 100%)' : '#42a5f5'; // גרדיאנט כחול משופר
       } else if (paymentStatus === 'partial') {
-        return isMultiDay ? 'linear-gradient(135deg, #c8e6c9 0%, #66bb6a 100%)' : '#66bb6a'; // גרדיאנט ירוק
+        return isMultiDay ? 'linear-gradient(135deg, #e8f5e9 0%, #4caf50 100%)' : '#4caf50'; // גרדיאנט ירוק משופר
       } else {
-        return isMultiDay ? 'linear-gradient(135deg, #fff9c4 0%, #ffee58 100%)' : '#ffee58'; // גרדיאנט צהוב
+        return isMultiDay ? 'linear-gradient(135deg, #ffebee 0%, #ef5350 100%)' : '#ef5350'; // גרדיאנט אדום בהיר במקום צהוב
       }
     } else {
-      return '#ffffff'; // לבן לתא פנוי
+      return 'linear-gradient(135deg, #ffffff 0%, #f9fafc 100%)'; // גרדיאנט לבן עדין לתא פנוי
     }
   };
   
@@ -365,8 +365,8 @@ const BookingListView = () => {
       
       // חישוב סגנון עבור תאים מרובי ימים
       const multiDayStyle = {
-        borderRadius: '2px',
-        boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+        borderRadius: '4px',
+        boxShadow: '0 3px 8px rgba(0,0,0,0.08)',
         position: 'relative',
         margin: '0 -1px', // הרחבה מעבר לגבולות התא
         zIndex: 1,
@@ -376,28 +376,41 @@ const BookingListView = () => {
         multiDayStyle.borderTopLeftRadius = '8px';
         multiDayStyle.borderBottomLeftRadius = '8px';
         multiDayStyle.marginLeft = '0';
-        multiDayStyle.borderLeft = '5px solid #2196f3';
+        multiDayStyle.borderLeft = paymentStatus === 'paid' 
+          ? '5px solid #1e88e5' 
+          : paymentStatus === 'partial' 
+            ? '5px solid #43a047' 
+            : '5px solid #e53935';
       } else if (multiDayInfo.isEnd) {
         multiDayStyle.borderTopRightRadius = '8px';
         multiDayStyle.borderBottomRightRadius = '8px';
         multiDayStyle.marginRight = '0';
-        multiDayStyle.borderRight = '5px solid #2196f3';
+        multiDayStyle.borderRight = paymentStatus === 'paid' 
+          ? '5px solid #1e88e5' 
+          : paymentStatus === 'partial' 
+            ? '5px solid #43a047' 
+            : '5px solid #e53935';
       } else if (multiDayInfo.isMiddle) {
         multiDayStyle.borderRadius = '0';
-        multiDayStyle.borderTop = '1px dashed rgba(0,0,0,0.1)';
-        multiDayStyle.borderBottom = '1px dashed rgba(0,0,0,0.1)';
+        multiDayStyle.borderTop = '1px dashed rgba(0,0,0,0.05)';
+        multiDayStyle.borderBottom = '1px dashed rgba(0,0,0,0.05)';
       }
       
       // סגנון הטקסט
       const guestNameStyle = {
         fontWeight: 'bold', 
         textAlign: 'center',
-        fontSize: multiDayInfo.isMultiDay ? '0.9rem' : '1rem',
-        color: '#333333',
-        whiteSpace: 'nowrap',
+        fontSize: multiDayInfo.isMultiDay ? '0.75rem' : '0.85rem',
+        color: paymentStatus === 'paid' || paymentStatus === 'partial' ? '#333333' : '#ffffff',
+        display: '-webkit-box',
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical',
         overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        maxWidth: '100%'
+        lineHeight: '1.2',
+        maxHeight: '2.4em',
+        wordBreak: 'break-word',
+        margin: '0 auto',
+        width: '90%'
       };
       
       // הצגת מספר לילות בתא הראשון
@@ -414,23 +427,36 @@ const BookingListView = () => {
             background: getCellBgColor(isBooked, isPast, paymentStatus, multiDayInfo.isMultiDay),
             transition: 'all 0.3s',
             '&:hover': {
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              transform: 'translateY(-2px)',
+              boxShadow: '0 6px 15px rgba(0,0,0,0.12)',
+              transform: 'translateY(-3px)',
               cursor: 'pointer'
             },
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
+            position: 'relative',
+            pt: 2.5,
+            pb: multiDayInfo.isStart && nights > 1 ? 2.5 : 1,
+            backdropFilter: 'blur(8px)',
             ...multiDayStyle
           }}
           onClick={() => isBooked && handleViewBooking(booking._id)}
         >
           {/* אייקון שמציין את סטטוס התשלום */}
-          <Box sx={{ position: 'absolute', top: 5, right: 5 }}>
-            {paymentStatus === 'paid' && <CheckCircleIcon fontSize="small" sx={{ color: '#1976d2' }} />}
-            {paymentStatus === 'partial' && <PendingIcon fontSize="small" sx={{ color: '#388e3c' }} />}
-            {(!paymentStatus || paymentStatus === 'unpaid') && <ErrorIcon fontSize="small" sx={{ color: '#f57c00' }} />}
+          <Box sx={{ 
+            position: 'absolute', 
+            top: 4, 
+            right: 4,
+            width: '16px',
+            height: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            {paymentStatus === 'paid' && <CheckCircleIcon fontSize="small" sx={{ color: '#1e88e5', fontSize: '0.95rem' }} />}
+            {paymentStatus === 'partial' && <PendingIcon fontSize="small" sx={{ color: '#43a047', fontSize: '0.95rem' }} />}
+            {(!paymentStatus || paymentStatus === 'unpaid') && <ErrorIcon fontSize="small" sx={{ color: '#ffffff', fontSize: '0.95rem' }} />}
           </Box>
           
           <Typography variant="body1" component="div" sx={guestNameStyle}>
@@ -445,7 +471,17 @@ const BookingListView = () => {
               label={`${nights} לילות`} 
               color="primary" 
               variant="outlined" 
-              sx={{ mt: 1, fontSize: '0.7rem' }} 
+              sx={{ 
+                mt: 0.5, 
+                fontSize: '0.65rem',
+                height: '18px',
+                backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                backdropFilter: 'blur(4px)',
+                '& .MuiChip-label': {
+                  px: 0.5,
+                  py: 0
+                }
+              }} 
             />
           )}
         </Box>
@@ -478,13 +514,14 @@ const BookingListView = () => {
             p: 1,
             height: '100%',
             minHeight: '80px',
-            bgcolor: '#ffffff',
+            background: 'linear-gradient(135deg, #ffffff 0%, #f9fafc 100%)',
             border: '1px solid #e0e0e0',
-            borderRadius: '4px',
-            transition: 'all 0.2s',
+            borderRadius: '8px',
+            transition: 'all 0.3s',
             '&:hover': {
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-              borderColor: '#bbdefb'
+              boxShadow: '0 6px 12px rgba(0,0,0,0.08)',
+              borderColor: '#bbdefb',
+              transform: 'translateY(-2px)',
             },
             display: 'flex',
             flexDirection: 'column',
@@ -822,7 +859,8 @@ const BookingListView = () => {
     <Box sx={{ 
       background: 'linear-gradient(to bottom, #f9fbfd 0%, #ffffff 100%)',
       minHeight: '100vh',
-      py: 3
+      py: 3,
+      backgroundImage: 'url("data:image/svg+xml,%3Csvg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 3 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z" fill="%23f0f3f8" fill-opacity="0.3" fill-rule="evenodd"/%3E%3C/svg%3E")',
     }}>
       <Container maxWidth="xl">
         <Paper 
@@ -832,7 +870,8 @@ const BookingListView = () => {
             mb: 3, 
             borderRadius: 2,
             overflow: 'hidden',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
+            boxShadow: '0 8px 30px rgba(0,0,0,0.06)',
+            background: 'linear-gradient(to bottom right, #ffffff, #f9fafc)'
           }}
         >
           <Grid container spacing={2} alignItems="center" sx={{ mb: 3 }}>
@@ -1084,22 +1123,27 @@ const BookingListView = () => {
                     display: 'flex', 
                     justifyContent: 'center',
                     flexWrap: 'wrap',
-                    gap: 2
+                    gap: 2,
+                    backgroundColor: 'rgba(255,255,255,0.8)',
+                    backdropFilter: 'blur(10px)',
+                    padding: 2,
+                    borderRadius: 2,
+                    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.05)'
                   }}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Box sx={{ width: 16, height: 16, borderRadius: 1, bgcolor: '#4fc3f7', mr: 1 }} />
+                      <Box sx={{ width: 16, height: 16, borderRadius: 2, bgcolor: '#42a5f5', mr: 1, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }} />
                       <Typography variant="caption">הזמנה - שולם</Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Box sx={{ width: 16, height: 16, borderRadius: 1, bgcolor: '#66bb6a', mr: 1 }} />
+                      <Box sx={{ width: 16, height: 16, borderRadius: 2, bgcolor: '#4caf50', mr: 1, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }} />
                       <Typography variant="caption">הזמנה - שולם חלקית</Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Box sx={{ width: 16, height: 16, borderRadius: 1, bgcolor: '#ffee58', mr: 1 }} />
+                      <Box sx={{ width: 16, height: 16, borderRadius: 2, bgcolor: '#ef5350', mr: 1, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }} />
                       <Typography variant="caption">הזמנה - לא שולם</Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Box sx={{ width: 16, height: 16, borderRadius: 1, bgcolor: '#f1f1f1', mr: 1 }} />
+                      <Box sx={{ width: 16, height: 16, borderRadius: 2, bgcolor: '#f5f7fa', mr: 1, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }} />
                       <Typography variant="caption">תאריך שעבר</Typography>
                     </Box>
                   </Box>
@@ -1156,6 +1200,13 @@ const BookingListView = () => {
           onClose={closeBookingDialog} 
           maxWidth="md" 
           fullWidth
+          PaperProps={{
+            style: {
+              borderRadius: '12px',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.12)',
+              background: 'linear-gradient(to bottom right, #ffffff, #f9fafc)'
+            }
+          }}
         >
           <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 1 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
