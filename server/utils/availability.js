@@ -13,11 +13,15 @@ const Booking = require('../models/Booking');
  */
 exports.isAvailable = async (roomId, checkIn, checkOut) => {
   try {
+    console.log(`בדיקת זמינות לחדר ${roomId} בתאריכים ${checkIn} עד ${checkOut}`);
+    
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
     
+    console.log(`תאריכי בדיקה מעובדים: צ'ק-אין ${checkInDate.toISOString()}, צ'ק-אאוט ${checkOutDate.toISOString()}`);
+    
     // בדיקה אם יש הזמנות חופפות
-    const overlappingBookings = await Booking.find({
+    const query = {
       $or: [
         // הזמנה רגילה (חדר בודד)
         {
@@ -44,7 +48,25 @@ exports.isAvailable = async (roomId, checkIn, checkOut) => {
           ]
         }
       ]
-    });
+    };
+    
+    console.log(`שאילתת בדיקת זמינות: ${JSON.stringify(query)}`);
+    
+    const overlappingBookings = await Booking.find(query);
+    
+    console.log(`נמצאו ${overlappingBookings.length} הזמנות חופפות לחדר ${roomId}`);
+    
+    if (overlappingBookings.length > 0) {
+      console.log(`פרטי הזמנות חופפות: ${JSON.stringify(overlappingBookings.map(booking => ({
+        id: booking._id,
+        bookingNumber: booking.bookingNumber,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        isMultiRoom: booking.isMultiRoomBooking,
+        room: booking.room,
+        rooms: booking.rooms
+      })))}`);
+    }
     
     // אם אין הזמנות חופפות, החדר זמין
     return overlappingBookings.length === 0;

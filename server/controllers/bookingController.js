@@ -44,6 +44,8 @@ exports.generateBookingNumber = generateBookingNumber;
 // @access  Private (helper function)
 const checkRoomAvailability = async (roomId, checkInDate, checkOutDate, excludeBookingId = null) => {
   try {
+    console.log(`בדיקת זמינות חדר ${roomId} בתאריכים ${checkInDate} עד ${checkOutDate}${excludeBookingId ? `, מחריג הזמנה ${excludeBookingId}` : ''}`);
+    
     // וידוא שהתאריכים הם אובייקטי Date ושהשעות מאופסות לחצות
     const checkIn = new Date(checkInDate);
     checkIn.setHours(0, 0, 0, 0);
@@ -51,8 +53,10 @@ const checkRoomAvailability = async (roomId, checkInDate, checkOutDate, excludeB
     const checkOut = new Date(checkOutDate);
     checkOut.setHours(0, 0, 0, 0);
     
-    // בניית תנאי החיפוש
-    const query = {
+    console.log(`תאריכי בדיקה מעובדים: צ'ק-אין ${checkIn.toISOString()}, צ'ק-אאוט ${checkOut.toISOString()}`);
+    
+    // בניית שאילתה לבדיקת חפיפות בהזמנות רגילות (שדה room)
+    const regularBookingQuery = {
       room: roomId,
       status: { $ne: 'canceled' },
       $or: [
@@ -64,15 +68,60 @@ const checkRoomAvailability = async (roomId, checkInDate, checkOutDate, excludeB
       ]
     };
     
-    // אם יש מזהה הזמנה להחרגה (למשל בעדכון הזמנה), נוסיף תנאי
+    // בניית שאילתה לבדיקת חפיפות בהזמנות מרובות חדרים (שדה rooms)
+    const multiRoomBookingQuery = {
+      rooms: roomId,
+      status: { $ne: 'canceled' },
+      $or: [
+        // בדיקת חפיפה: כל הזמנה שמסתיימת אחרי צ'ק אין וגם מתחילה לפני צ'ק אאוט
+        { 
+          checkIn: { $lt: checkOut },
+          checkOut: { $gt: checkIn }
+        }
+      ]
+    };
+    
+    // אם יש מזהה הזמנה להחרגה, נוסיף אותו לשתי השאילתות
     if (excludeBookingId) {
-      query._id = { $ne: excludeBookingId };
+      regularBookingQuery._id = { $ne: excludeBookingId };
+      multiRoomBookingQuery._id = { $ne: excludeBookingId };
+      console.log(`מחריג הזמנה ${excludeBookingId} מבדיקת הזמינות`);
     }
     
-    // בדיקה אם יש הזמנות חופפות
-    const overlappingBookings = await Booking.find(query).populate('room', 'roomNumber type');
+    console.log(`שאילתת בדיקת הזמנות רגילות: ${JSON.stringify(regularBookingQuery)}`);
+    console.log(`שאילתת בדיקת הזמנות מרובות חדרים: ${JSON.stringify(multiRoomBookingQuery)}`);
     
-    return overlappingBookings.length === 0;
+    // בדיקה אם יש הזמנות חופפות (רגילות או מרובות חדרים)
+    const regularOverlappingBookings = await Booking.find(regularBookingQuery);
+    const multiRoomOverlappingBookings = await Booking.find(multiRoomBookingQuery);
+    
+    console.log(`נמצאו ${regularOverlappingBookings.length} הזמנות רגילות חופפות לחדר ${roomId}`);
+    console.log(`נמצאו ${multiRoomOverlappingBookings.length} הזמנות מרובות חדרים חופפות לחדר ${roomId}`);
+    
+    if (regularOverlappingBookings.length > 0) {
+      console.log(`פרטי הזמנות רגילות חופפות: ${JSON.stringify(regularOverlappingBookings.map(booking => ({
+        id: booking._id,
+        bookingNumber: booking.bookingNumber,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut
+      })))}`);
+    }
+    
+    if (multiRoomOverlappingBookings.length > 0) {
+      console.log(`פרטי הזמנות מרובות חדרים חופפות: ${JSON.stringify(multiRoomOverlappingBookings.map(booking => ({
+        id: booking._id,
+        bookingNumber: booking.bookingNumber,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        rooms: booking.rooms
+      })))}`);
+    }
+    
+    const totalOverlappingBookings = regularOverlappingBookings.length + multiRoomOverlappingBookings.length;
+    
+    console.log(`בדיקת זמינות חדר ${roomId}: נמצאו ${totalOverlappingBookings} הזמנות חופפות בתאריכים ${checkIn} עד ${checkOut}`);
+    
+    return totalOverlappingBookings === 0;
   } catch (error) {
     console.error('שגיאה בבדיקת זמינות חדר:', error);
     throw error;
@@ -227,11 +276,14 @@ exports.createBooking = async (req, res) => {
     // בדיקת זמינות החדר
     const isAvailable = await checkRoomAvailability(roomId, checkInDate, checkOutDate);
     if (!isAvailable) {
+      console.error(`החדר ${roomId} אינו זמין בתאריכים ${checkInDate} עד ${checkOutDate}. הזמנה נדחתה.`);
       return res.status(400).json({
         success: false,
         message: 'החדר אינו זמין בתאריכים המבוקשים'
       });
     }
+    
+    console.log(`החדר ${roomId} זמין בתאריכים ${checkInDate} עד ${checkOutDate}. ממשיך ביצירת ההזמנה.`);
 
     // יצירת מספר הזמנה ייחודי
     const bookingNumber = await generateBookingNumber();
@@ -743,43 +795,6 @@ exports.hardDeleteBooking = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'אירעה שגיאה במחיקת ההזמנה לצמיתות',
-      error: error.message
-    });
-  }
-};
-
-// מחיקה מוחלטת של מספר הזמנות
-exports.hardDeleteManyBookings = async (req, res) => {
-  try {
-    const { bookingIds } = req.body;
-    
-    if (!bookingIds || !Array.isArray(bookingIds) || bookingIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'נדרש מערך תקין של מזהי הזמנות'
-      });
-    }
-    
-    // מחיקה מוחלטת של ההזמנות מהמסד נתונים
-    const result = await Booking.deleteMany({ _id: { $in: bookingIds } });
-    
-    if (result.deletedCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'לא נמצאו הזמנות למחיקה'
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: `${result.deletedCount} הזמנות נמחקו לצמיתות בהצלחה`,
-      deletedCount: result.deletedCount
-    });
-  } catch (error) {
-    console.error('שגיאה במחיקת הזמנות לצמיתות:', error);
-    res.status(500).json({
-      success: false,
-      message: 'אירעה שגיאה במחיקת ההזמנות לצמיתות',
       error: error.message
     });
   }

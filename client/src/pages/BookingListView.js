@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import axios from 'axios';
-import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, isSameDay, getDay } from 'date-fns';
 import { he } from 'date-fns/locale';
 import {
   Container,
@@ -59,6 +59,7 @@ import {
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 
 // קומפוננטה ראשית - תצוגת רשימת הזמנות מודרנית
 const BookingListView = () => {
@@ -103,11 +104,94 @@ const BookingListView = () => {
     setDaysInView(days);
   }, [daysToShow]);
   
-  // טעינת נתונים
-  useEffect(() => {
-    fetchRooms();
-    fetchBookings();
-  }, [daysInView]);
+  // משתנה סטייט למחירים דינמיים
+  const [dynamicPrices, setDynamicPrices] = useState([]);
+  
+  const navigate = useNavigate();
+  
+  // פונקציה לטעינת מחירים דינמיים
+  const fetchDynamicPrices = async (startDate, endDate) => {
+    try {
+      const formattedStartDate = format(startDate, 'yyyy-MM-dd');
+      const formattedEndDate = format(addDays(endDate, 7), 'yyyy-MM-dd'); // נוסיף שבוע נוסף לטווח שאנחנו מציגים
+      
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/dynamic-prices`, {
+        params: {
+          startDate: formattedStartDate,
+          endDate: formattedEndDate
+        },
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      if (response.data && response.data.prices) {
+        setDynamicPrices(response.data.prices);
+        console.log('נטענו מחירים דינמיים:', response.data.prices.length);
+      }
+    } catch (error) {
+      // שגיאת 404 מעידה שהנתיב לא קיים, לא נציג הודעה כדי לא להבהיל את המשתמש
+      if (error.response && error.response.status === 404) {
+        console.log('נתיב המחירים הדינמיים אינו זמין, המערכת תשתמש במחירים הרגילים');
+        // אתחול מערך ריק כדי שהקוד ידע להשתמש במחירים רגילים
+        setDynamicPrices([]);
+      } else {
+        // שגיאות אחרות - רישום לקונסול בלבד, ללא הודעה למשתמש
+        console.error('שגיאה בטעינת מחירים דינמיים:', error);
+      }
+    }
+  };
+  
+  // פונקציה לקבלת מחיר לחדר ספציפי ביום ספציפי
+  const getPriceForRoomAndDate = (roomId, date) => {
+    const formattedDate = format(new Date(date), 'yyyy-MM-dd');
+    
+    // חיפוש מחיר דינמי למועד ספציפי
+    const dynamicPrice = dynamicPrices.find(
+      dp => dp.roomId === roomId && dp.date === formattedDate
+    );
+    
+    if (dynamicPrice) {
+      return dynamicPrice.price;
+    }
+    
+    // אם אין מחיר דינמי, השתמש במחירי החדר הרגילים
+    const room = rooms.find(r => r._id === roomId);
+    if (!room) return 0;
+    
+    const dayOfWeek = getDay(new Date(date));
+    
+    // בדוק אם יש מחירים מיוחדים במפת specialPrices
+    if (room.specialPrices) {
+      try {
+        // יום שישי (5)
+        if (dayOfWeek === 5) {
+          // אם specialPrices הוא אובייקט JSON
+          if (typeof room.specialPrices === 'object' && room.specialPrices.friday) {
+            return room.specialPrices.friday;
+          }
+          // אם specialPrices הוא Map
+          else if (room.specialPrices.get && room.specialPrices.get('friday')) {
+            return room.specialPrices.get('friday');
+          }
+        }
+        // יום שבת (6)
+        else if (dayOfWeek === 6) {
+          // אם specialPrices הוא אובייקט JSON
+          if (typeof room.specialPrices === 'object' && room.specialPrices.saturday) {
+            return room.specialPrices.saturday;
+          }
+          // אם specialPrices הוא Map
+          else if (room.specialPrices.get && room.specialPrices.get('saturday')) {
+            return room.specialPrices.get('saturday');
+          }
+        }
+      } catch (error) {
+        console.log('שגיאה בגישה למחירים מיוחדים:', error);
+      }
+    }
+    
+    // מחיר רגיל אם אין מחיר מיוחד
+    return room.basePrice;
+  };
   
   // טעינת חדרים
   const fetchRooms = async () => {
@@ -158,27 +242,63 @@ const BookingListView = () => {
   const getBookingsForRoomAndDate = (roomId, date) => {
     const formattedDate = format(date, 'yyyy-MM-dd');
     
+    console.log(`בודק הזמנות לחדר ${roomId} בתאריך ${formattedDate}`);
+    
     const roomBookings = bookings.filter(booking => {
       const checkInDate = format(new Date(booking.checkIn), 'yyyy-MM-dd');
       const checkOutDate = format(new Date(booking.checkOut), 'yyyy-MM-dd');
       
-      // בדיקה אם ההזמנה היא להזמנת חדר בודד או חדרים מרובים
-      if (booking.room && booking.room._id) {
-        // מקרה של הזמנת חדר בודד
-        return booking.room._id === roomId && 
-               formattedDate >= checkInDate && 
-               formattedDate < checkOutDate;
-      } else if (booking.rooms && Array.isArray(booking.rooms)) {
-        // מקרה של הזמנת חדרים מרובים
-        return booking.rooms.includes(roomId) && 
-               formattedDate >= checkInDate && 
-               formattedDate < checkOutDate;
+      // תנאי לבדיקת התאריך - חייב להיות בין צ'ק אין לצ'ק אאוט
+      const isDateInRange = formattedDate >= checkInDate && formattedDate < checkOutDate;
+      
+      if (!isDateInRange) {
+        return false;
+      }
+      
+      console.log(`נמצאה הזמנה בטווח התאריכים: ${booking._id}, צ'ק-אין: ${checkInDate}, צ'ק-אאוט: ${checkOutDate}`);
+      
+      // בדיקה אם ההזמנה היא להזמנת חדר בודד
+      if (booking.room && booking.room._id === roomId) {
+        console.log(`התאמה להזמנת חדר בודד: ${booking._id}, חדר: ${booking.room._id}`);
+        return true;
+      }
+      
+      // בדיקה אם ההזמנה היא להזמנת חדרים מרובים
+      if (booking.rooms && Array.isArray(booking.rooms)) {
+        console.log(`בודק הזמנת חדרים מרובים: ${booking._id}, חדרים: ${JSON.stringify(booking.rooms)}`);
+        
+        // בדיקה אם מזהה החדר נמצא במערך rooms כמזהה
+        if (booking.rooms.includes(roomId)) {
+          console.log(`התאמה להזמנת חדרים מרובים (מזהה): ${booking._id}, חדר ${roomId} נמצא במערך`);
+          return true;
+        }
+        
+        // בדיקה אם מזהה החדר נמצא במערך rooms כאובייקט
+        if (booking.rooms.some(room => room._id === roomId)) {
+          console.log(`התאמה להזמנת חדרים מרובים (אובייקט): ${booking._id}, חדר ${roomId} נמצא במערך`);
+          return true;
+        }
+        
+        console.log(`אין התאמה להזמנת חדרים מרובים: ${booking._id}, חדר ${roomId} לא נמצא במערך`);
       }
       
       return false;
     });
     
     console.log(`נמצאו ${roomBookings.length} הזמנות לחדר ${roomId} בתאריך ${formattedDate}`);
+    
+    if (roomBookings.length > 0) {
+      console.log(`פרטי הזמנות שנמצאו: ${JSON.stringify(roomBookings.map(booking => ({
+        id: booking._id,
+        bookingNumber: booking.bookingNumber,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        isMultiRoom: booking.isMultiRoomBooking,
+        room: booking.room?._id,
+        rooms: booking.rooms
+      })))}`);
+    }
+    
     return roomBookings;
   };
   
@@ -208,8 +328,8 @@ const BookingListView = () => {
     cellDate.setHours(0, 0, 0, 0);
     const isPast = cellDate < today;
     
-    // מחיר ברירת מחדל הוא מחיר הבסיס של החדר
-    let price = room.basePrice;
+    // השתמש בפונקציה החדשה לקבלת מחיר דינמי או לפי יום בשבוע
+    let price = getPriceForRoomAndDate(room._id, date);
     
     // צבע הרקע משתנה לפי סטטוס ההזמנה
     let paymentStatus = isBooked ? roomBookings[0].paymentStatus : '';
@@ -326,24 +446,61 @@ const BookingListView = () => {
   // פונקציה לשמירת מחיר חדש
   const handleSavePrice = async () => {
     try {
-      // כאן צריך להוסיף קריאת API לשמירת מחיר דינמי
-      // לדוגמה:
-      /*
-      await axios.post(`${process.env.REACT_APP_API_URL}/dynamic-prices`, {
+      // הצג אינדיקציה של טעינה
+      toast.info('מעדכן את המחיר...');
+      
+      // שליחת המחיר החדש לשרת
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/dynamic-prices`, {
         roomId: priceDialog.roomId,
         date: format(priceDialog.date, 'yyyy-MM-dd'),
         price: priceDialog.price
       }, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
-      */
       
-      toast.success('המחיר עודכן בהצלחה');
-      handlePriceDialogClose();
-      fetchBookings(); // רענון הנתונים
+      if (response.data && response.data.success) {
+        toast.success('המחיר עודכן בהצלחה');
+        
+        // עדכון רשימת המחירים הדינמיים
+        setDynamicPrices(prev => {
+          const existingIndex = prev.findIndex(
+            dp => dp.roomId === priceDialog.roomId && dp.date === format(priceDialog.date, 'yyyy-MM-dd')
+          );
+          
+          if (existingIndex !== -1) {
+            // עדכון מחיר קיים
+            const updated = [...prev];
+            updated[existingIndex] = {
+              ...updated[existingIndex],
+              price: priceDialog.price
+            };
+            return updated;
+          } else {
+            // הוספת מחיר חדש
+            return [...prev, {
+              roomId: priceDialog.roomId,
+              date: format(priceDialog.date, 'yyyy-MM-dd'),
+              price: priceDialog.price
+            }];
+          }
+        });
+        
+        handlePriceDialogClose();
+      } else {
+        toast.error('אירעה שגיאה בעדכון המחיר');
+        handlePriceDialogClose();
+      }
     } catch (error) {
       console.error('שגיאה בעדכון המחיר:', error);
-      toast.error('אירעה שגיאה בעדכון המחיר');
+      
+      // בדיקה אם השגיאה היא 404 (הנתיב לא קיים)
+      if (error.response && error.response.status === 404) {
+        toast.error('מערכת המחירים הדינמיים אינה זמינה. פנה למנהל המערכת.');
+      } else {
+        toast.error('אירעה שגיאה בעדכון המחיר');
+      }
+      
+      handlePriceDialogClose();
     }
   };
   
@@ -379,6 +536,7 @@ const BookingListView = () => {
       if (response.data.success) {
         const bookingData = response.data.data;
         console.log('נטענו פרטי הזמנה:', bookingData);
+        console.log('פרטי כרטיס אשראי:', bookingData.creditCard);
         
         setBookingDialog(prev => ({
           ...prev,
@@ -477,6 +635,97 @@ const BookingListView = () => {
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
   };
+  
+  // פונקציית עזר לפורמט תאריך תוקף כרטיס אשראי
+  const formatCreditCardExpiry = (creditCard) => {
+    // לוג מפורט של נתוני כרטיס האשראי לצורך ניפוי שגיאות
+    console.log('מנסה לפרמט תוקף כרטיס אשראי:', creditCard);
+    
+    if (!creditCard) return '';
+    
+    // בדיקה אם יש שדה expiry מוכן
+    if (creditCard.expiry) {
+      console.log('נמצא שדה expiry:', creditCard.expiry);
+      return creditCard.expiry;
+    }
+    
+    // בדיקה אם יש שדות expiryMonth ו-expiryYear
+    if (creditCard.expiryMonth && creditCard.expiryYear) {
+      // פורמט החודש ל-2 ספרות
+      const month = String(creditCard.expiryMonth).padStart(2, '0');
+      // לקיחת 2 הספרות האחרונות של השנה
+      const year = String(creditCard.expiryYear).slice(-2);
+      console.log(`בניית תוקף מחודש ושנה: ${month}/${year}`);
+      return `${month}/${year}`;
+    }
+    
+    // בדיקה אם יש שדה expiryDate (השדה שהופיע בלוג)
+    if (creditCard.expiryDate) {
+      console.log('נמצא שדה expiryDate:', creditCard.expiryDate);
+      return creditCard.expiryDate;
+    }
+    
+    // בדיקה אם יש שדה expirationDate
+    if (creditCard.expirationDate) {
+      console.log('נמצא שדה expirationDate:', creditCard.expirationDate);
+      return creditCard.expirationDate;
+    }
+    
+    // בדיקה אם יש שדה expiration
+    if (creditCard.expiration) {
+      console.log('נמצא שדה expiration:', creditCard.expiration);
+      return creditCard.expiration;
+    }
+    
+    // בדיקה אם יש שדה validUntil
+    if (creditCard.validUntil) {
+      console.log('נמצא שדה validUntil:', creditCard.validUntil);
+      // ניסיון לפרמט את התאריך אם הוא בפורמט של תאריך ISO
+      try {
+        const date = new Date(creditCard.validUntil);
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = String(date.getFullYear()).slice(-2);
+        return `${month}/${year}`;
+      } catch (e) {
+        return creditCard.validUntil;
+      }
+    }
+    
+    // ניסיון לחפש שדות אחרים עם שמות דומים
+    const possibleFields = ['exp', 'validityDate', 'expire', 'validity'];
+    for (const field of possibleFields) {
+      if (creditCard[field]) {
+        console.log(`נמצא שדה ${field}:`, creditCard[field]);
+        return creditCard[field];
+      }
+    }
+    
+    console.log('לא נמצא שדה תוקף תקף');
+    // אין נתונים תקינים
+    return '';
+  };
+  
+  // פונקציית עזר להצגת נתוני כרטיס אשראי מוסתרים
+  const formatCreditCardNumber = (cardNumber) => {
+    if (!cardNumber) return '';
+    
+    // השארת 4 הספרות האחרונות גלויות והחלפת השאר בכוכביות
+    if (cardNumber.length > 4) {
+      return '*'.repeat(cardNumber.length - 4) + cardNumber.slice(-4);
+    }
+    
+    return cardNumber;
+  };
+  
+  // עדכון קריאה לפונקציה לטעינת מחירים דינמיים כשהדף נטען
+  useEffect(() => {
+    fetchBookings();
+    fetchRooms();
+    // הוסף טעינת מחירים דינמיים
+    if (daysInView && daysInView.length > 0) {
+      fetchDynamicPrices(daysInView[0], daysInView[daysInView.length - 1]);
+    }
+  }, [daysInView]);
   
   return (
     <Container maxWidth="xl" sx={{ mt: 2, mb: 4 }}>
@@ -931,7 +1180,7 @@ const BookingListView = () => {
                       label="מספר כרטיס"
                       fullWidth
                       margin="normal"
-                      defaultValue={bookingDialog.bookingData.creditCard?.cardNumber || ''}
+                      defaultValue={formatCreditCardNumber(bookingDialog.bookingData.creditCard?.cardNumber)}
                     />
                   </Grid>
                   
@@ -941,12 +1190,13 @@ const BookingListView = () => {
                       fullWidth
                       margin="normal"
                       placeholder="MM/YY"
-                      defaultValue={bookingDialog.bookingData.creditCard?.expiry || ''}
+                      defaultValue={formatCreditCardExpiry(bookingDialog.bookingData.creditCard)}
                       InputLabelProps={{ shrink: true }}
                       inputProps={{
                         maxLength: 5,
                         pattern: "[0-9]{2}/[0-9]{2}"
                       }}
+                      id="creditCardExpiry"
                       onChange={(e) => {
                         let value = e.target.value;
                         
@@ -972,6 +1222,18 @@ const BookingListView = () => {
                         }
                         
                         e.target.value = value;
+                        
+                        // עדכון הנתונים בסטייט
+                        setBookingDialog(prev => ({
+                          ...prev,
+                          bookingData: {
+                            ...prev.bookingData,
+                            creditCard: {
+                              ...prev.bookingData.creditCard,
+                              expiry: value
+                            }
+                          }
+                        }));
                       }}
                     />
                   </Grid>

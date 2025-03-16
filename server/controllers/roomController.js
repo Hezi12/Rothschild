@@ -466,28 +466,59 @@ const isRoomAvailable = async (roomId, checkInDate, checkOutDate) => {
   const endDate = new Date(checkOutDate);
   endDate.setHours(0, 0, 0, 0);
 
-  // בדיקה אם יש הזמנות שחופפות לתאריכים המבוקשים
-  const overlappingBookings = await Booking.find({
-    room: roomId,
+  // בניית שאילתה משולבת שבודקת גם הזמנות רגילות וגם הזמנות מרובות חדרים
+  const query = {
     status: { $ne: 'canceled' },
     $or: [
-      // מקרה 1: תאריך הגעה חדש בין תאריכי הזמנה קיימת
+      // בדיקת הזמנות רגילות (חדר בודד)
       {
-        checkIn: { $lte: startDate },
-        checkOut: { $gt: startDate }
+        room: roomId,
+        $or: [
+          // מקרה 1: תאריך הגעה חדש בין תאריכי הזמנה קיימת
+          {
+            checkIn: { $lte: startDate },
+            checkOut: { $gt: startDate }
+          },
+          // מקרה 2: תאריך עזיבה חדש בין תאריכי הזמנה קיימת
+          {
+            checkIn: { $lt: endDate },
+            checkOut: { $gte: endDate }
+          },
+          // מקרה 3: תאריכי הזמנה חדשה מכילים הזמנה קיימת
+          {
+            checkIn: { $gte: startDate },
+            checkOut: { $lte: endDate }
+          }
+        ]
       },
-      // מקרה 2: תאריך עזיבה חדש בין תאריכי הזמנה קיימת
+      // בדיקת הזמנות מרובות חדרים
       {
-        checkIn: { $lt: endDate },
-        checkOut: { $gte: endDate }
-      },
-      // מקרה 3: תאריכי הזמנה חדשה מכילים הזמנה קיימת
-      {
-        checkIn: { $gte: startDate },
-        checkOut: { $lte: endDate }
+        rooms: roomId,
+        $or: [
+          // מקרה 1: תאריך הגעה חדש בין תאריכי הזמנה קיימת
+          {
+            checkIn: { $lte: startDate },
+            checkOut: { $gt: startDate }
+          },
+          // מקרה 2: תאריך עזיבה חדש בין תאריכי הזמנה קיימת
+          {
+            checkIn: { $lt: endDate },
+            checkOut: { $gte: endDate }
+          },
+          // מקרה 3: תאריכי הזמנה חדשה מכילים הזמנה קיימת
+          {
+            checkIn: { $gte: startDate },
+            checkOut: { $lte: endDate }
+          }
+        ]
       }
     ]
-  });
+  };
+  
+  // בדיקה אם יש הזמנות חופפות
+  const overlappingBookings = await Booking.find(query);
+  
+  console.log(`בדיקת זמינות בתצוגת חדרים לחדר ${roomId}: נמצאו ${overlappingBookings.length} הזמנות חופפות בתאריכים ${startDate} עד ${endDate}`);
   
   return overlappingBookings.length === 0;
 };
@@ -585,16 +616,22 @@ exports.createMultiRoomBooking = asyncHandler(async (req, res, next) => {
     notes
   } = req.body;
   
+  console.log(`התחלת יצירת הזמנה מרובת חדרים: ${roomIds.length} חדרים, תאריכי צ'ק-אין: ${checkIn}, צ'ק-אאוט: ${checkOut}`);
+  
   // בדיקת תקינות נתונים
   if (!roomIds || !Array.isArray(roomIds) || roomIds.length === 0 || !checkIn || !checkOut || !guest) {
+    console.error('שגיאת תיקוף: חסרים פרטי הזמנה הכרחיים');
     return next(new ErrorResponse('נא לספק את כל פרטי ההזמנה הנדרשים', 400));
   }
   
   try {
     // בדיקת זמינות החדרים
+    console.log(`בודק זמינות עבור ${roomIds.length} חדרים בתאריכים ${checkIn} עד ${checkOut}`);
     const availabilityResults = await Promise.all(
       roomIds.map(async (roomId) => {
+        console.log(`בודק זמינות לחדר ${roomId}`);
         const available = await isAvailable(roomId, checkIn, checkOut);
+        console.log(`חדר ${roomId} זמין: ${available}`);
         return { roomId, available };
       })
     );
@@ -603,11 +640,15 @@ exports.createMultiRoomBooking = asyncHandler(async (req, res, next) => {
     const unavailableRooms = availabilityResults.filter(room => !room.available);
     
     if (unavailableRooms.length > 0) {
+      console.error(`נמצאו ${unavailableRooms.length} חדרים לא זמינים: ${JSON.stringify(unavailableRooms.map(r => r.roomId))}`);
       return next(new ErrorResponse(`חדר אחד או יותר אינו זמין בתאריכים שנבחרו`, 400));
     }
     
+    console.log('כל החדרים זמינים, ממשיך ליצירת ההזמנה');
+    
     // חישוב מספר לילות אם לא סופק
     const calculatedNights = nights || Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
+    console.log(`מספר לילות: ${calculatedNights}`);
 
     // חישוב מחירים אם לא סופקו
     const rooms = await Promise.all(roomIds.map(id => Room.findById(id)));
@@ -615,8 +656,11 @@ exports.createMultiRoomBooking = asyncHandler(async (req, res, next) => {
     const calculatedVatAmount = vatAmount || (isTourist ? 0 : calculatedBasePrice * 0.18);
     const calculatedTotalPrice = totalPrice || calculatedBasePrice + calculatedVatAmount;
     
+    console.log(`מחיר בסיס: ${calculatedBasePrice}, מע"מ: ${calculatedVatAmount}, סה"כ: ${calculatedTotalPrice}`);
+    
     // יצירת מספר הזמנה ייחודי
     const bookingNumber = await require('../controllers/bookingController').generateBookingNumber();
+    console.log(`נוצר מספר הזמנה: ${bookingNumber}`);
     
     // יצירת הזמנה מרובת חדרים
     const multiBooking = {
@@ -640,7 +684,17 @@ exports.createMultiRoomBooking = asyncHandler(async (req, res, next) => {
       bookingDate: new Date()
     };
     
+    console.log(`יוצר הזמנה מרובת חדרים עם הפרטים: ${JSON.stringify({
+      bookingNumber,
+      rooms: roomIds,
+      checkIn,
+      checkOut,
+      nights: calculatedNights,
+      totalPrice: calculatedTotalPrice
+    })}`);
+    
     const booking = await Booking.create(multiBooking);
+    console.log(`הזמנה מרובת חדרים נוצרה בהצלחה: ${booking._id}, מספר הזמנה: ${booking.bookingNumber}`);
     
     res.status(201).json({
         success: true,
@@ -648,6 +702,7 @@ exports.createMultiRoomBooking = asyncHandler(async (req, res, next) => {
       bookingNumber: booking.bookingNumber
     });
   } catch (err) {
+    console.error(`שגיאה ביצירת הזמנה מרובת חדרים: ${err.message}`, err);
     return next(new ErrorResponse(`שגיאה ביצירת הזמנה מרובת חדרים: ${err.message}`, 500));
   }
 });
