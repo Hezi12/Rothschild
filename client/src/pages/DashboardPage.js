@@ -46,6 +46,8 @@ const DashboardPage = () => {
         const rooms = roomsResponse.data.data;
         const bookings = bookingsResponse.data.data;
         
+        console.log('נטענו הזמנות לדשבורד:', bookings);
+        
         const today = new Date();
         const activeBookings = bookings.filter(booking => 
           new Date(booking.checkOut) >= today
@@ -77,6 +79,27 @@ const DashboardPage = () => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('he-IL');
+  };
+
+  const getRoomDisplayText = (booking) => {
+    let roomText = '';
+    
+    // הצגת חדר או חדרים
+    if (booking.room) {
+      roomText = `חדר ${booking.room.internalName || booking.room.roomNumber || 'לא ידוע'}`;
+    } else if (booking.rooms && booking.rooms.length > 0) {
+      roomText = `הזמנה מרובת חדרים (${booking.rooms.length} חדרים)`;
+    } else {
+      roomText = 'חדר לא מוגדר';
+    }
+    
+    // הוספת תאריכי צ'ק-אין וצ'ק-אאוט
+    let dates = '';
+    if (booking.checkIn && booking.checkOut) {
+      dates = ` | צ'ק-אין: ${formatDate(booking.checkIn)} | צ'ק-אאוט: ${formatDate(booking.checkOut)}`;
+    }
+    
+    return roomText + dates;
   };
 
   return (
@@ -220,8 +243,8 @@ const DashboardPage = () => {
                       <PersonIcon />
                     </ListItemIcon>
                     <ListItemText
-                      primary={booking.guest.name}
-                      secondary={`חדר ${booking.room.internalName || booking.room.roomNumber} | צ'ק-אין: ${formatDate(booking.checkIn)} | צ'ק-אאוט: ${formatDate(booking.checkOut)}`}
+                      primary={booking.guest?.name || (booking.guest ? `${booking.guest.firstName || ''} ${booking.guest.lastName || ''}` : 'אורח')}
+                      secondary={getRoomDisplayText(booking)}
                     />
                   </ListItem>
                   <Divider variant="inset" component="li" />
