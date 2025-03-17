@@ -34,7 +34,8 @@ import {
   FormControlLabel,
   Checkbox,
   Stack,
-  Link
+  Link,
+  Breadcrumbs
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -48,12 +49,15 @@ import {
   WhatsApp as WhatsAppIcon,
   Payments as PaymentsIcon,
   Launch as LaunchIcon,
-  Receipt as ReceiptIcon
+  Receipt as ReceiptIcon,
+  CalendarMonth as CalendarMonthIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { AuthContext } from '../context/AuthContext';
+import { Link as RouterLink } from 'react-router-dom';
+import { alpha } from '@mui/material/styles';
 
 // מסך ניהול הזמנות חדש ומשופר
 const BookingsNewPage = () => {
@@ -91,7 +95,9 @@ const BookingsNewPage = () => {
     notes: '',
     status: 'confirmed',
     basePrice: 0,
-    totalPrice: 0
+    totalPrice: 0,
+    nights: 0,
+    pricePerNight: 0
   });
   
   // סטייטים לסינון וחיפוש
@@ -111,7 +117,9 @@ const BookingsNewPage = () => {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
-      setRooms(response.data.data);
+      // מיון החדרים לפי מספר החדר
+      const sortedRooms = [...response.data.data].sort((a, b) => a.roomNumber - b.roomNumber);
+      setRooms(sortedRooms);
     } catch (error) {
       console.error('שגיאה בטעינת חדרים:', error);
       setError('שגיאה בטעינת החדרים');
@@ -178,7 +186,9 @@ const BookingsNewPage = () => {
       if (nights > 0) {
         setFormData(prev => ({
           ...prev,
-          totalPrice: prev.basePrice * nights
+          totalPrice: prev.basePrice * nights,
+          nights: nights,
+          pricePerNight: prev.basePrice / nights
         }));
       }
     }
@@ -193,27 +203,35 @@ const BookingsNewPage = () => {
       fetchBookingDetails(booking._id);
     } else {
       // הזמנה חדשה
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+      
+      // איפוס הטופס להזמנה חדשה
       setFormData({
         roomId: '',
-        checkIn: null,
-        checkOut: null,
+        checkIn: today.toISOString().split('T')[0],
+        checkOut: tomorrow.toISOString().split('T')[0],
+        nights: 1,
+        basePrice: 0,
+        totalPrice: 0,
+        pricePerNight: 0,
+        status: 'confirmed',
+        isTourist: false,
+        notes: '',
         guest: {
           firstName: '',
           lastName: '',
+          email: '',
           phone: '',
-          email: ''
+          idNumber: ''
         },
         creditCard: {
           cardNumber: '',
           expiryDate: '',
           cvv: '',
           cardholderName: ''
-        },
-        isTourist: false,
-        notes: '',
-        status: 'confirmed',
-        basePrice: 0,
-        totalPrice: 0
+        }
       });
       setSelectedBooking(null);
       setOpenDialog(true);
@@ -225,70 +243,119 @@ const BookingsNewPage = () => {
     setSelectedBooking(null);
   };
   
-  const handleFormChange = (e) => {
-    const { name, value } = e.target;
-    
-    if (name.startsWith('guest.')) {
-      const guestField = name.split('.')[1];
-      setFormData(prev => ({
-        ...prev,
-        guest: {
-          ...prev.guest,
-          [guestField]: value
+  const handleFormChange = (name, value) => {
+    setFormData(prev => {
+      const updatedData = { ...prev, [name]: value };
+      
+      // עדכון אוטומטי של המחיר לפי מספר הלילות כאשר משנים מחיר לילה
+      if (name === 'pricePerNight' && value && prev.nights) {
+        const pricePerNight = parseFloat(value);
+        if (!isNaN(pricePerNight)) {
+          const totalPrice = pricePerNight * prev.nights;
+          const basePrice = Math.round((totalPrice / 1.17) * 100) / 100;
+          
+          updatedData.totalPrice = totalPrice;
+          updatedData.basePrice = basePrice;
         }
-      }));
-    } else if (name.startsWith('creditCard.')) {
-      const creditCardField = name.split('.')[1];
-      setFormData(prev => ({
-        ...prev,
-        creditCard: {
-          ...prev.creditCard,
-          [creditCardField]: value
+      }
+      
+      // עדכון מחיר לילה אם שינו את המחיר הכולל
+      if (name === 'totalPrice' && value && prev.nights && prev.nights > 0) {
+        const totalPrice = parseFloat(value);
+        if (!isNaN(totalPrice)) {
+          const pricePerNight = totalPrice / prev.nights;
+          const basePrice = Math.round((totalPrice / 1.17) * 100) / 100;
+          
+          updatedData.pricePerNight = Math.round(pricePerNight * 100) / 100;
+          updatedData.basePrice = basePrice;
         }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
+      }
+      
+      // עדכון מחיר לילה אם שינו את מחיר בסיס
+      if (name === 'basePrice' && value && prev.nights && prev.nights > 0) {
+        const basePrice = parseFloat(value);
+        if (!isNaN(basePrice)) {
+          const totalPrice = Math.round((basePrice * 1.17) * 100) / 100;
+          const pricePerNight = totalPrice / prev.nights;
+          
+          updatedData.totalPrice = totalPrice;
+          updatedData.pricePerNight = Math.round(pricePerNight * 100) / 100;
+        }
+      }
+      
+      // עדכון כל המחירים אם שינו את מספר הלילות
+      if (name === 'nights' && value) {
+        const nights = parseInt(value);
+        
+        if (!isNaN(nights) && nights > 0) {
+          // אם יש מחיר לילה, נחשב לפיו
+          if (prev.pricePerNight) {
+            const pricePerNight = parseFloat(prev.pricePerNight);
+            if (!isNaN(pricePerNight)) {
+              updatedData.totalPrice = pricePerNight * nights;
+              updatedData.basePrice = Math.round((updatedData.totalPrice / 1.17) * 100) / 100;
+            }
+          }
+          // אם אין מחיר לילה אבל יש מחיר בסיס, נחשב לפיו
+          else if (prev.basePrice) {
+            const basePrice = parseFloat(prev.basePrice);
+            const totalPrice = Math.round((basePrice * 1.17) * 100) / 100;
+            if (!isNaN(basePrice)) {
+              updatedData.totalPrice = totalPrice * nights;
+              updatedData.basePrice = basePrice * nights;
+              updatedData.pricePerNight = Math.round((totalPrice) * 100) / 100;
+            }
+          }
+        }
+      }
+      
+      // עדכון לילות אם שינו את תאריך הצ'ק-אין או אאוט
+      if ((name === 'checkIn' || name === 'checkOut') && prev.checkIn && prev.checkOut) {
+        try {
+          const checkIn = name === 'checkIn' ? new Date(value) : new Date(prev.checkIn);
+          const checkOut = name === 'checkOut' ? new Date(value) : new Date(prev.checkOut);
+          
+          if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
+            const diffTime = checkOut.getTime() - checkIn.getTime();
+            const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (nights > 0) {
+              updatedData.nights = nights;
+              
+              // עדכון מחירים אם יש מחיר לילה
+              if (prev.pricePerNight) {
+                const pricePerNight = parseFloat(prev.pricePerNight);
+                if (!isNaN(pricePerNight)) {
+                  updatedData.totalPrice = pricePerNight * nights;
+                  updatedData.basePrice = Math.round((updatedData.totalPrice / 1.17) * 100) / 100;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('שגיאה בחישוב לילות:', e);
+        }
+      }
+      
+      // טיפול בשדות מקוננים
+      if (name.startsWith('guest.')) {
+        const guestField = name.split('.')[1];
+        updatedData.guest = { ...prev.guest, [guestField]: value };
+      } else if (name.startsWith('creditCard.')) {
+        const creditCardField = name.split('.')[1];
+        updatedData.creditCard = { ...prev.creditCard, [creditCardField]: value };
+      }
+      
+      return updatedData;
+    });
   };
   
-  const handleDateChange = (field, date) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: date
-    }));
-    
-    // מעדכן לילות ומחיר כולל אם שני התאריכים קיימים
-    if (field === 'checkIn' && formData.checkOut) {
-      updateNightsAndTotalPrice(date, formData.checkOut);
-    } else if (field === 'checkOut' && formData.checkIn) {
-      updateNightsAndTotalPrice(formData.checkIn, date);
-    }
+  const handleDateChange = (field, newDate) => {
+    handleFormChange(field, newDate);
   };
   
-  // פונקציה לחישוב לילות ומחיר כולל
-  const updateNightsAndTotalPrice = (checkIn, checkOut) => {
-    const startDate = new Date(checkIn);
-    const endDate = new Date(checkOut);
-    const nights = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-    
-    if (nights > 0 && formData.basePrice) {
-      setFormData(prev => ({
-        ...prev,
-        nights: nights,
-        totalPrice: prev.basePrice * nights
-      }));
-    }
-  };
-  
-  const handleCheckboxChange = (e) => {
-    const { name, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: checked
-    }));
+  const handleCheckboxChange = (event) => {
+    handleFormChange(event.target.name, event.target.checked);
   };
   
   const handleFilterChange = (field, value) => {
@@ -316,36 +383,51 @@ const BookingsNewPage = () => {
       const checkOut = new Date(formData.checkOut);
       const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
       
-      // בדיקת תקינות פרטי כרטיס אשראי
-      if (!formData.creditCard.cardNumber) {
-        alert('נא למלא מספר כרטיס אשראי');
+      // בדיקת תקינות בסיסית
+      if (!formData.roomId) {
+        alert('נא לבחור חדר');
         return;
       }
       
-      if (!formData.creditCard.expiryDate) {
-        alert('נא למלא תוקף כרטיס אשראי');
-        return;
-      }
-      
-      if (!formData.creditCard.cvv) {
-        alert('נא למלא קוד CVV');
-        return;
-      }
-      
-      if (!formData.creditCard.cardholderName) {
-        alert('נא למלא שם בעל הכרטיס');
+      if (!formData.checkIn || !formData.checkOut) {
+        alert('נא למלא תאריכי הגעה ועזיבה');
         return;
       }
 
+      if (!formData.guest || !formData.guest.firstName) {
+        alert('נא למלא שם פרטי');
+        return;
+      }
+      
+      // וידוא שיש אובייקט כרטיס אשראי
+      if (!formData.creditCard) {
+        formData.creditCard = {
+          cardNumber: '',
+          expiryDate: '',
+          cvv: '',
+          cardholderName: ''
+        };
+      }
+      
       // וידוא כי אובייקט כרטיס האשראי מלא ותקין
       const creditCardDetails = {
-        cardNumber: formData.creditCard.cardNumber,
-        expiryDate: formData.creditCard.expiryDate,
-        cvv: formData.creditCard.cvv,
-        cardholderName: formData.creditCard.cardholderName
+        cardNumber: formData.creditCard.cardNumber || '',
+        expiryDate: formData.creditCard.expiryDate || '',
+        cvv: formData.creditCard.cvv || '',
+        cardholderName: formData.creditCard.cardholderName || ''
       };
       
       console.log('פרטי כרטיס אשראי לשמירה:', creditCardDetails);
+      
+      // וידוא שיש אובייקט אורח תקין
+      const guestDetails = {
+        firstName: formData.guest.firstName || '',
+        lastName: formData.guest.lastName || '',
+        email: formData.guest.email || '',
+        phone: formData.guest.phone || '',
+        idNumber: formData.guest.idNumber || '',
+        isTourist: formData.isTourist || false
+      };
       
       // בניית אובייקט ההזמנה
       const bookingData = {
@@ -353,29 +435,15 @@ const BookingsNewPage = () => {
         nights,
         checkIn: format(checkIn, 'yyyy-MM-dd'),
         checkOut: format(checkOut, 'yyyy-MM-dd'),
-        guest: {
-          ...formData.guest,
-          name: `${formData.guest.firstName} ${formData.guest.lastName}`.trim()
-        },
+        guest: guestDetails,
         creditCard: creditCardDetails,
-        isTourist: formData.isTourist,
-        notes: formData.notes,
-        status: formData.status,
+        isTourist: formData.isTourist || false,
+        notes: formData.notes || '',
+        status: formData.status || 'confirmed',
+        basePrice: formData.basePrice || 0,
+        totalPrice: formData.totalPrice || 0,
         paymentStatus: 'pending'
       };
-      
-      // במקרה של הזמנה חדשה, או שלא הוזן מחיר ידנית
-      if ((!selectedBooking || !formData.basePrice) && rooms.length > 0 && formData.roomId) {
-        const selectedRoom = rooms.find(r => r._id === formData.roomId);
-        if (selectedRoom) {
-          bookingData.basePrice = selectedRoom.basePrice;
-          bookingData.totalPrice = selectedRoom.basePrice * nights;
-        }
-      } else if (formData.basePrice) {
-        // אם הוזן מחיר ידנית, חשב מחדש את סה"כ
-        bookingData.basePrice = formData.basePrice;
-        bookingData.totalPrice = formData.basePrice * nights;
-      }
       
       console.log("אובייקט הזמנה לשרת:", JSON.stringify(bookingData));
       
@@ -421,7 +489,13 @@ const BookingsNewPage = () => {
       fetchBookings(); // רענון הזמנות
     } catch (error) {
       console.error('שגיאה בשמירת ההזמנה:', error);
-      console.error('פרטי השגיאה:', error.response?.data);
+      
+      // הצגת פרטי שגיאה נוספים בקונסול
+      if (error.response) {
+        console.error('תגובת השרת:', error.response.status);
+        console.error('פרטי שגיאה:', error.response.data);
+      }
+      
       setError(error.response?.data?.message || 'שגיאה בשמירת ההזמנה');
       alert(`שגיאה: ${error.response?.data?.message || 'שגיאה בשמירת ההזמנה'}`);
     }
@@ -596,11 +670,10 @@ const BookingsNewPage = () => {
     window.open(`https://wa.me/${formattedNumber}`, '_blank');
   };
   
-  // פונקציה חדשה לטעינת פרטי הזמנה מהשרת
+  // פונקציה להבאת פרטי הזמנה מהשרת
   const fetchBookingDetails = async (bookingId) => {
     try {
-      console.log("מביא פרטי הזמנה עבור מזהה:", bookingId);
-      
+      setLoading(true);
       const response = await axios.get(
         `${process.env.REACT_APP_API_URL}/bookings/${bookingId}`,
         {
@@ -610,70 +683,81 @@ const BookingsNewPage = () => {
         }
       );
       
-      const booking = response.data.data;
-      console.log("פרטי הזמנה מהשרת (אובייקט מלא):", booking);
+      console.log('פרטי הזמנה מהשרת:', response.data);
       
-      // בדיקה מעמיקה של שדה כרטיס האשראי
-      console.log("מידע על כרטיס אשראי:", {
-        value: booking.creditCard,
-        type: typeof booking.creditCard,
-        exists: !!booking.creditCard,
-        isObject: booking.creditCard && typeof booking.creditCard === 'object',
-        keys: booking.creditCard ? Object.keys(booking.creditCard) : [],
-        hasCardNumber: booking.creditCard && booking.creditCard.cardNumber,
-        fields: {
+      if (response.data.success) {
+        const booking = response.data.data;
+        
+        console.log('פרטי כרטיס אשראי:', {
+          value: booking.creditCard,
+          type: typeof booking.creditCard,
+          exists: !!booking.creditCard,
+          isObject: booking.creditCard && typeof booking.creditCard === 'object',
+          keys: booking.creditCard ? Object.keys(booking.creditCard) : [],
+          hasCardNumber: booking.creditCard && booking.creditCard.cardNumber,
+          // שדות ספציפיים
           cardNumber: booking.creditCard?.cardNumber,
           expiryDate: booking.creditCard?.expiryDate,
           cvv: booking.creditCard?.cvv,
           cardholderName: booking.creditCard?.cardholderName
+        });
+        
+        // עיבוד לפרטי כרטיס אשראי (מטפל במקרה שאין אובייקט, או שהוא ריק)
+        const creditCard = booking.creditCard || {
+          cardNumber: '',
+          expiryDate: '',
+          cvv: '',
+          cardholderName: ''
+        };
+        
+        // תיעוד - אם אין אובייקט כרטיס אשראי או שהוא ריק
+        if (!booking.creditCard || Object.keys(booking.creditCard).length === 0) {
+          console.log('אין פרטי כרטיס אשראי בהזמנה, משתמש בערכי ברירת מחדל ריקים');
         }
-      });
-      
-      // יצירת אובייקט כרטיס אשראי אם הוא לא קיים
-      const creditCard = booking.creditCard || {
-        cardNumber: '',
-        expiryDate: '',
-        cvv: '',
-        cardholderName: ''
-      };
-      
-      if (!booking.creditCard || Object.keys(booking.creditCard).length === 0) {
-        console.warn("חסרים פרטי כרטיס אשראי בהזמנה");
-        alert("שים לב: לא קיימים פרטי כרטיס אשראי להזמנה זו. אנא הוסף אותם.");
+        
+        // חישוב מחיר ללילה
+        let pricePerNight = 0;
+        if (booking.nights && booking.nights > 0) {
+          pricePerNight = booking.totalPrice / booking.nights;
+        }
+        
+        // הגדרת ערכי טופס ברירת מחדל מהזמנה קיימת
+        setFormData({
+          roomId: booking.room._id,
+          checkIn: booking.checkIn,
+          checkOut: booking.checkOut,
+          nights: booking.nights,
+          basePrice: booking.basePrice || 0,
+          totalPrice: booking.totalPrice || 0,
+          pricePerNight: pricePerNight,
+          status: booking.status || 'confirmed',
+          isTourist: booking.isTourist || false,
+          notes: booking.notes || '',
+          guest: {
+            firstName: booking.guest?.firstName || '',
+            lastName: booking.guest?.lastName || '',
+            email: booking.guest?.email || '',
+            phone: booking.guest?.phone || '',
+            idNumber: booking.guest?.idNumber || ''
+          },
+          creditCard: {
+            cardNumber: creditCard.cardNumber || '',
+            expiryDate: creditCard.expiryDate || '',
+            cvv: creditCard.cvv || '',
+            cardholderName: creditCard.cardholderName || ''
+          }
+        });
+        
+        setSelectedBooking(booking);
+        setOpenDialog(true);
+      } else {
+        setError('שגיאה בטעינת פרטי ההזמנה');
       }
-      
-      // כעת מגדירים את הטופס עם הנתונים המלאים מהשרת
-      setFormData({
-        roomId: booking.room?._id || '',
-        checkIn: booking.checkIn ? new Date(booking.checkIn) : null,
-        checkOut: booking.checkOut ? new Date(booking.checkOut) : null,
-        guest: { 
-          firstName: booking.guest?.firstName || '',
-          lastName: booking.guest?.lastName || '',
-          phone: booking.guest?.phone || '',
-          email: booking.guest?.email || ''
-        },
-        creditCard: {
-          // טיפול מדויק בשדות כרטיס אשראי
-          cardNumber: creditCard.cardNumber || '',
-          expiryDate: creditCard.expiryDate || '',
-          cvv: creditCard.cvv || '',
-          cardholderName: creditCard.cardholderName || ''
-        },
-        isTourist: booking.isTourist || false,
-        notes: booking.notes || '',
-        status: booking.status || 'confirmed',
-        basePrice: booking.basePrice || 0,
-        totalPrice: booking.totalPrice || 0
-      });
-      
-      setSelectedBooking(booking);
-      
-      // פתיחת החלון רק לאחר שהנתונים נטענו
-      setOpenDialog(true);
     } catch (error) {
-      console.error("שגיאה בטעינת פרטי ההזמנה:", error);
-      alert(`שגיאה בטעינת פרטי ההזמנה: ${error.response?.data?.message || error.message}`);
+      console.error('שגיאה בטעינת פרטי ההזמנה:', error);
+      setError('שגיאה בטעינת פרטי ההזמנה');
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -682,16 +766,36 @@ const BookingsNewPage = () => {
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         <Paper sx={{ p: 3, mb: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h4" component="h1">
-              <EventIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-              ניהול הזמנות
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+                <EventIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                ניהול הזמנות
+              </Typography>
+              <Tooltip title="עבור לתצוגת יומן">
+                <IconButton 
+                  component={RouterLink} 
+                  to="/dashboard/bookings-calendar" 
+                  size="small" 
+                  color="primary" 
+                  sx={{ 
+                    ml: 1,
+                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
+                    '&:hover': {
+                      bgcolor: (theme) => alpha(theme.palette.primary.main, 0.2)
+                    }
+                  }}
+                >
+                  <CalendarMonthIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+
             <Button
               variant="contained"
               color="primary"
               startIcon={<AddIcon />}
-              onClick={() => handleOpenDialog(null)}
+              onClick={() => handleOpenDialog()}
             >
               הזמנה חדשה
             </Button>
@@ -980,6 +1084,17 @@ const BookingsNewPage = () => {
             {selectedBooking ? 'עריכת הזמנה' : 'הזמנה חדשה'}
           </DialogTitle>
           <DialogContent dividers sx={{ pt: 2 }}>
+            <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
+              <Link component={RouterLink} to="/dashboard">
+                ראשי
+              </Link>
+              <Link component={RouterLink} to="/dashboard/bookings">
+                הזמנות
+              </Link>
+              <Typography color="textPrimary">
+                {selectedBooking ? `עריכת הזמנה #${selectedBooking?.bookingNumber}` : 'הזמנה חדשה'}
+              </Typography>
+            </Breadcrumbs>
             <Grid container spacing={1}>
               {/* חלק 1: פרטי הזמנה - סידור קומפקטי יותר */}
               <Grid item xs={12} sm={3}>
@@ -988,7 +1103,7 @@ const BookingsNewPage = () => {
                   <Select
                     name="roomId"
                     value={formData.roomId}
-                    onChange={handleFormChange}
+                    onChange={(e) => handleFormChange('roomId', e.target.value)}
                     label="חדר"
                     size="small"
                   >
@@ -1008,7 +1123,7 @@ const BookingsNewPage = () => {
                   <Select
                     name="status"
                     value={formData.status}
-                    onChange={handleFormChange}
+                    onChange={(e) => handleFormChange('status', e.target.value)}
                     label="סטטוס"
                     size="small"
                   >
@@ -1028,7 +1143,7 @@ const BookingsNewPage = () => {
                   name="basePrice"
                   type="number"
                   value={formData.basePrice}
-                  onChange={handleFormChange}
+                  onChange={(e) => handleFormChange('basePrice', e.target.value)}
                   InputProps={{
                     endAdornment: <InputAdornment position="end">₪</InputAdornment>,
                   }}
@@ -1040,7 +1155,7 @@ const BookingsNewPage = () => {
                   control={
                     <Checkbox
                       checked={formData.isTourist}
-                      onChange={handleCheckboxChange}
+                      onChange={(e) => handleFormChange('isTourist', e.target.checked)}
                       name="isTourist"
                       color="primary"
                       size="small"
@@ -1058,7 +1173,7 @@ const BookingsNewPage = () => {
                 <DatePicker
                   label="תאריך צ'ק אין"
                   value={formData.checkIn}
-                  onChange={(date) => handleDateChange('checkIn', date)}
+                  onChange={(date) => handleFormChange('checkIn', date)}
                   slotProps={{ 
                     textField: { 
                       fullWidth: true, 
@@ -1073,7 +1188,7 @@ const BookingsNewPage = () => {
                 <DatePicker
                   label="תאריך צ'ק אאוט"
                   value={formData.checkOut}
-                  onChange={(date) => handleDateChange('checkOut', date)}
+                  onChange={(date) => handleFormChange('checkOut', date)}
                   slotProps={{ 
                     textField: { 
                       fullWidth: true, 
@@ -1089,12 +1204,12 @@ const BookingsNewPage = () => {
                   fullWidth
                   size="small"
                   label="לילות"
+                  name="nights"
                   type="number"
-                  value={formData.checkIn && formData.checkOut ? 
-                    Math.ceil((new Date(formData.checkOut) - new Date(formData.checkIn)) / (1000 * 60 * 60 * 24)) : 
-                    0}
+                  value={formData.nights}
+                  onChange={(e) => handleFormChange('nights', e.target.value)}
                   InputProps={{
-                    readOnly: true,
+                    endAdornment: <InputAdornment position="end">לילות</InputAdornment>,
                   }}
                   sx={{ mt: 1 }}
                 />
@@ -1104,11 +1219,44 @@ const BookingsNewPage = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="מחיר כולל"
+                  label="מחיר ללילה"
+                  name="pricePerNight"
+                  type="number"
+                  value={formData.pricePerNight}
+                  onChange={(e) => handleFormChange('pricePerNight', e.target.value)}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">₪</InputAdornment>,
+                  }}
+                  sx={{ mt: 1 }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={2}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="מחיר כולל מע״מ"
+                  name="totalPrice"
                   type="number"
                   value={formData.totalPrice}
+                  onChange={(e) => handleFormChange('totalPrice', e.target.value)}
                   InputProps={{
-                    readOnly: true,
+                    endAdornment: <InputAdornment position="end">₪</InputAdornment>,
+                  }}
+                  sx={{ mt: 1 }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={2}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="מחיר ללא מע״מ"
+                  name="basePrice"
+                  type="number"
+                  value={formData.basePrice}
+                  onChange={(e) => handleFormChange('basePrice', e.target.value)}
+                  InputProps={{
                     endAdornment: <InputAdornment position="end">₪</InputAdornment>,
                   }}
                   sx={{ mt: 1 }}
@@ -1130,7 +1278,7 @@ const BookingsNewPage = () => {
                   label="שם פרטי"
                   name="guest.firstName"
                   value={formData.guest.firstName}
-                  onChange={handleFormChange}
+                  onChange={(e) => handleFormChange('guest.firstName', e.target.value)}
                   required
                 />
               </Grid>
@@ -1142,7 +1290,7 @@ const BookingsNewPage = () => {
                   label="שם משפחה"
                   name="guest.lastName"
                   value={formData.guest.lastName}
-                  onChange={handleFormChange}
+                  onChange={(e) => handleFormChange('guest.lastName', e.target.value)}
                   required
                 />
               </Grid>
@@ -1154,14 +1302,14 @@ const BookingsNewPage = () => {
                   label="טלפון"
                   name="guest.phone"
                   value={formData.guest.phone}
-                  onChange={handleFormChange}
+                  onChange={(e) => handleFormChange('guest.phone', e.target.value)}
                   InputProps={{
                     endAdornment: formData.guest.phone ? (
                       <InputAdornment position="end">
                         <IconButton 
                           size="small" 
                           color="primary" 
-                          onClick={() => openWhatsApp(formData.guest.phone)}
+                          onClick={(e) => openWhatsApp(formData.guest.phone)}
                           title="פתח בווטסאפ"
                         >
                           <WhatsAppIcon style={{ color: '#25D366' }} />
@@ -1179,7 +1327,7 @@ const BookingsNewPage = () => {
                   label="אימייל"
                   name="guest.email"
                   value={formData.guest.email}
-                  onChange={handleFormChange}
+                  onChange={(e) => handleFormChange('guest.email', e.target.value)}
                 />
               </Grid>
               
@@ -1212,7 +1360,7 @@ const BookingsNewPage = () => {
                   label="מספר כרטיס"
                   name="creditCard.cardNumber"
                   value={formData.creditCard?.cardNumber || ''}
-                  onChange={handleFormChange}
+                  onChange={(e) => handleFormChange('creditCard.cardNumber', e.target.value)}
                 />
               </Grid>
               
@@ -1223,7 +1371,7 @@ const BookingsNewPage = () => {
                   label="תוקף (MM/YY)"
                   name="creditCard.expiryDate"
                   value={formData.creditCard?.expiryDate || ''}
-                  onChange={handleFormChange}
+                  onChange={(e) => handleFormChange('creditCard.expiryDate', e.target.value)}
                   placeholder="MM/YY"
                 />
               </Grid>
@@ -1235,7 +1383,7 @@ const BookingsNewPage = () => {
                   label="שם בעל הכרטיס"
                   name="creditCard.cardholderName"
                   value={formData.creditCard?.cardholderName || ''}
-                  onChange={handleFormChange}
+                  onChange={(e) => handleFormChange('creditCard.cardholderName', e.target.value)}
                 />
               </Grid>
               
@@ -1246,7 +1394,7 @@ const BookingsNewPage = () => {
                   label="CVV"
                   name="creditCard.cvv"
                   value={formData.creditCard?.cvv || ''}
-                  onChange={handleFormChange}
+                  onChange={(e) => handleFormChange('creditCard.cvv', e.target.value)}
                 />
               </Grid>
               
@@ -1258,7 +1406,7 @@ const BookingsNewPage = () => {
                   label="הערות"
                   name="notes"
                   value={formData.notes}
-                  onChange={handleFormChange}
+                  onChange={(e) => handleFormChange('notes', e.target.value)}
                   multiline
                   rows={2}
                   sx={{ mt: 1 }}

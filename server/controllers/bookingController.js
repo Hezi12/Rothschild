@@ -376,8 +376,13 @@ exports.createBooking = async (req, res) => {
 
     // שליחת אימייל אישור הזמנה
     try {
-      await sendBookingConfirmation(booking);
-      console.log(`נשלח אימייל אישור להזמנה ${bookingNumber}`);
+      // שולח אימייל אישור רק אם יש כתובת אימייל תקפה
+      if (booking.guest.email && booking.guest.email !== '' && booking.guest.email !== 'guest@example.com') {
+        await sendBookingConfirmation(booking);
+        console.log(`נשלח אימייל אישור להזמנה ${bookingNumber}`);
+      } else {
+        console.log(`לא נשלח אימייל אישור להזמנה ${bookingNumber} - אין כתובת אימייל תקפה`);
+      }
     } catch (emailError) {
       console.error('שגיאה בשליחת אימייל אישור:', emailError);
       // אנחנו לא רוצים שההזמנה תיכשל בגלל בעיית אימייל
@@ -795,6 +800,38 @@ exports.hardDeleteBooking = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'אירעה שגיאה במחיקת ההזמנה לצמיתות',
+      error: error.message
+    });
+  }
+};
+
+// מחיקה מוחלטת של מספר הזמנות בו-זמנית
+exports.hardDeleteManyBookings = async (req, res) => {
+  try {
+    const { bookingIds } = req.body;
+    
+    if (!bookingIds || !Array.isArray(bookingIds) || bookingIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'נדרשת רשימת מזהי הזמנות תקינה'
+      });
+    }
+    
+    // מחיקה מוחלטת של ההזמנות מהמסד נתונים
+    const result = await Booking.deleteMany({ _id: { $in: bookingIds } });
+    
+    console.log(`נמחקו ${result.deletedCount} הזמנות לצמיתות`);
+    
+    res.json({
+      success: true,
+      message: `${result.deletedCount} הזמנות נמחקו לצמיתות בהצלחה`,
+      deletedCount: result.deletedCount
+    });
+  } catch (error) {
+    console.error('שגיאה במחיקת הזמנות לצמיתות:', error);
+    res.status(500).json({
+      success: false,
+      message: 'אירעה שגיאה במחיקת ההזמנות לצמיתות',
       error: error.message
     });
   }
