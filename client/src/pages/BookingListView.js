@@ -85,11 +85,18 @@ import {
   Refresh as RefreshIcon,
   WhatsApp as WhatsAppIcon,
   CurrencyLira as CurrencyLiraIcon,
-  MonetizationOn as MonetizationOnIcon
+  MonetizationOn as MonetizationOnIcon,
+  // אייקונים חדשים לסרגל הצדדי
+  Dashboard as DashboardIcon,
+  ListAlt as ListAltIcon,
+  Event as EventIcon,
+  Collections as CollectionsIcon,
+  Settings as SettingsIcon,
+  Home as HomeIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { InputAdornment } from '@mui/material';
 
 // קומפוננטות מותאמות אישית עם styled
@@ -184,12 +191,41 @@ const HighlightedColumn = styled('div')(({ theme }) => ({
   zIndex: 0
 }));
 
-// קומפוננטה ראשית - תצוגת רשימת הזמנות מודרנית
+// קומפוננטה חדשה - סרגל צדדי מינימליסטי
+const MinimalSidebar = styled(Box)(({ theme }) => ({
+  position: 'fixed',
+  left: 0,
+  top: '50%',
+  transform: 'translateY(-50%)',
+  display: 'flex',
+  flexDirection: 'column',
+  padding: '10px 0',
+  backgroundColor: '#ffffff',
+  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+  borderRadius: '0 8px 8px 0',
+  zIndex: 100,
+  gap: '5px'
+}));
+
+const SidebarButton = styled(Tooltip)(({ theme, isActive }) => ({
+  '& .MuiButtonBase-root': {
+    padding: '12px',
+    color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
+    backgroundColor: isActive ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+    '&:hover': {
+      backgroundColor: alpha(theme.palette.primary.main, 0.05)
+    },
+    transition: 'all 0.3s ease',
+    borderLeft: isActive ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent'
+  }
+}));
 const BookingListView = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   const { isAdmin } = useContext(AuthContext);
+  const location = useLocation();
+  const currentPath = location.pathname;
 
   // סטייט לשמירת נתונים
   const [rooms, setRooms] = useState([]);
@@ -1669,7 +1705,47 @@ const BookingListView = () => {
   
   // רינדור בהתאם לטאב הפעיל
   return (
-    <Container maxWidth="xl" sx={{ py: 2, height: '100%' }}>
+    <>
+      {/* סרגל צדדי מינימליסטי */}
+      <MinimalSidebar>
+        <SidebarButton title="דף הבית" placement="right" isActive={currentPath === '/'}>
+          <IconButton component={Link} to="/">
+            <HomeIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="לוח מחוונים" placement="right" isActive={currentPath === '/dashboard'}>
+          <IconButton component={Link} to="/dashboard">
+            <DashboardIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="יומן הזמנות" placement="right" isActive={currentPath === '/dashboard/bookings-calendar'}>
+          <IconButton component={Link} to="/dashboard/bookings-calendar">
+            <CalendarMonthIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="ניהול הזמנות" placement="right" isActive={currentPath === '/dashboard/bookings-new'}>
+          <IconButton component={Link} to="/dashboard/bookings-new">
+            <ListAltIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="ניהול חדרים" placement="right" isActive={currentPath === '/dashboard/rooms'}>
+          <IconButton component={Link} to="/dashboard/rooms">
+            <HotelIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="גלריה" placement="right" isActive={currentPath === '/dashboard/gallery'}>
+          <IconButton component={Link} to="/dashboard/gallery">
+            <CollectionsIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+      </MinimalSidebar>
+      
+      <Container maxWidth="xl" sx={{ py: 2, height: '100%' }}>
         <Paper 
         elevation={0} 
           sx={{ 
@@ -1680,7 +1756,7 @@ const BookingListView = () => {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          height: 'calc(100vh - 100px)'  // גובה מתאים שיכיל את כל התוכן
+          height: 'calc(100vh - 20px)'  // הגדלת הגובה כדי שכל החדרים יוצגו (במקום 100px)
         }}
       >
         <Box sx={{ mb: 2 }}>
@@ -1905,7 +1981,7 @@ const BookingListView = () => {
                 }}>
                   <TableContainer sx={{ 
                     maxHeight: '100%', 
-                    overflow: 'auto hidden',
+                    overflow: 'auto',  // שינוי מ-'auto hidden' ל-'auto' כדי לאפשר גלילה אנכית
                     '&::-webkit-scrollbar': {
                       width: '10px',
                       height: '10px'
@@ -3183,6 +3259,7 @@ const BookingListView = () => {
         </DialogActions>
         </Dialog>
       </Container>
+    </>
   );
 };
 
