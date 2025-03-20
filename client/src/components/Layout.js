@@ -470,6 +470,27 @@ const Layout = () => {
           © {new Date().getFullYear()} רוטשילד 79, פתח תקווה. כל הזכויות שמורות.
         </Typography>
       </Box>
+
+      <Box
+        sx={{
+          position: 'fixed',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          right: 0,
+          zIndex: 10,
+          backgroundColor: 'white',
+          boxShadow: 2,
+          borderRadius: '12px 0 0 12px',
+          mr: 0,
+          ml: 2, // מרווח בין האייקונים לטבלה
+          py: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5
+        }}
+      >
+        {/* תוכן של האייקונים יכול להכיל כאן מספר אייקונים נוספים או מספר מסגרת נוספת */}
+      </Box>
     </Box>
   );
 };
