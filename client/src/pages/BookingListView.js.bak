@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import axios from 'axios';
-import { format, addDays, addMonths, subMonths, isSameDay, getDay, differenceInDays } from 'date-fns';
+import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, isSameDay, getDay, subDays, differenceInDays } from 'date-fns';
 import { he } from 'date-fns/locale';
 import {
   Container,
@@ -28,19 +28,36 @@ import {
   CircularProgress,
   Alert,
   Chip,
+  Divider,
   Tooltip,
+  Card,
+  CardContent,
+  CardActions,
+  Stack,
   useTheme,
   useMediaQuery,
+  Tab,
+  Tabs,
   alpha,
+  Zoom,
   Fade,
+  Badge,
   Avatar,
   styled,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
   FormControlLabel,
   Checkbox
 } from '@mui/material';
 import {
-  // אייקונים בשימוש 
+  // אייקונים קיימים
   Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Search as SearchIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
   Today as TodayIcon,
   Check as CheckIcon,
   Close as CloseIcon,
@@ -48,29 +65,37 @@ import {
   CalendarMonth as CalendarMonthIcon,
   Hotel as HotelIcon,
   Person as PersonIcon,
+  EventAvailable as EventAvailableIcon,
+  EventBusy as EventBusyIcon,
+  CheckCircle as CheckCircleIcon,
+  Pending as PendingIcon,
+  Error as ErrorIcon,
   NavigateNext as NavigateNextIcon,
   NavigateBefore as NavigateBeforeIcon,
+  DoorFront as DoorFrontIcon,
+  WbSunny as WbSunnyIcon,
+  Nightlight as NightlightIcon,
   Circle as CircleIcon,
+  Apps as AppsIcon,
+  ViewWeek as ViewWeekIcon,
   ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
   Info as InfoIcon,
+  ExpandMore as ExpandMoreIcon,
+  Refresh as RefreshIcon,
   WhatsApp as WhatsAppIcon,
-  MonetizationOn as MonetizationOnIcon,
-  // אייקונים חדשים לסרגל הצדדי
-  Dashboard as DashboardIcon,
-  ListAlt as ListAltIcon,
-  Collections as CollectionsIcon,
-  Home as HomeIcon
+  CurrencyLira as CurrencyLiraIcon,
+  MonetizationOn as MonetizationOnIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { InputAdornment } from '@mui/material';
 
 // קומפוננטות מותאמות אישית עם styled
 const StyledTableCell = styled(TableCell)(({ theme, isWeekend, isToday }) => ({
-  padding: theme.spacing(0.6), // הוקטן עוד יותר
-  minWidth: '100px', // הוקטן מ-120px ל-100px
+  padding: theme.spacing(1),
+  minWidth: '120px',
   background: isToday 
     ? alpha(theme.palette.primary.light, 0.12)
     : isWeekend 
@@ -83,6 +108,7 @@ const StyledTableCell = styled(TableCell)(({ theme, isWeekend, isToday }) => ({
   position: 'sticky',
   top: 0,
   zIndex: 1,
+  transition: 'all 0.3s ease',
 }));
 
 const StyledRoomCell = styled(TableCell)(({ theme }) => ({
@@ -92,11 +118,10 @@ const StyledRoomCell = styled(TableCell)(({ theme }) => ({
   backgroundColor: theme.palette.background.default,
   zIndex: 10,
   boxShadow: '3px 0 10px rgba(0,0,0,0.15)',
-  minWidth: '70px', // הוקטן מ-80px
-  maxWidth: '100px', // הוקטן מ-120px
-  padding: theme.spacing(0.75), // הוקטן מ-1
-  paddingRight: theme.spacing(0.75), // הוקטן מ-1
-  paddingLeft: theme.spacing(1.5) // הוקטן מ-2
+  minWidth: '80px',
+  maxWidth: '120px',
+  padding: theme.spacing(1),
+  borderRight: `2px solid ${theme.palette.divider}`,
 }));
 
 const ActionButton = styled(Button)(({ theme }) => ({
@@ -159,47 +184,12 @@ const HighlightedColumn = styled('div')(({ theme }) => ({
   zIndex: 0
 }));
 
-// קומפוננטה חדשה - סרגל צדדי מינימליסטי
-const MinimalSidebar = styled(Box)(({ theme }) => ({
-  position: 'fixed',
-  left: 0, // סרגל בצד שמאל
-  top: '50%',
-  transform: 'translateY(-50%)',
-  display: 'flex',
-  flexDirection: 'column',
-  padding: '10px 0',
-  backgroundColor: '#ffffff',
-  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-  borderRadius: '0 8px 8px 0', // עיגול בהתאם לצד שמאל
-  zIndex: 100,
-  gap: '5px',
-  width: '60px' // רוחב קבוע וצר
-}));
-
-const SidebarButton = styled(Tooltip)(({ theme, isActive }) => ({
-  '& .MuiButtonBase-root': {
-    padding: '12px',
-    color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
-    backgroundColor: isActive ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
-    '&:hover': {
-      backgroundColor: alpha(theme.palette.primary.main, 0.05)
-    },
-    transition: 'all 0.3s ease',
-    borderLeft: isActive ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent', // גבול בצד שמאל
-    borderRight: 'none'
-  }
-}));
-
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable no-unused-vars */
-
+// קומפוננטה ראשית - תצוגת רשימת הזמנות מודרנית
 const BookingListView = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   const { isAdmin } = useContext(AuthContext);
-  const location = useLocation();
-  const currentPath = location.pathname;
 
   // סטייט לשמירת נתונים
   const [rooms, setRooms] = useState([]);
@@ -791,7 +781,7 @@ const BookingListView = () => {
                       {format(new Date(booking.checkIn), 'dd/MM')} - {format(new Date(booking.checkOut), 'dd/MM')}
                     </Typography>
                     <Typography variant="body2">
-                      {booking.nights} לילות - ₪{booking.pricePerNight || (booking.totalPrice && booking.nights ? Math.round(booking.totalPrice / booking.nights) : booking.totalPrice)} ללילה
+                      {booking.nights} לילות - ₪{booking.totalPrice}
                     </Typography>
                     {booking.source && (
                       <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
@@ -826,7 +816,7 @@ const BookingListView = () => {
                     fontSize: '0.65rem'
                   }}
                 >
-                  ₪{booking.pricePerNight || (booking.totalPrice && booking.nights ? Math.round(booking.totalPrice / booking.nights) : booking.totalPrice)}
+                  ₪{booking.totalPrice}
                 </Typography>
               )}
             </Box>
@@ -1039,96 +1029,7 @@ const BookingListView = () => {
       open: false
     });
   };
-
-  // טיפול בשינוי שדה בדיאלוג עריכת הזמנה
-  const handleBookingFormChange = (field, value) => { 
-    setBookingDialog(prev => { 
-      const updatedBookingData = { ...prev.bookingData }; 
-      
-      if (field.includes('.')) { 
-        const [parent, child] = field.split('.'); 
-        updatedBookingData[parent] = { 
-          ...updatedBookingData[parent], 
-          [child]: value 
-        }; 
-      } else { 
-        updatedBookingData[field] = value; 
-      }
-      
-      // טיפול בשדות מחיר
-      const nights = updatedBookingData.nights || 1;
-
-      // אם שינו מחיר ללילה ללא מע"מ
-      if (field === 'pricePerNightNoVat' && value) {
-        const priceNoVat = parseFloat(value);
-        const isTourist = updatedBookingData.isTourist;
-        
-        // חישוב מחיר עם מע"מ תלוי אם תייר
-        if (isTourist) {
-          updatedBookingData.pricePerNight = priceNoVat; // תייר - אין מע"מ
-        } else {
-          updatedBookingData.pricePerNight = Math.round((priceNoVat * (1 + vatRate / 100)) * 100) / 100;
-        }
-        
-        // עדכון סה"כ מחיר
-        updatedBookingData.totalPrice = Math.round(updatedBookingData.pricePerNight * nights * 100) / 100;
-      }
-      
-      // אם שינו מחיר ללילה כולל מע"מ
-      if (field === 'pricePerNight' && value) {
-        const priceWithVat = parseFloat(value);
-        const isTourist = updatedBookingData.isTourist;
-        
-        // חישוב מחיר ללא מע"מ תלוי אם תייר
-        if (isTourist) {
-          updatedBookingData.pricePerNightNoVat = priceWithVat; // תייר - זהה למחיר עם מע"מ
-        } else {
-          updatedBookingData.pricePerNightNoVat = Math.round((priceWithVat / (1 + vatRate / 100)) * 100) / 100;
-        }
-        
-        // עדכון סה"כ מחיר
-        updatedBookingData.totalPrice = Math.round(priceWithVat * nights * 100) / 100;
-      }
-      
-      // אם שינו סה"כ מחיר
-      if (field === 'totalPrice' && value) {
-        const totalPrice = parseFloat(value);
-        const isTourist = updatedBookingData.isTourist;
-        
-        // עדכון מחיר ללילה כולל מע"מ
-        updatedBookingData.pricePerNight = Math.round((totalPrice / nights) * 100) / 100;
-        
-        // עדכון מחיר ללילה ללא מע"מ תלוי אם תייר
-        if (isTourist) {
-          updatedBookingData.pricePerNightNoVat = updatedBookingData.pricePerNight; // תייר - זהה למחיר עם מע"מ
-        } else {
-          updatedBookingData.pricePerNightNoVat = Math.round((updatedBookingData.pricePerNight / (1 + vatRate / 100)) * 100) / 100;
-        }
-      }
-      
-      // אם שינו את השדה isTourist
-      if (field === 'isTourist') {
-        const isTourist = value === true || value === 'true';
-        
-        if (isTourist) {
-          // תייר: מחיר ללילה כולל מע"מ = מחיר ללא מע"מ (אין מע"מ)
-          updatedBookingData.pricePerNight = updatedBookingData.pricePerNightNoVat;
-        } else {
-          // לא תייר: חישוב מחיר כולל מע"מ
-          updatedBookingData.pricePerNight = Math.round((updatedBookingData.pricePerNightNoVat * (1 + vatRate / 100)) * 100) / 100;
-        }
-        
-        // עדכון סה"כ מחיר
-        updatedBookingData.totalPrice = Math.round(updatedBookingData.pricePerNight * nights * 100) / 100;
-      }
-      
-      return { 
-        ...prev, 
-        bookingData: updatedBookingData 
-      }; 
-    }); 
-  };
-
+  
   // עדכון פרטי הזמנה
   const handleUpdateBooking = async (updatedData) => {
     try {
@@ -1411,7 +1312,7 @@ const BookingListView = () => {
         const nights = updatedFormData.nights || 1;
         
         if (isTourist) {
-          // תייר: מחיר ללילה כולל מע"מ = מחיר לא מע"מ (אין מע"מ)
+          // תייר: מחיר ללילה כולל מע"מ = מחיר ללא מע"מ (אין מע"מ)
           updatedFormData.pricePerNight = updatedFormData.pricePerNightNoVat;
         } else {
           // לא תייר: עדכון מחיר כולל מע"מ
@@ -1679,497 +1580,503 @@ const BookingListView = () => {
   
   // רינדור בהתאם לטאב הפעיל
   return (
-    <>
-      {/* סרגל צדדי מינימליסטי */}
-      <MinimalSidebar>
-        <SidebarButton title="דף הבית" placement="right" isActive={currentPath === '/'}>
-          <IconButton component={Link} to="/">
-            <HomeIcon fontSize="medium" />
-          </IconButton>
-        </SidebarButton>
-        
-        <SidebarButton title="לוח מחוונים" placement="right" isActive={currentPath === '/dashboard'}>
-          <IconButton component={Link} to="/dashboard">
-            <DashboardIcon fontSize="medium" />
-          </IconButton>
-        </SidebarButton>
-        
-        <SidebarButton title="יומן הזמנות" placement="right" isActive={currentPath === '/dashboard/bookings-calendar'}>
-          <IconButton component={Link} to="/dashboard/bookings-calendar">
-            <CalendarMonthIcon fontSize="medium" />
-          </IconButton>
-        </SidebarButton>
-        
-        <SidebarButton title="ניהול הזמנות" placement="right" isActive={currentPath === '/dashboard/bookings-new'}>
-          <IconButton component={Link} to="/dashboard/bookings-new">
-            <ListAltIcon fontSize="medium" />
-          </IconButton>
-        </SidebarButton>
-        
-        <SidebarButton title="ניהול חדרים" placement="right" isActive={currentPath === '/dashboard/rooms'}>
-          <IconButton component={Link} to="/dashboard/rooms">
-            <HotelIcon fontSize="medium" />
-          </IconButton>
-        </SidebarButton>
-        
-        <SidebarButton title="גלריה" placement="right" isActive={currentPath === '/dashboard/gallery'}>
-          <IconButton component={Link} to="/dashboard/gallery">
-            <CollectionsIcon fontSize="medium" />
-          </IconButton>
-        </SidebarButton>
-      </MinimalSidebar>
-      
-      <Container 
-        maxWidth={false} 
-        sx={{ 
-          py: 0.5, // מרווח קטן יותר מלמעלה ולמטה
-          height: '100%',
-          paddingLeft: '60px', // הוקטן מ-65px ל-60px
-          paddingRight: '2px', // הוקטן מ-6px ל-2px 
-          width: '100%', 
-          boxSizing: 'border-box'
+    <Container maxWidth="xl" sx={{ py: 2, height: '100%' }}>
+        <Paper 
+        elevation={0} 
+          sx={{ 
+          p: 2, 
+          borderRadius: 3,
+          backgroundImage: 'linear-gradient(135deg, #f5f7fa 0%, #f8f9fa 100%)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          height: 'calc(100vh - 100px)'  // גובה מתאים שיכיל את כל התוכן
         }}
       >
-        <Paper 
-          elevation={0} 
-          sx={{ 
-            p: 2, 
-            borderRadius: 3,
-            backgroundImage: 'linear-gradient(135deg, #f5f7fa 0%, #f8f9fa 100%)',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            height: 'fit-content', // גובה מותאם לתוכן במקום גובה קבוע
-            maxHeight: '98vh', // מעט פחות מגובה המסך המלא
-            width: 'calc(100% - 10px)', // הוגדל מ-20px ל-10px
-            marginLeft: '5px', // הוקטן מ-10px ל-5px
-            marginRight: '5px', // נוסף מרווח ימני מינימלי
-            marginBottom: '10px' // מרווח תחתון זהה למרווחים בצדדים
-          }}
-        >
-          <Box sx={{ 
-            mb: 0.5, 
-            pt: 0.25,  // מרווח עליון מוקטן משמעותית
-            px: 1,  // מרווח אופקי
-            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-            pb: 0.5  // מרווח תחתון מוקטן משמעותית
-          }}>
-            <Grid container spacing={0.5} alignItems="center" justifyContent="space-between">
-              <Grid item xs={12} md={4}>
-                {/* הסרת הקופסה עם הכותרת והקישור בהתאם לבקשת המשתמש */}
-              </Grid>
-              
-              <Grid item xs={12} md={8}>
-                <Box sx={{ 
-                  display: 'flex', 
-                  gap: 1, 
-                  flexWrap: 'wrap',
-                  justifyContent: { xs: 'center', md: 'flex-end' },
-                  mt: { xs: 0, md: 0 }
-                  // הסרת המסגרת והריפוד מסביב לכפתורים
-                }}>
-                  <ActionButton 
-                    variant="outlined" 
-                    startIcon={<TodayIcon />}
-                    onClick={handleToday}
-                    size="small"
-                    color="secondary"
-                    sx={{ minWidth: '80px' }}
-                  >
-                    היום
-                  </ActionButton>
-                  
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    border: '1px solid',
-                    borderColor: alpha(theme.palette.primary.main, 0.3),
-                    borderRadius: 2,
-                    px: 0.5,
-                    bgcolor: alpha(theme.palette.background.paper, 0.8),
-                  }}>
-                    <IconButton 
-                      onClick={showPrevDays}
-                      size="small"
-                      color="primary"
-                    >
-                      <NavigateNextIcon />
-                    </IconButton>
-                    
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        mx: 1, 
-                        textAlign: 'center', 
-                        fontWeight: 'bold', 
-                        color: theme.palette.primary.dark
-                      }}
-                    >
-                      {daysInView.length > 0 
-                        ? `${format(daysInView[0], 'dd/MM')} - ${format(daysInView[daysInView.length - 1], 'dd/MM')}` 
-                        : 'טוען...'}
-                    </Typography>
-                    
-                    <IconButton 
-                      onClick={showNextDays}
-                      size="small"
-                      color="primary"
-                    >
-                      <NavigateBeforeIcon />
-                    </IconButton>
-                  </Box>
-                  
-                  {/* החלפת כפתור הזמנה חדשה לאייקון בלבד */}
-                  <IconButton
-                    color="primary"
-                    onClick={() => handleAddBooking(null, new Date())}
-                    size="small"
-                    sx={{ 
-                      bgcolor: alpha(theme.palette.primary.main, 0.1),
-                      '&:hover': {
-                        bgcolor: alpha(theme.palette.primary.main, 0.2)
-                      }
-                    }}
-                  >
-                    <AddIcon />
-                  </IconButton>
-                  
-                  {/* הסרת האייקונים למעבר בין מצבי תצוגה */}
-                </Box>
-              </Grid>
-            </Grid>
-            
-            {/* הסרנו את הקופסה עם הטאבים */}
-          </Box>
-          
-          {viewMode === 'calendar' && (
-              <>
-                {loading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
-                  <CircularProgress thickness={4} size={40} sx={{ color: theme.palette.primary.main }} />
-                  </Box>
-                ) : error ? (
-                <Alert 
-                  severity="error" 
+        <Box sx={{ mb: 2 }}>
+          <Grid container spacing={1} alignItems="center" justifyContent="space-between">
+            <Grid item xs={12} md={4}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CalendarMonthIcon 
                   sx={{ 
-                    mb: 2, 
-                    borderRadius: 2,
+                    color: theme.palette.primary.main,
+                    fontSize: 24,
+                  }} 
+                />
+              <Typography 
+                variant="h5" 
+                sx={{ 
+                    fontWeight: 700,
+                    color: theme.palette.text.primary,
                   }}
                 >
-                  {error}
-                </Alert>
-              ) : (
-                <Fade in={true} timeout={500}>
-                  <Box
-                    sx={{
-                      padding: 0,
-                      margin: 0,
-                      display: 'block',
-                      ml: 0,
-                      mr: 0,
-                      mb: 0, // ללא מרווח תחתון נוסף
-                      width: '100%'
+                  יומן הזמנות
+              </Typography>
+              <Tooltip title="עבור לדף הזמנות חדש">
+                <IconButton 
+                  component={Link} 
+                  to="/dashboard/bookings-new" 
+                  size="small" 
+                  color="primary" 
+                  sx={{ 
+                    ml: 1,
+                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.2)
+                    }
+                  }}
+                >
+                  <NavigateNextIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              </Box>
+            </Grid>
+            
+            <Grid item xs={12} md={8}>
+              <Box sx={{ 
+                display: 'flex', 
+                gap: 1, 
+                flexWrap: 'wrap',
+                justifyContent: { xs: 'center', md: 'flex-end' },
+                mt: { xs: 1, md: 0 }
+              }}>
+                <ActionButton 
+                  variant="outlined" 
+                  startIcon={<TodayIcon />}
+                  onClick={handleToday}
+                  size="small"
+                  color="secondary"
+                >
+                  היום
+                </ActionButton>
+                
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  border: '1px solid',
+                  borderColor: alpha(theme.palette.primary.main, 0.3),
+                  borderRadius: 2,
+                  px: 0.5,
+                  bgcolor: alpha(theme.palette.background.paper, 0.8),
+                }}>
+                  <IconButton 
+                    onClick={showPrevDays}
+                    size="small"
+                    color="primary"
+                  >
+                    <NavigateNextIcon />
+                  </IconButton>
+                  
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      mx: 1, 
+                      textAlign: 'center', 
+                      fontWeight: 'bold', 
+                      color: theme.palette.primary.dark
                     }}
                   >
-                    <Box sx={{ 
-                      borderRadius: 3, 
-                      overflow: 'hidden',
-                      bgcolor: alpha(theme.palette.background.paper, 0.8),
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
-                      border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-                      display: 'flex',  
-                      flexDirection: 'column',
-                      height: 'fit-content', // יתאים את הגובה לפי התוכן בדיוק
-                      mb: 0,
-                      pb: 0,
-                      mr: 0, // אין צורך במרווח נוסף כאן
-                      borderTopRightRadius: 0, // ללא עיגול בפינה הימנית העליונה
-                      borderBottomRightRadius: 0 // ללא עיגול בפינה הימנית התחתונה
-                    }}>
-                      <TableContainer sx={{ 
-                        height: 'fit-content',
-                        boxSizing: 'border-box',
-                        overflow: 'auto',
-                        pb: 0,
-                        pl: 0, // ללא מרווח מצד שמאל
-                        pr: 0, // ללא מרווח מצד ימין
-                        width: '100%',
-                        maxWidth: '100%',
-                        mx: 0, // ללא מרווח אופקי נוסף
-                        '&::-webkit-scrollbar': {
-                          width: '6px', // הוקטן מ-8px
-                          height: '6px' // הוקטן מ-8px
-                        },
-                        '&::-webkit-scrollbar-thumb': {
-                          background: alpha(theme.palette.primary.main, 0.4),
-                          borderRadius: '8px',
-                          border: '2px solid transparent',
-                          backgroundClip: 'padding-box',
-                          '&:hover': {
-                            background: alpha(theme.palette.primary.main, 0.6)
-                          }
-                        },
-                        '&::-webkit-scrollbar-track': {
-                          background: alpha(theme.palette.background.paper, 0.8),
-                          borderRadius: '8px'
-                        }
-                      }}>
-                        <Table stickyHeader sx={{ borderCollapse: 'collapse', borderSpacing: 0 }}>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell
-                                sx={{ 
-                                  width: 120, 
-                                  backgroundColor: theme.palette.background.paper,
-                                  borderBottom: `2px solid ${alpha(theme.palette.divider, 0.5)}`,
-                                  position: 'sticky',
-                                  top: 0,
-                                  left: 0,
-                                  zIndex: 11,
-                                  boxShadow: '2px 2px 8px rgba(0,0,0,0.1)',
-                                  p: 1.5,
-                                  pl: 2
-                                }}
+                    {daysInView.length > 0 
+                      ? `${format(daysInView[0], 'dd/MM')} - ${format(daysInView[daysInView.length - 1], 'dd/MM')}` 
+                      : 'טוען...'}
+                  </Typography>
+                  
+                  <IconButton 
+                    onClick={showNextDays}
+                    size="small"
+                    color="primary"
+                  >
+                    <NavigateBeforeIcon />
+                  </IconButton>
+                </Box>
+                
+                <ActionButton 
+                  variant="contained" 
+                  color="primary" 
+                  startIcon={<AddIcon />}
+                  onClick={() => handleAddBooking(null, new Date())}
+                  size="small"
+                  sx={{ 
+                    backgroundImage: 'linear-gradient(135deg, #3f51b5 0%, #2196f3 100%)',
+                    color: 'white',
+                  }}
+                >
+                  הזמנה חדשה
+                </ActionButton>
+                
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <IconButton
+                    color={viewMode === 'calendar' ? 'primary' : 'default'}
+                    onClick={() => setViewMode('calendar')}
+                    size="small"
+                    sx={{
+                      bgcolor: viewMode === 'calendar' ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                    }}
+                  >
+                    <ViewWeekIcon fontSize="small" />
+                  </IconButton>
+                  
+                  <IconButton
+                    color={viewMode === 'list' ? 'primary' : 'default'}
+                    onClick={() => setViewMode('list')}
+                    size="small"
+                    sx={{
+                      bgcolor: viewMode === 'list' ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                    }}
+                  >
+                    <AppsIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
+          
+          <Box 
+            sx={{ 
+              borderBottom: 1, 
+              borderColor: 'divider', 
+              mt: 1,
+              bgcolor: alpha(theme.palette.background.paper, 0.5),
+              borderRadius: 2,
+              overflow: 'hidden'
+            }}
+          >
+            <Tabs 
+              value={activeTab} 
+              onChange={handleTabChange} 
+              variant="fullWidth"
+              sx={{ 
+                minHeight: 36,
+                '& .MuiTab-root': { 
+                  fontWeight: 600,
+                  py: 1,
+                  minHeight: 36,
+                  transition: 'all 0.3s',
+                  color: theme.palette.text.secondary,
+                  borderRadius: '8px 8px 0 0',
+                  overflow: 'hidden',
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.primary.light, 0.1)
+                  }
+                },
+                '& .Mui-selected': {
+                  color: `${theme.palette.primary.main} !important`,
+                  fontWeight: 700,
+                  bgcolor: alpha(theme.palette.primary.main, 0.05)
+                },
+                '& .MuiTabs-indicator': {
+                  height: 3,
+                  borderRadius: '3px 3px 0 0',
+                  bgcolor: theme.palette.primary.main,
+                  boxShadow: `0 0 10px ${alpha(theme.palette.primary.main, 0.5)}`
+                }
+              }}
+            >
+              <Tab 
+                label="זמינות חדרים" 
+                icon={<HotelIcon sx={{ fontSize: '1.1rem' }} />} 
+                iconPosition="start" 
+                sx={{ fontSize: '0.85rem' }}
+              />
+              <Tab 
+                label="הזמנות" 
+                icon={<CalendarMonthIcon sx={{ fontSize: '1.1rem' }} />} 
+                iconPosition="start" 
+                sx={{ fontSize: '0.85rem' }}
+              />
+            </Tabs>
+          </Box>
+          </Box>
+        
+        {activeTab === 0 && viewMode === 'calendar' && (
+            <>
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+                <CircularProgress thickness={4} size={40} sx={{ color: theme.palette.primary.main }} />
+                </Box>
+              ) : error ? (
+              <Alert 
+                severity="error" 
+                sx={{ 
+                  mb: 2, 
+                  borderRadius: 2,
+                }}
+              >
+                {error}
+              </Alert>
+            ) : (
+              <Fade in={true} timeout={500}>
+                <Box sx={{ 
+                  borderRadius: 3, 
+                  overflow: 'hidden',
+                  bgcolor: alpha(theme.palette.background.paper, 0.8),
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+                  border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+                }}>
+                  <TableContainer sx={{ 
+                    maxHeight: '100%', 
+                    overflow: 'auto hidden',
+                    '&::-webkit-scrollbar': {
+                      width: '10px',
+                      height: '10px'
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      background: alpha(theme.palette.primary.main, 0.4),
+                      borderRadius: '8px',
+                      border: '2px solid transparent',
+                      backgroundClip: 'padding-box',
+                      '&:hover': {
+                        background: alpha(theme.palette.primary.main, 0.6)
+                      }
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      background: alpha(theme.palette.background.paper, 0.8),
+                      borderRadius: '8px'
+                    }
+                  }}>
+                    <Table stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell
+                            sx={{ 
+                              width: 120, 
+                              backgroundColor: theme.palette.background.paper,
+                              borderBottom: `2px solid ${alpha(theme.palette.divider, 0.5)}`,
+                              position: 'sticky',
+                              top: 0,
+                              left: 0,
+                              zIndex: 11,
+                              boxShadow: '2px 2px 8px rgba(0,0,0,0.1)',
+                              borderTopLeftRadius: 12,
+                              p: 1.5
+                            }}
+                          >
+                            <Typography variant="body2" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <HotelIcon fontSize="small" sx={{ color: theme.palette.primary.main, fontSize: 18 }} />
+                              חדרים
+                            </Typography>
+                          </TableCell>
+                          
+                          {daysInView.map((day, index) => {
+                            const isToday = isSameDay(day, new Date());
+                            const isFriday = getDay(day) === 5; // רק יום שישי
+                            return (
+                              <StyledTableCell 
+                                key={index} 
+                                align="center" 
+                                isWeekend={isFriday}
+                                isToday={isToday}
                               >
-                                <Typography variant="body2" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  <HotelIcon fontSize="small" sx={{ color: theme.palette.primary.main, fontSize: 18 }} />
-                                  חדרים
-                                </Typography>
-                              </TableCell>
-                              
-                              {daysInView.map((day, index) => {
-                                const isToday = isSameDay(day, new Date());
-                                const isFriday = getDay(day) === 5; // רק יום שישי
-                                return (
-                                  <StyledTableCell 
-                                    key={index} 
-                                    align="center" 
-                                    isWeekend={isFriday}
-                                    isToday={isToday}
-                                    sx={{ 
-                                      width: '120px', // רוחב קבוע לכל עמודה
-                                      minWidth: '120px', 
-                                      maxWidth: '120px'
+                                {isToday && <HighlightedColumn />}
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <Box sx={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    color: isFriday ? theme.palette.warning.dark : isToday ? theme.palette.primary.main : theme.palette.text.primary,
+                                    mb: 0.5
+                                  }}>
+                                    {isFriday 
+                                      ? <CircleIcon fontSize="small" sx={{ mr: 0.5, fontSize: 6, color: theme.palette.warning.main }} />
+                                      : isToday 
+                                        ? <BlinkingDot fontSize="small" sx={{ mr: 0.5, fontSize: 8, color: theme.palette.primary.main }} />
+                                        : <CircleIcon fontSize="small" sx={{ mr: 0.5, fontSize: 6, color: theme.palette.grey[500] }} />
+                                    }
+                                    <Typography 
+                                      variant="caption" 
+                                      component="div" 
+                                      sx={{ 
+                                        fontWeight: isToday ? 700 : 600,
+                                        color: isFriday 
+                                          ? theme.palette.warning.dark 
+                                          : isToday 
+                                            ? theme.palette.primary.main 
+                                            : theme.palette.text.primary,
+                                        fontSize: '0.9rem'
+                                      }}
+                                    >
+                                      {format(day, 'EEEE', { locale: he })}
+                                    </Typography>
+                                  </Box>
+                                  <Typography 
+                                    variant="caption" 
+                                    component="div"
+                                    sx={{
+                                      fontWeight: isToday ? 600 : 400,
+                                      padding: '2px 6px',
+                                      borderRadius: 10,
+                                      bgcolor: isToday ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                                      fontSize: '0.85rem'
                                     }}
                                   >
-                                    {isToday && <HighlightedColumn />}
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                      <Box sx={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        color: isFriday ? theme.palette.warning.dark : isToday ? theme.palette.primary.main : theme.palette.text.primary,
-                                        mb: 0.5
-                                      }}>
-                                        {isFriday 
-                                          ? <CircleIcon fontSize="small" sx={{ mr: 0.5, fontSize: 6, color: theme.palette.warning.main }} />
-                                          : isToday 
-                                            ? <BlinkingDot fontSize="small" sx={{ mr: 0.5, fontSize: 8, color: theme.palette.primary.main }} />
-                                            : <CircleIcon fontSize="small" sx={{ mr: 0.5, fontSize: 6, color: theme.palette.grey[500] }} />
-                                        }
-                                        <Typography 
-                                          variant="caption" 
-                                          component="div" 
-                                          sx={{ 
-                                            fontWeight: isToday ? 700 : 600,
-                                            color: isFriday 
-                                              ? theme.palette.warning.dark 
-                                              : isToday 
-                                                ? theme.palette.primary.main 
-                                                : theme.palette.text.primary,
-                                            fontSize: '0.8rem' // גופן קטן יותר
-                                          }}
-                                        >
-                                          {format(day, 'EEEE', { locale: he })}
-                                        </Typography>
-                                      </Box>
-                                      <Typography 
-                                        variant="caption" 
-                                        component="div"
-                                        sx={{
-                                          fontWeight: isToday ? 600 : 400,
-                                          padding: '2px 4px', // פחות ריווח
-                                          borderRadius: 10,
-                                          bgcolor: isToday ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
-                                          fontSize: '0.8rem' // גופן קטן יותר
-                                        }}
-                                      >
-                                        {format(day, 'dd/MM')}
-                                      </Typography>
-                                    </Box>
-                                  </StyledTableCell>
+                                    {format(day, 'dd/MM')}
+                                  </Typography>
+                                </Box>
+                              </StyledTableCell>
+                            );
+                          })}
+                        </TableRow>
+                      </TableHead>
+                      
+                      <TableBody>
+                        {rooms.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={daysInView.length + 1} align="center">
+                              <Box sx={{ py: 4 }}>
+                                <HotelIcon sx={{ fontSize: 40, color: alpha(theme.palette.text.secondary, 0.5), mb: 1 }} />
+                                <Typography variant="subtitle1" sx={{ color: theme.palette.text.secondary }}>
+                                  אין חדרים להצגה
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          rooms.map(room => (
+                            <TableRow 
+                              key={room._id}
+                                sx={{ 
+                                '&:hover': { 
+                                  bgcolor: alpha(theme.palette.primary.light, 0.04)
+                                },
+                                transition: 'background-color 0.2s'
+                              }}
+                            >
+                              <StyledRoomCell component="th" scope="row">
+                                <Box sx={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center',
+                                  position: 'relative',
+                                  zIndex: 3
+                                }}>
+                                  <Avatar 
+                                    sx={{ 
+                                      bgcolor: alpha(theme.palette.primary.main, 0.1), 
+                                      color: theme.palette.primary.dark,
+                                      width: 36,
+                                      height: 36,
+                                      fontWeight: 'bold',
+                                      fontSize: '0.9rem'
+                                    }}
+                                  >
+                                    {room.roomNumber}
+                                  </Avatar>
+                                </Box>
+                              </StyledRoomCell>
+
+                              {daysInView.map((day, index) => {
+                                // קבלת הזמנות לחדר ותאריך ספציפיים
+                                const bookingsForCell = getBookingsForRoomAndDate(room._id, day);
+                                const isBooked = bookingsForCell.length > 0;
+                                const isPast = day < new Date(new Date().setHours(0,0,0,0)); // תאריך בעבר
+                                const paymentStatus = isBooked ? bookingsForCell[0].paymentStatus : null;
+                                const isCurrentDay = isSameDay(day, new Date());
+                                
+                                // בדיקה אם ההזמנה היא חלק משהייה מרובת ימים
+                                let isMultiDay = false;
+                                let isFirstDay = false;
+                                let isLastDay = false;
+                                
+                                if (isBooked) {
+                                  const multiDayInfo = isPartOfMultiDayStay(bookingsForCell[0], room._id, day);
+                                  isMultiDay = multiDayInfo.isMultiDay;
+                                  isFirstDay = multiDayInfo.isStart;
+                                  isLastDay = multiDayInfo.isEnd;
+                                }
+                                
+                                return (
+                                  <TableCell 
+                                    key={`${room._id}-${index}`} 
+                                    align="center"
+                                    onClick={() => handleCellClick(room._id, day)}
+                                    sx={{ 
+                                      cursor: 'pointer',
+                                      padding: '8px 6px',
+                                      position: 'relative',
+                                      bgcolor: getCellBgColor(isBooked, isPast, paymentStatus, isMultiDay),
+                                      borderLeft: isMultiDay && !isFirstDay ? 0 : '1px solid rgba(224, 224, 224, 0.15)',
+                                      borderRight: isMultiDay && !isLastDay ? 0 : '1px solid rgba(224, 224, 224, 0.15)',
+                                      borderBottom: '1px solid rgba(224, 224, 224, 0.15)',
+                                      '&:hover': {
+                                        filter: 'brightness(0.95)',
+                                        zIndex: 1
+                                      },
+                                      transition: 'all 0.2s ease',
+                                      minHeight: '70px',
+                                      maxHeight: '70px',
+                                      height: '70px',
+                                      ...(isCurrentDay && {
+                                        zIndex: 1, // רק להגדרת z-index, בלי מסגרת
+                                      })
+                                    }}
+                                  >
+                                  {isCurrentDay && <HighlightedColumn />}
+                                  {getCellContent(room, day)}
+                                </TableCell>
                                 );
                               })}
                             </TableRow>
-                          </TableHead>
-                          
-                          <TableBody sx={{ minHeight: 0 }}>
-                            {rooms.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={daysInView.length + 1} align="center">
-                                  <Box sx={{ py: 4 }}>
-                                    <HotelIcon sx={{ fontSize: 40, color: alpha(theme.palette.text.secondary, 0.5), mb: 1 }} />
-                                    <Typography variant="subtitle1" sx={{ color: theme.palette.text.secondary }}>
-                                      אין חדרים להצגה
-                                    </Typography>
-                                  </Box>
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              rooms.map(room => (
-                                <TableRow 
-                                  key={room._id}
-                                    sx={{ 
-                                    '&:hover': { 
-                                      bgcolor: alpha(theme.palette.primary.light, 0.04)
-                                    },
-                                    transition: 'background-color 0.2s',
-                                    height: '60px' // גובה קבוע קטן יותר לשורה
-                                  }}
-                                >
-                                  <StyledRoomCell component="th" scope="row">
-                                    <Box sx={{ 
-                                      display: 'flex', 
-                                      alignItems: 'center', 
-                                      justifyContent: 'center',
-                                      position: 'relative',
-                                      zIndex: 3,
-                                      minWidth: '100px', // רוחב מינימלי לתאי החדרים
-                                      py: 1, pr: 0, mr: 0 // ריווח אנכי מקורי
-                                    }}>
-                                      <Avatar 
-                                        sx={{ 
-                                          bgcolor: alpha(theme.palette.primary.main, 0.1), 
-                                          color: theme.palette.primary.dark,
-                                          width: 36, // גודל אווטאר מקורי
-                                          height: 36, // גודל אווטאר מקורי
-                                          fontWeight: 'bold',
-                                          fontSize: '0.9rem' // גופן מקורי
-                                        }}
-                                      >
-                                        {room.roomNumber}
-                                      </Avatar>
-                                    </Box>
-                                  </StyledRoomCell>
-
-                                  {daysInView.map((day, index) => {
-                                    // קבלת הזמנות לחדר ותאריך ספציפיים
-                                    const bookingsForCell = getBookingsForRoomAndDate(room._id, day);
-                                    const isBooked = bookingsForCell.length > 0;
-                                    const isPast = day < new Date(new Date().setHours(0,0,0,0)); // תאריך בעבר
-                                    const paymentStatus = isBooked ? bookingsForCell[0].paymentStatus : null;
-                                    const isCurrentDay = isSameDay(day, new Date());
-                                    
-                                    // בדיקה אם ההזמנה היא חלק משהייה מרובת ימים
-                                    let isMultiDay = false;
-                                    let isFirstDay = false;
-                                    let isLastDay = false;
-                                    
-                                    if (isBooked) {
-                                      const multiDayInfo = isPartOfMultiDayStay(bookingsForCell[0], room._id, day);
-                                      isMultiDay = multiDayInfo.isMultiDay;
-                                      isFirstDay = multiDayInfo.isStart;
-                                      isLastDay = multiDayInfo.isEnd;
-                                    }
-                                    
-                                    return (
-                                      <TableCell 
-                                        key={`${room._id}-${index}`} 
-                                        align="center"
-                                        onClick={() => handleCellClick(room._id, day)}
-                                        sx={{ 
-                                          cursor: 'pointer',
-                                          padding: '8px 6px', // ריווח מוקטן
-                                          position: 'relative',
-                                          bgcolor: getCellBgColor(isBooked, isPast, paymentStatus, isMultiDay),
-                                          borderLeft: isMultiDay && !isFirstDay ? 0 : '1px solid rgba(224, 224, 224, 0.15)',
-                                          borderRight: isMultiDay && !isLastDay ? 0 : '1px solid rgba(224, 224, 224, 0.15)',
-                                          borderBottom: '1px solid rgba(224, 224, 224, 0.15)',
-                                          '&:hover': {
-                                            filter: 'brightness(0.95)',
-                                            zIndex: 1
-                                          },
-                                          transition: 'all 0.2s ease',
-                                          minHeight: '60px', // גובה אחיד מוקטן
-                                          maxHeight: '60px',
-                                          height: '60px',
-                                          width: '120px', // רוחב קבוע
-                                          minWidth: '120px',
-                                          maxWidth: '120px',
-                                          ...(isCurrentDay && {
-                                            zIndex: 1, // רק להגדרת z-index, בלי מסגרת
-                                          })
-                                        }}
-                                      >
-                                      {isCurrentDay && <HighlightedColumn />}
-                                      {getCellContent(room, day)}
-                                    </TableCell>
-                                    );
-                                  })}
-                                </TableRow>
-                              ))
-                            )}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                      {/* הסרת הקופסה שחוסמת רווחים */}
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
                     </Box>
-                  </Box>
-                  </Fade>
-                  )}
-                </>
+              </Fade>
               )}
-              
-            {/* ... existing code for other views and dialogs ... */}
-            </Paper>
-            
-          {/* רינדור של הדיאלוגים */}
-            {/* דיאלוג עדכון מחיר */}
-          <Dialog 
-            open={priceDialog.open} 
-            onClose={handlePriceDialogClose}
-            PaperProps={{
-              sx: {
-                borderRadius: 3,
-                boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
-                backgroundImage: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                overflow: 'hidden',
-                width: { xs: '95%', sm: '450px' }
-              }
-            }}
-          >
-            <DialogTitle sx={{ 
-              borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-              pb: 2,
-              bgcolor: alpha(theme.palette.background.paper, 0.5),
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1
+            </>
+          )}
+          
+        {/* ... existing code for other views and dialogs ... */}
+        </Paper>
+        
+      {/* רינדור של הדיאלוגים */}
+        {/* דיאלוג עדכון מחיר */}
+      <Dialog 
+        open={priceDialog.open} 
+        onClose={handlePriceDialogClose}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+            backgroundImage: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+            overflow: 'hidden',
+            width: { xs: '95%', sm: '450px' }
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          pb: 2,
+          bgcolor: alpha(theme.palette.background.paper, 0.5),
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          <AttachMoneyIcon sx={{ color: theme.palette.primary.main }} />
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            עדכון מחיר ליום
+              </Typography>
+        </DialogTitle>
+        
+        <DialogContent sx={{ pt: 3, pb: 2 }}>
+          <Box>
+            <Typography variant="subtitle1" sx={{ 
+              mb: 3, 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: 1 
             }}>
-              <AttachMoneyIcon sx={{ color: theme.palette.primary.main }} />
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                עדכון מחיר ליום
-                  </Typography>
-            </DialogTitle>
-            
-            <DialogContent sx={{ pt: 3, pb: 2 }}>
-              <Box>
-                <Typography variant="subtitle1" sx={{ 
-                  mb: 3, 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: 1 
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <HotelIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
-                    <Typography component="span" fontWeight="bold">
-                      חדר: {rooms.find(r => r._id === priceDialog.roomId)?.internalName || 'חדר'}
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CalendarMonthIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
-                    <Typography component="span" fontWeight="bold">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <HotelIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
+                <Typography component="span" fontWeight="bold">
+                  חדר: {rooms.find(r => r._id === priceDialog.roomId)?.internalName || 'חדר'}
+                </Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CalendarMonthIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
+                <Typography component="span" fontWeight="bold">
                 תאריך: {priceDialog.date ? format(priceDialog.date, 'dd/MM/yyyy') : 'טוען...'}
               </Typography>
               </Box>
@@ -3187,7 +3094,6 @@ const BookingListView = () => {
         </DialogActions>
         </Dialog>
       </Container>
-    </>
   );
 };
 
