@@ -1,1 +1,0 @@
-// Find and replace this text with handleBookingFormChange function
