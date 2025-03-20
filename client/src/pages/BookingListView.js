@@ -480,17 +480,12 @@ const BookingListView = () => {
     
     // יום צ'ק-אין (היום הראשון בשהייה) או הזמנה של יום בודד
     if (bookingInfo.isStart || bookingInfo.isSingleDay) {
-      // הדגשה משמעותית של יום הצ'ק-אין
-      return alpha(theme.palette.success.main, 0.25);
+      // הדגשה משמעותית של יום הצ'ק-אין בכחול כהה
+      return alpha('#1565c0', 0.25); // כחול כהה במקום ירוק
     }
     
-    // יום אחרון בשהייה (צ'ק-אאוט למחרת)
-    if (bookingInfo.isEnd) {
-      return alpha(theme.palette.info.main, 0.15);
-    }
-    
-    // אמצע שהייה
-    if (bookingInfo.isMiddle) {
+    // יום אחרון בשהייה או אמצע השהייה - אותו צבע בהיר
+    if (bookingInfo.isEnd || bookingInfo.isMiddle) {
       return alpha(theme.palette.info.light, 0.07);
     }
     
@@ -760,8 +755,8 @@ const BookingListView = () => {
           }}
           onClick={() => handleViewBooking(booking._id)}
         >
-          {/* אייקון יום צ'ק-אין לסימון כניסה */}
-          {(isStart || isSingleDay) && (
+          {/* הסרנו גם את אייקון המלון */}
+          {false && (isStart || isSingleDay) && (
             <Box sx={{ 
               position: 'absolute', 
               top: '2px', 
@@ -773,21 +768,10 @@ const BookingListView = () => {
               <HotelIcon 
                 sx={{ 
                   fontSize: '15px', 
-                  color: '#2e7d32',
-                  opacity: 0.7,
-                  mr: 0.3
+                  color: '#1565c0', // שינוי צבע מירוק לכחול כהה
+                  opacity: 0.8
                 }} 
               />
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  fontSize: '9px', 
-                  fontWeight: 'bold', 
-                  color: '#2e7d32' 
-                }}
-              >
-                כניסה
-              </Typography>
             </Box>
           )}
         
@@ -912,31 +896,7 @@ const BookingListView = () => {
             opacity: 0.7,
             bgcolor: 'transparent'
           }}>
-            {(isStart || isMiddle) && (
-              <ArrowBackIcon sx={{ fontSize: 10 }} />
-            )}
-            
-            {isMiddle && (
-              <Typography variant="caption" sx={{ mx: 0.3, fontSize: '0.6rem' }}>
-                המשך
-          </Typography>
-            )}
-            
-            {(isMiddle || isEnd) && (
-              <ArrowForwardIcon sx={{ fontSize: 10 }} />
-            )}
-            
-            {isStart && (
-              <Typography variant="caption" sx={{ mr: 0.3, fontSize: '0.6rem' }}>
-                כניסה
-              </Typography>
-            )}
-            
-            {isEnd && (
-              <Typography variant="caption" sx={{ ml: 0.3, fontSize: '0.6rem' }}>
-                יציאה
-              </Typography>
-            )}
+            {/* מסרנו את כל הסימונים של החיצים */}
           </Box>
         </Box>
       );
@@ -2169,18 +2129,12 @@ const BookingListView = () => {
                                           borderLeft: isMultiDay && !isFirstDay ? 0 : '1px solid rgba(224, 224, 224, 0.15)',
                                           borderRight: isMultiDay && !isLastDay ? 0 : '1px solid rgba(224, 224, 224, 0.15)',
                                           borderBottom: '1px solid rgba(224, 224, 224, 0.15)',
-                                          // הוספת עיצוב מיוחד ליום צ'ק-אין או הזמנה של יום אחד
+                                          // הוספת עיצוב מיוחד ליום צ'ק-אין או הזמנה של יום אחד - ללא מסגרת כהה, רק הרקע
                                           ...(isBooked && (isFirstDay || isSingleDay) && {
-                                            borderRight: '2px solid #2e7d32', // קו ירוק בולט בצד ימין
-                                            borderLeft: '2px solid #2e7d32', // קו ירוק בולט בצד שמאל
-                                            borderBottom: '2px solid rgba(46, 125, 50, 0.3)',
-                                            borderTop: '2px solid rgba(46, 125, 50, 0.3)',
                                             fontWeight: 'bold',
-                                            boxShadow: 'inset 0 0 0 1px rgba(46, 125, 50, 0.2)',
                                           }),
                                           // עיצוב ליום צ'ק-אאוט (יום האחרון בשהייה)
                                           ...(isBooked && isLastDay && !isFirstDay && !isSingleDay && {
-                                            borderRight: '1px solid rgba(33, 150, 243, 0.3)',
                                             fontWeight: 'normal',
                                           }),
                                           '&:hover': {
