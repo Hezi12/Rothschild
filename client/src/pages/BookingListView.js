@@ -469,7 +469,8 @@ const BookingListView = () => {
   };
   
   // פונקציה לקבלת צבע התא לפי סטטוס ההזמנה
-  const getCellBgColor = (isBooked, isPast, paymentStatus, isMultiDay) => {
+  const getCellBgColor = (isBooked, isPast, paymentStatus, bookingInfo) => {
+    // חדר לא מוזמן
     if (!isBooked) {
       // חדר פנוי - צבע לבן/בהיר מאוד
       return isPast 
@@ -477,9 +478,20 @@ const BookingListView = () => {
         : 'rgba(255, 255, 255, 0.5)';
     }
     
-    // הזמנה רגילה או המשך שהייה
-    if (isMultiDay) {
-      return alpha(theme.palette.info.light, 0.08);
+    // יום צ'ק-אין (היום הראשון בשהייה) או הזמנה של יום בודד
+    if (bookingInfo.isStart || bookingInfo.isSingleDay) {
+      // הדגשה משמעותית של יום הצ'ק-אין
+      return alpha(theme.palette.success.main, 0.25);
+    }
+    
+    // יום אחרון בשהייה (צ'ק-אאוט למחרת)
+    if (bookingInfo.isEnd) {
+      return alpha(theme.palette.info.main, 0.15);
+    }
+    
+    // אמצע שהייה
+    if (bookingInfo.isMiddle) {
+      return alpha(theme.palette.info.light, 0.07);
     }
     
     // מבוטל
@@ -503,17 +515,46 @@ const BookingListView = () => {
   
   // פונקציה לבדיקה אם הזמנה היא חלק משהייה מרובת ימים
   const isPartOfMultiDayStay = (roomBooking, roomId, date) => {
-    if (!roomBooking) return false;
+    if (!roomBooking) return { isMultiDay: false, isStart: false, isMiddle: false, isEnd: false, isSingleDay: false };
     
     const checkIn = new Date(roomBooking.checkIn);
     const checkOut = new Date(roomBooking.checkOut);
     
-    return (
-      roomBooking.room === roomId &&
-      date >= checkIn &&
-      date < checkOut &&
-      differenceInDays(checkOut, checkIn) > 1
-    );
+    // וודא שהתאריכים הם חצות כדי להשוות נכון
+    checkIn.setHours(0, 0, 0, 0);
+    checkOut.setHours(0, 0, 0, 0);
+    const currentDate = new Date(date);
+    currentDate.setHours(0, 0, 0, 0);
+    
+    // חישוב מספר הלילות
+    const nights = differenceInDays(checkOut, checkIn);
+    
+    // הזמנה של יום אחד
+    if (nights === 1) {
+      return {
+        isMultiDay: false,
+        isStart: false, 
+        isMiddle: false,
+        isEnd: false,
+        isSingleDay: isSameDay(currentDate, checkIn)
+      };
+    }
+    
+    // הזמנה של מספר ימים
+    if (nights > 1 && 
+        currentDate >= checkIn && 
+        currentDate < checkOut) {
+      
+      return {
+        isMultiDay: true,
+        isStart: isSameDay(currentDate, checkIn),
+        isMiddle: !isSameDay(currentDate, checkIn) && !isSameDay(currentDate, new Date(checkOut.getTime() - 86400000)),
+        isEnd: isSameDay(currentDate, new Date(checkOut.getTime() - 86400000)),
+        isSingleDay: false
+      };
+    }
+    
+    return { isMultiDay: false, isStart: false, isMiddle: false, isEnd: false, isSingleDay: false };
   };
   
   // פונקציה שבודקת אם תאריך הוא היום, אתמול או מחר
@@ -694,7 +735,7 @@ const BookingListView = () => {
     const booking = bookingsForCell[0]; // במקרה שלנו, יכולה להיות רק הזמנה אחת לחדר ליום
     
     // בדיקה אם זו הזמנה שנמשכת מכמה ימים
-    const { isMultiDay, isStart, isMiddle, isEnd } = isPartOfMultiDayStay(booking, room._id, date);
+    const { isMultiDay, isStart, isMiddle, isEnd, isSingleDay } = isPartOfMultiDayStay(booking, room._id, date);
     
       return (
         <Box 
@@ -719,6 +760,37 @@ const BookingListView = () => {
           }}
           onClick={() => handleViewBooking(booking._id)}
         >
+          {/* אייקון יום צ'ק-אין לסימון כניסה */}
+          {(isStart || isSingleDay) && (
+            <Box sx={{ 
+              position: 'absolute', 
+              top: '2px', 
+              right: '2px', 
+              zIndex: 2,
+              display: 'flex',
+              alignItems: 'center'
+            }}>
+              <HotelIcon 
+                sx={{ 
+                  fontSize: '15px', 
+                  color: '#2e7d32',
+                  opacity: 0.7,
+                  mr: 0.3
+                }} 
+              />
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  fontSize: '9px', 
+                  fontWeight: 'bold', 
+                  color: '#2e7d32' 
+                }}
+              >
+                כניסה
+              </Typography>
+            </Box>
+          )}
+        
           <Box sx={{ position: 'relative', bgcolor: 'transparent' }}>
             {isStart || !isMultiDay ? (
               <Box 
@@ -1223,8 +1295,9 @@ const BookingListView = () => {
         // הוספת שדות כרטיס אשראי
         creditCard: {
           cardNumber: '',
-          expiry: '',
-          cvv: ''
+          cardExpiry: '',
+          cardCvc: '',
+          cardHolder: ''
         }
       }
     });
@@ -2060,16 +2133,21 @@ const BookingListView = () => {
                                     const paymentStatus = isBooked ? bookingsForCell[0].paymentStatus : null;
                                     const isCurrentDay = isSameDay(day, new Date());
                                     
-                                    // בדיקה אם ההזמנה היא חלק משהייה מרובת ימים
+                                    // הנתונים שקשורים להזמנה
                                     let isMultiDay = false;
                                     let isFirstDay = false;
                                     let isLastDay = false;
+                                    let isSingleDay = false;
+                                    let isMiddleDay = false;
                                     
-                                    if (isBooked) {
+                                    // אם יש הזמנה, נחלץ את המידע על הסטטוס שלה
+                                    if (isBooked && bookingsForCell.length > 0) {
                                       const multiDayInfo = isPartOfMultiDayStay(bookingsForCell[0], room._id, day);
                                       isMultiDay = multiDayInfo.isMultiDay;
                                       isFirstDay = multiDayInfo.isStart;
                                       isLastDay = multiDayInfo.isEnd;
+                                      isMiddleDay = multiDayInfo.isMiddle;
+                                      isSingleDay = multiDayInfo.isSingleDay;
                                     }
                                     
                                     return (
@@ -2081,10 +2159,30 @@ const BookingListView = () => {
                                           cursor: 'pointer',
                                           padding: '8px 6px', // ריווח מוקטן
                                           position: 'relative',
-                                          bgcolor: getCellBgColor(isBooked, isPast, paymentStatus, isMultiDay),
+                                          bgcolor: getCellBgColor(isBooked, isPast, paymentStatus, { 
+                                            isStart: isFirstDay, 
+                                            isMiddle: isMiddleDay, 
+                                            isEnd: isLastDay, 
+                                            isMultiDay: isMultiDay,
+                                            isSingleDay: isSingleDay
+                                          }),
                                           borderLeft: isMultiDay && !isFirstDay ? 0 : '1px solid rgba(224, 224, 224, 0.15)',
                                           borderRight: isMultiDay && !isLastDay ? 0 : '1px solid rgba(224, 224, 224, 0.15)',
                                           borderBottom: '1px solid rgba(224, 224, 224, 0.15)',
+                                          // הוספת עיצוב מיוחד ליום צ'ק-אין או הזמנה של יום אחד
+                                          ...(isBooked && (isFirstDay || isSingleDay) && {
+                                            borderRight: '2px solid #2e7d32', // קו ירוק בולט בצד ימין
+                                            borderLeft: '2px solid #2e7d32', // קו ירוק בולט בצד שמאל
+                                            borderBottom: '2px solid rgba(46, 125, 50, 0.3)',
+                                            borderTop: '2px solid rgba(46, 125, 50, 0.3)',
+                                            fontWeight: 'bold',
+                                            boxShadow: 'inset 0 0 0 1px rgba(46, 125, 50, 0.2)',
+                                          }),
+                                          // עיצוב ליום צ'ק-אאוט (יום האחרון בשהייה)
+                                          ...(isBooked && isLastDay && !isFirstDay && !isSingleDay && {
+                                            borderRight: '1px solid rgba(33, 150, 243, 0.3)',
+                                            fontWeight: 'normal',
+                                          }),
                                           '&:hover': {
                                             filter: 'brightness(0.95)',
                                             zIndex: 1
