@@ -2373,27 +2373,7 @@ const BookingListView = () => {
                       ביטול הזמנה
                   </ActionButton>
                     
-                  <ActionButton
-                      variant="outlined"
-                      color="primary"
-                      size="small"
-                      startIcon={<CheckIcon />}
-                      onClick={() => {
-                        const updatedData = { ...bookingDialog.bookingData, paymentStatus: 'paid' };
-                        handleUpdateBooking(updatedData);
-                      }}
-                      sx={{
-                        borderRadius: 2,
-                        fontWeight: 'medium',
-                        border: '1px solid #2196f3',
-                        color: '#2196f3',
-                        '&:hover': {
-                          bgcolor: 'rgba(33,150,243,0.04)'
-                        }
-                      }}
-                    >
-                      סמן כשולם
-                  </ActionButton>
+                  {/* כפתור "סמן כשולם" הוסר לפי בקשת המשתמש */}
                   </Box>
                 </Grid>
                 
@@ -2725,8 +2705,9 @@ const BookingListView = () => {
                           >
                             <InputLabel>מתחים לתשלום</InputLabel>
                             <Select
-                              defaultValue={bookingDialog.bookingData.paymentStatus || 'pending'}
+                              value={bookingDialog.bookingData?.paymentStatus || 'pending'}
                               label="מתחים לתשלום"
+                              onChange={(e) => handleBookingFormChange('paymentStatus', e.target.value)}
                             >
                               <MenuItem value="pending">ממתין לתשלום</MenuItem>
                               <MenuItem value="partial">שולם חלקית</MenuItem>
