@@ -1775,48 +1775,7 @@ const BookingListView = () => {
         }}>
           <Grid container spacing={2} alignItems="center" justifyContent="space-between">
             <Grid item xs={12} md={4}>
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 1,
-                p: 1,
-                borderRadius: 2,
-                bgcolor: alpha(theme.palette.primary.main, 0.05),
-                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-              }}>
-                <CalendarMonthIcon 
-                  sx={{ 
-                    color: theme.palette.primary.main,
-                    fontSize: 26,
-                  }} 
-                />
-              <Typography 
-                variant="h5" 
-                sx={{ 
-                    fontWeight: 700,
-                    color: theme.palette.text.primary,
-                  }}
-                >
-                  לוח זמינות חדרים
-              </Typography>
-              <Tooltip title="עבור לדף הזמנות חדש">
-                <IconButton 
-                  component={Link} 
-                  to="/dashboard/bookings-new" 
-                  size="small" 
-                  color="primary" 
-                  sx={{ 
-                    ml: 1,
-                    bgcolor: alpha(theme.palette.primary.main, 0.1),
-                    '&:hover': {
-                      bgcolor: alpha(theme.palette.primary.main, 0.2)
-                    }
-                  }}
-                >
-                  <NavigateNextIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              </Box>
+              {/* הסרת הקופסה עם הכותרת והקישור בהתאם לבקשת המשתמש */}
             </Grid>
             
             <Grid item xs={12} md={8}>
