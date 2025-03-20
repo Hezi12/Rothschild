@@ -69,8 +69,8 @@ import { InputAdornment } from '@mui/material';
 
 // קומפוננטות מותאמות אישית עם styled
 const StyledTableCell = styled(TableCell)(({ theme, isWeekend, isToday }) => ({
-  padding: theme.spacing(0.6), // הוקטן עוד יותר
-  minWidth: '100px', // הוקטן מ-120px ל-100px
+  padding: theme.spacing(0.5), // הוקטן עוד יותר
+  minWidth: '95px', // הוקטן מ-100px ל-95px
   background: isToday 
     ? alpha(theme.palette.primary.light, 0.12)
     : isWeekend 
@@ -92,11 +92,11 @@ const StyledRoomCell = styled(TableCell)(({ theme }) => ({
   backgroundColor: theme.palette.background.default,
   zIndex: 10,
   boxShadow: '3px 0 10px rgba(0,0,0,0.15)',
-  minWidth: '70px', // הוקטן מ-80px
-  maxWidth: '100px', // הוקטן מ-120px
-  padding: theme.spacing(0.75), // הוקטן מ-1
-  paddingRight: theme.spacing(0.75), // הוקטן מ-1
-  paddingLeft: theme.spacing(1.5) // הוקטן מ-2
+  minWidth: '65px', // הוקטן מ-70px
+  maxWidth: '90px', // הוקטן מ-100px
+  padding: theme.spacing(0.65), // הוקטן מ-0.75
+  paddingRight: theme.spacing(0.65), // הוקטן מ-0.75
+  paddingLeft: theme.spacing(1.25) // הוקטן מ-1.5
 }));
 
 const ActionButton = styled(Button)(({ theme }) => ({
@@ -1755,10 +1755,10 @@ const BookingListView = () => {
       <Container 
         maxWidth={false} 
         sx={{ 
-          py: 0.5, // מרווח קטן יותר מלמעלה ולמטה
+          py: 0.2, // מרווח אנכי קטן יותר
           height: '100%',
-          paddingLeft: '60px', // הוקטן מ-65px ל-60px
-          paddingRight: '2px', // הוקטן מ-6px ל-2px 
+          paddingLeft: '55px', // הוקטן מ-60px ל-55px
+          paddingRight: '0px', // הוקטן מ-2px ל-0px 
           width: '100%', 
           boxSizing: 'border-box'
         }}
@@ -1766,7 +1766,7 @@ const BookingListView = () => {
         <Paper 
           elevation={0} 
           sx={{ 
-            p: 2, 
+            p: 1.5, // פחות ריפוד - הוקטן מ-2
             borderRadius: 3,
             backgroundImage: 'linear-gradient(135deg, #f5f7fa 0%, #f8f9fa 100%)',
             boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
@@ -1775,9 +1775,9 @@ const BookingListView = () => {
             flexDirection: 'column',
             height: 'fit-content', // גובה מותאם לתוכן במקום גובה קבוע
             maxHeight: '98vh', // מעט פחות מגובה המסך המלא
-            width: 'calc(100% - 10px)', // הוגדל מ-20px ל-10px
-            marginLeft: '5px', // הוקטן מ-10px ל-5px
-            marginRight: '5px', // נוסף מרווח ימני מינימלי
+            width: 'calc(100% - 6px)', // הוגדל מ-10px ל-6px
+            marginLeft: '3px', // הוקטן מ-5px ל-3px
+            marginRight: '3px', // הוקטן מ-5px ל-3px
             marginBottom: '10px' // מרווח תחתון זהה למרווחים בצדדים
           }}
         >
@@ -2117,7 +2117,7 @@ const BookingListView = () => {
                                         onClick={() => handleCellClick(room._id, day)}
                                         sx={{ 
                                           cursor: 'pointer',
-                                          padding: '8px 6px', // ריווח מוקטן
+                                          padding: '6px 4px', // ריווח מוקטן
                                           position: 'relative',
                                           bgcolor: getCellBgColor(isBooked, isPast, paymentStatus, { 
                                             isStart: isFirstDay, 
@@ -2145,9 +2145,9 @@ const BookingListView = () => {
                                           minHeight: '60px', // גובה אחיד מוקטן
                                           maxHeight: '60px',
                                           height: '60px',
-                                          width: '120px', // רוחב קבוע
-                                          minWidth: '120px',
-                                          maxWidth: '120px',
+                                          width: '100px', // רוחב קבוע - הוקטן מ-120px
+                                          minWidth: '95px', // הוקטן מ-100px
+                                          maxWidth: '100px', // הוקטן מ-120px
                                           ...(isCurrentDay && {
                                             zIndex: 1, // רק להגדרת z-index, בלי מסגרת
                                           })
