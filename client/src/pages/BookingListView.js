@@ -1756,17 +1756,38 @@ const BookingListView = () => {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          height: 'calc(100vh - 20px)'  // הגדלת הגובה כדי שכל החדרים יוצגו (במקום 100px)
+          height: '100vh',  // מכסה את כל גובה החלון
+          maxHeight: '100vh', // מגביל את הגובה המקסימלי
+          position: 'fixed', // קובע את העמוד במקום
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100%'
         }}
       >
-        <Box sx={{ mb: 2 }}>
-          <Grid container spacing={1} alignItems="center" justifyContent="space-between">
+        <Box sx={{ 
+          mb: 2, 
+          pt: 1,  // מרווח עליון לעיצוב יותר טוב
+          px: 1,  // מרווח אופקי
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          pb: 2  // מרווח תחתון
+        }}>
+          <Grid container spacing={2} alignItems="center" justifyContent="space-between">
             <Grid item xs={12} md={4}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1,
+                p: 1,
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.primary.main, 0.05),
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+              }}>
                 <CalendarMonthIcon 
                   sx={{ 
                     color: theme.palette.primary.main,
-                    fontSize: 24,
+                    fontSize: 26,
                   }} 
                 />
               <Typography 
@@ -1776,7 +1797,7 @@ const BookingListView = () => {
                     color: theme.palette.text.primary,
                   }}
                 >
-                  יומן הזמנות
+                  לוח זמינות חדרים
               </Typography>
               <Tooltip title="עבור לדף הזמנות חדש">
                 <IconButton 
@@ -1804,7 +1825,11 @@ const BookingListView = () => {
                 gap: 1, 
                 flexWrap: 'wrap',
                 justifyContent: { xs: 'center', md: 'flex-end' },
-                mt: { xs: 1, md: 0 }
+                mt: { xs: 1, md: 0 },
+                p: 1,
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.background.paper, 0.5),
+                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`
               }}>
                 <ActionButton 
                   variant="outlined" 
@@ -1812,6 +1837,7 @@ const BookingListView = () => {
                   onClick={handleToday}
                   size="small"
                   color="secondary"
+                  sx={{ minWidth: '80px' }}
                 >
                   היום
                 </ActionButton>
@@ -1907,54 +1933,11 @@ const BookingListView = () => {
               overflow: 'hidden'
             }}
           >
-            <Tabs 
-              value={activeTab} 
-              onChange={handleTabChange} 
-              variant="fullWidth"
-              sx={{ 
-                minHeight: 36,
-                '& .MuiTab-root': { 
-                  fontWeight: 600,
-                  py: 1,
-                  minHeight: 36,
-                  transition: 'all 0.3s',
-                  color: theme.palette.text.secondary,
-                  borderRadius: '8px 8px 0 0',
-                  overflow: 'hidden',
-                  '&:hover': {
-                    bgcolor: alpha(theme.palette.primary.light, 0.1)
-                  }
-                },
-                '& .Mui-selected': {
-                  color: `${theme.palette.primary.main} !important`,
-                  fontWeight: 700,
-                  bgcolor: alpha(theme.palette.primary.main, 0.05)
-                },
-                '& .MuiTabs-indicator': {
-                  height: 3,
-                  borderRadius: '3px 3px 0 0',
-                  bgcolor: theme.palette.primary.main,
-                  boxShadow: `0 0 10px ${alpha(theme.palette.primary.main, 0.5)}`
-                }
-              }}
-            >
-              <Tab 
-                label="זמינות חדרים" 
-                icon={<HotelIcon sx={{ fontSize: '1.1rem' }} />} 
-                iconPosition="start" 
-                sx={{ fontSize: '0.85rem' }}
-              />
-              <Tab 
-                label="הזמנות" 
-                icon={<CalendarMonthIcon sx={{ fontSize: '1.1rem' }} />} 
-                iconPosition="start" 
-                sx={{ fontSize: '0.85rem' }}
-              />
-            </Tabs>
+            {/* הסרנו את קומפוננטת ה-Tabs */}
           </Box>
           </Box>
         
-        {activeTab === 0 && viewMode === 'calendar' && (
+        {viewMode === 'calendar' && (
             <>
               {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
@@ -1977,14 +1960,17 @@ const BookingListView = () => {
                   overflow: 'hidden',
                   bgcolor: alpha(theme.palette.background.paper, 0.8),
                   boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
-                  border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+                  border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                  flex: 1,  // תופס את יתר המרחב הפנוי
+                  display: 'flex',  // מאפשר לילדים למלא את המרחב
+                  flexDirection: 'column'  // סידור אנכי של הילדים
                 }}>
                   <TableContainer sx={{ 
-                    maxHeight: '100%', 
-                    overflow: 'auto',  // שינוי מ-'auto hidden' ל-'auto' כדי לאפשר גלילה אנכית
+                    height: 'calc(100vh - 130px)',  // גובה מחושב שיישאר בתוך המסך
+                    overflow: 'auto',
                     '&::-webkit-scrollbar': {
-                      width: '10px',
-                      height: '10px'
+                      width: '8px',
+                      height: '8px'
                     },
                     '&::-webkit-scrollbar-thumb': {
                       background: alpha(theme.palette.primary.main, 0.4),
@@ -2032,6 +2018,11 @@ const BookingListView = () => {
                                 align="center" 
                                 isWeekend={isFriday}
                                 isToday={isToday}
+                                sx={{ 
+                                  width: '100px', // רוחב קבוע לכל עמודה
+                                  minWidth: '100px', 
+                                  maxWidth: '100px'
+                                }}
                               >
                                 {isToday && <HighlightedColumn />}
                                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -2112,7 +2103,9 @@ const BookingListView = () => {
                                   alignItems: 'center', 
                                   justifyContent: 'center',
                                   position: 'relative',
-                                  zIndex: 3
+                                  zIndex: 3,
+                                  minWidth: '100px', // רוחב מינימלי לתאי החדרים
+                                  py: 1 // ריווח אנכי
                                 }}>
                                   <Avatar 
                                     sx={{ 
@@ -2156,7 +2149,7 @@ const BookingListView = () => {
                                     onClick={() => handleCellClick(room._id, day)}
                                     sx={{ 
                                       cursor: 'pointer',
-                                      padding: '8px 6px',
+                                      padding: '12px 8px', // ריווח אחיד
                                       position: 'relative',
                                       bgcolor: getCellBgColor(isBooked, isPast, paymentStatus, isMultiDay),
                                       borderLeft: isMultiDay && !isFirstDay ? 0 : '1px solid rgba(224, 224, 224, 0.15)',
@@ -2167,9 +2160,12 @@ const BookingListView = () => {
                                         zIndex: 1
                                       },
                                       transition: 'all 0.2s ease',
-                                      minHeight: '70px',
-                                      maxHeight: '70px',
-                                      height: '70px',
+                                      minHeight: '80px', // גובה אחיד
+                                      maxHeight: '80px',
+                                      height: '80px',
+                                      width: '100px', // רוחב קבוע
+                                      minWidth: '100px',
+                                      maxWidth: '100px',
                                       ...(isCurrentDay && {
                                         zIndex: 1, // רק להגדרת z-index, בלי מסגרת
                                       })
