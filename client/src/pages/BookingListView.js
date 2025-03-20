@@ -59,6 +59,7 @@ import {
   // אייקונים חדשים לסרגל הצדדי
   Dashboard as DashboardIcon,
   ListAlt as ListAltIcon,
+  Collections as CollectionsIcon,
   Home as HomeIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
