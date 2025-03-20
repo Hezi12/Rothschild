@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
-import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, isSameDay, getDay, subDays, differenceInDays } from 'date-fns';
+import { format, addDays, addMonths, subMonths, isSameDay, getDay, differenceInDays } from 'date-fns';
 import { he } from 'date-fns/locale';
 import {
   Container,
@@ -28,36 +28,19 @@ import {
   CircularProgress,
   Alert,
   Chip,
-  Divider,
   Tooltip,
-  Card,
-  CardContent,
-  CardActions,
-  Stack,
   useTheme,
   useMediaQuery,
-  Tab,
-  Tabs,
   alpha,
-  Zoom,
   Fade,
-  Badge,
   Avatar,
   styled,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   FormControlLabel,
   Checkbox
 } from '@mui/material';
 import {
-  // אייקונים קיימים
+  // אייקונים בשימוש 
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Search as SearchIcon,
-  ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon,
   Today as TodayIcon,
   Check as CheckIcon,
   Close as CloseIcon,
@@ -65,33 +48,17 @@ import {
   CalendarMonth as CalendarMonthIcon,
   Hotel as HotelIcon,
   Person as PersonIcon,
-  EventAvailable as EventAvailableIcon,
-  EventBusy as EventBusyIcon,
-  CheckCircle as CheckCircleIcon,
-  Pending as PendingIcon,
-  Error as ErrorIcon,
   NavigateNext as NavigateNextIcon,
   NavigateBefore as NavigateBeforeIcon,
-  DoorFront as DoorFrontIcon,
-  WbSunny as WbSunnyIcon,
-  Nightlight as NightlightIcon,
   Circle as CircleIcon,
-  Apps as AppsIcon,
-  ViewWeek as ViewWeekIcon,
   ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
   Info as InfoIcon,
-  ExpandMore as ExpandMoreIcon,
-  Refresh as RefreshIcon,
   WhatsApp as WhatsAppIcon,
-  CurrencyLira as CurrencyLiraIcon,
   MonetizationOn as MonetizationOnIcon,
   // אייקונים חדשים לסרגל הצדדי
   Dashboard as DashboardIcon,
   ListAlt as ListAltIcon,
-  Event as EventIcon,
-  Collections as CollectionsIcon,
-  Settings as SettingsIcon,
   Home as HomeIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
@@ -222,6 +189,10 @@ const SidebarButton = styled(Tooltip)(({ theme, isActive }) => ({
     borderLeft: isActive ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent'
   }
 }));
+
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable no-unused-vars */
+
 const BookingListView = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
