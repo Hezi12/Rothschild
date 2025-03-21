@@ -66,8 +66,8 @@ import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { InputAdornment } from '@mui/material';
-import { DraggableBookingCell, DroppableBookingCell, handleBookingDrop } from '../features/drag-and-drop/DraggableBooking';
-import DragHint from '../features/drag-and-drop/DragHint';
+import { DraggableBookingCell, DroppableBookingCell, handleBookingDrop } from '../features/drag-and-drop/DraggableBooking.js';
+import DragHint from '../features/drag-and-drop/DragHint.js';
 
 // קומפוננטות מותאמות אישית עם styled
 const StyledTableCell = styled(TableCell)(({ theme, isWeekend, isToday }) => ({
