@@ -60,7 +60,8 @@ import {
   Dashboard as DashboardIcon,
   ListAlt as ListAltIcon,
   Collections as CollectionsIcon,
-  Home as HomeIcon
+  Home as HomeIcon,
+  Groups as GroupsIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -584,6 +585,202 @@ const BookingListView = () => {
     const bookingsForCell = getBookingsForRoomAndDate(room._id, date);
     const isBooked = bookingsForCell && bookingsForCell.length > 0;
     const isPast = date < new Date(new Date().setHours(0,0,0,0)); // תאריך בעבר
+    
+    // אם יש הזמנה, נציג את פרטי ההזמנה
+    if (isBooked && bookingsForCell.length > 0) {
+      const booking = bookingsForCell[0]; // אנחנו מתייחסים להזמנה הראשונה במקרה של חפיפה (נדיר)
+      
+      // בדיקה אם זו הזמנה מרובת חדרים
+      const isMultiRoomBooking = booking.isMultiRoomBooking || false;
+      
+      // בדיקה אם זו הזמנה שנמשכת מכמה ימים
+      const { isMultiDay, isStart, isMiddle, isEnd, isSingleDay } = isPartOfMultiDayStay(booking, room._id, date);
+    
+      return (
+        <Box 
+          sx={{ 
+            height: '100%',
+            p: 0.5,
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            position: 'relative',
+            // מבטל לחלוטין את הרקע של הקונטיינר - התא עצמו כבר קיבל את הרקע
+            bgcolor: 'transparent',
+            transition: 'all 0.2s',
+            border: 'none',
+            boxShadow: 'none',
+            '&:hover': {
+              filter: 'brightness(0.95)',
+              zIndex: 1
+            },
+            minHeight: '60px'
+          }}
+          onClick={() => handleViewBooking(booking._id)}
+        >
+          {/* סימון להזמנה מרובת חדרים */}
+          {isMultiRoomBooking && (isStart || isSingleDay) && (
+            <Box sx={{ 
+              position: 'absolute', 
+              top: '2px', 
+              right: '2px', 
+              zIndex: 2,
+              display: 'flex',
+              alignItems: 'center'
+            }}>
+              <Tooltip title="הזמנה מרובת חדרים">
+                <GroupsIcon
+                  sx={{ 
+                    fontSize: '15px', 
+                    color: '#D32F2F', // צבע אדום להבלטה
+                    opacity: 0.8
+                  }} 
+                />
+              </Tooltip>
+            </Box>
+          )}
+        
+          <Box sx={{ position: 'relative', bgcolor: 'transparent' }}>
+            {isStart || !isMultiDay ? (
+              <Box 
+                sx={{ 
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  mb: 0,
+                  bgcolor: 'transparent',
+                  width: '100%',
+                  px: 0.5
+                }}
+              >
+                <StatusChip 
+                  label={
+                    booking.paymentStatus === 'paid' ? 'שולם' : 
+                    booking.paymentStatus === 'partial' ? 'חלקי' : 
+                    booking.paymentStatus === 'pending' ? 'ממתין' : 
+                    booking.paymentStatus === 'canceled' ? 'בוטל' : 'לא שולם'
+                  }
+                  size="small"
+                  status={booking.paymentStatus}
+                />
+                
+                {/* אייקון וואטסאפ שמוצג רק אם התאריך רלוונטי */}
+                {booking.guest?.phone && isRelevantDate(date) && (
+                  <Tooltip title="שלח הודעת וואטסאפ">
+                    <IconButton
+                      size="small"
+                      sx={{ 
+                        color: '#25D366',
+                        p: 0.3,
+                        opacity: 0.85,
+                        '&:hover': { 
+                          opacity: 1,
+                          bgcolor: alpha('#25D366', 0.1)
+                        }
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation(); // מונע מהאירוע להתפשט לתא כולו
+                        // מנקה את מספר הטלפון מתווים שאינם ספרות
+                        const cleanPhone = booking.guest.phone.replace(/\D/g, '');
+                        // מסיר את ה-0 מתחילת המספר אם יש ומוסיף קידומת ישראל
+                        const formattedPhone = cleanPhone.startsWith('0') ? `972${cleanPhone.substring(1)}` : cleanPhone;
+                        window.open(`https://wa.me/${formattedPhone}`, '_blank');
+                      }}
+                    >
+                      <WhatsAppIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            ) : null}
+            
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+              pt: 0.5,
+              bgcolor: 'transparent'
+            }}>
+              <Tooltip 
+                title={
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                      {booking.guest?.firstName || booking.guest?.name || "אורח"}
+                      {booking.guest?.lastName ? ` ${booking.guest?.lastName}` : ""}
+                      {isMultiRoomBooking && " (הזמנה מרובת חדרים)"}
+                    </Typography>
+                    <Typography variant="body2">
+                      {format(new Date(booking.checkIn), 'dd/MM')} - {format(new Date(booking.checkOut), 'dd/MM')}
+                    </Typography>
+                    <Typography variant="body2">
+                      {booking.nights} לילות - ₪{booking.pricePerNight || (booking.totalPrice && booking.nights ? Math.round(booking.totalPrice / booking.nights) : booking.totalPrice)} ללילה
+                    </Typography>
+                    {booking.source && (
+                      <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+                        מקור: {booking.source}
+                      </Typography>
+                    )}
+                    {isMultiRoomBooking && booking.rooms && (
+                      <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'error.main' }}>
+                        הזמנה של {booking.rooms.length} חדרים
+                      </Typography>
+                    )}
+                  </Box>
+                } 
+                arrow
+              >
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: 'bold', 
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: '100%',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  {booking.guest?.firstName || booking.guest?.name || "אורח"}
+                  {booking.guest?.lastName ? ` ${booking.guest?.lastName}` : ""}
+                  {isMultiRoomBooking && " (מ)"}
+                </Typography>
+              </Tooltip>
+              
+              {!isMultiDay && (
+                <Typography 
+                  variant="caption" 
+                  sx={{
+                    display: 'block',
+                    color: alpha(theme.palette.text.primary, 0.8),
+                    fontSize: '0.65rem'
+                  }}
+                >
+                  ₪{booking.pricePerNight || (booking.totalPrice && booking.nights ? Math.round(booking.totalPrice / booking.nights) : booking.totalPrice)}
+                </Typography>
+              )}
+            </Box>
+          </Box>
+          
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            justifyContent: 'center',
+            mt: 0.5,
+            opacity: 0.7,
+            bgcolor: 'transparent'
+          }}>
+            {/* מסרנו את כל הסימונים של החיצים */}
+            {isMultiRoomBooking && (
+              <Tooltip title="הזמנה מרובת חדרים">
+                <GroupsIcon fontSize="small" sx={{ opacity: 0.6, mr: 0.5, fontSize: '0.7rem' }} />
+              </Tooltip>
+            )}
+          </Box>
+        </Box>
+      );
+    }
     
     // אם אין הזמנה, נציג תא ריק עם אפשרות להוספת הזמנה
     if (!isBooked) {
