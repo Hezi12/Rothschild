@@ -28,6 +28,49 @@ router
   .route('/:id/payment-status')
   .put(protect, bookingController.updatePaymentStatus);
 
+// נקודת קצה ייעודית לביטול הזמנה
+router.post('/:id/cancel', protect, async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    console.log(`טיפול בבקשת ביטול הזמנה: ${bookingId}`);
+    
+    const booking = await Booking.findById(bookingId);
+    
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'הזמנה לא נמצאה'
+      });
+    }
+    
+    // עדכון סטטוס ההזמנה לבוטל
+    booking.paymentStatus = 'canceled';
+    booking.status = 'canceled';
+    
+    await booking.save();
+    
+    // שליחת התראה על ביטול למנהל (אם קיים)
+    try {
+      await sendCancellationAlert(booking);
+    } catch (emailError) {
+      console.error('שגיאה בשליחת התראת ביטול:', emailError);
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: 'ההזמנה בוטלה בהצלחה',
+      data: booking
+    });
+  } catch (error) {
+    console.error('שגיאה בביטול הזמנה:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'שגיאת שרת בעת ביטול ההזמנה',
+      error: error.message
+    });
+  }
+});
+
 // מחיקה מוחלטת של הזמנה
 router
   .route('/:id/hard-delete')

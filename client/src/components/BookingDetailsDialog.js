@@ -158,18 +158,64 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
 
     setLoading(true);
     try {
+      // נסיון ראשון - שימוש בנקודת קצה ייעודית לביטול הזמנה (POST)
+      try {
+        const response = await axios.post(
+          `${process.env.REACT_APP_API_URL}/bookings/${booking._id}/cancel`,
+          {},
+          { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }}
+        );
+        
+        if (response.data.success) {
+          toast.success('ההזמנה בוטלה בהצלחה');
+          onBookingChange();
+          onClose();
+          return;
+        }
+      } catch (cancelError) {
+        console.log('ניסיון ביטול דרך נקודת קצה ייעודית נכשל, מנסה גישה אחרת', cancelError);
+      }
+      
+      // נסיון שני - עדכון ההזמנה באמצעות PUT
+      try {
+        const updatedData = {
+          ...booking,
+          paymentStatus: 'canceled',
+          status: 'canceled'
+        };
+        
+        const response = await axios.put(
+          `${process.env.REACT_APP_API_URL}/bookings/${booking._id}`,
+          updatedData,
+          { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }}
+        );
+        
+        if (response.data.success) {
+          toast.success('ההזמנה בוטלה בהצלחה');
+          onBookingChange();
+          onClose();
+          return;
+        }
+      } catch (putError) {
+        console.log('ניסיון ביטול באמצעות PUT נכשל, מנסה גישה אחרת', putError);
+      }
+      
+      // נסיון שלישי - ניסיון מקורי עם DELETE
       const response = await axios.delete(
-        `${process.env.REACT_APP_API_URL}/bookings/${booking._id}`
+        `${process.env.REACT_APP_API_URL}/bookings/${booking._id}`,
+        { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }}
       );
 
       if (response.data.success) {
         toast.success('ההזמנה בוטלה בהצלחה');
         onBookingChange();
         onClose();
+      } else {
+        toast.error(response.data.message || 'אירעה שגיאה בביטול ההזמנה');
       }
     } catch (error) {
       console.error('שגיאה בביטול הזמנה:', error);
-      toast.error('שגיאה בביטול הזמנה');
+      toast.error('שגיאה בביטול הזמנה. נסה שוב מאוחר יותר.');
     } finally {
       setLoading(false);
     }

@@ -466,7 +466,9 @@ const Layout = () => {
           textAlign: 'center'
         }}
       >
-        {/* הסרת שורת זכויות היוצרים */}
+        <Typography variant="body2" color="text.secondary">
+          © {new Date().getFullYear()} רוטשילד 79, פתח תקווה. כל הזכויות שמורות.
+        </Typography>
       </Box>
 
       <Box
