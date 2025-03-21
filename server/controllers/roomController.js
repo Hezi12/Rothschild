@@ -7,6 +7,9 @@ const cloudinary = require('../config/cloudinary');
 const { isAvailable } = require('../utils/availability');
 const asyncHandler = require('../middleware/async');
 const ErrorResponse = require('../utils/errorResponse');
+const PricePeriod = require('../models/PricePeriod');
+const { addDays, format, parseISO } = require('date-fns');
+const { sendBookingConfirmation } = require('../utils/emailService');
 
 // פונקציה לחישוב מחיר עם מחירים מיוחדים
 const calculatePriceWithSpecialPrices = (room, checkInDate, nights) => {
@@ -695,6 +698,15 @@ exports.createMultiRoomBooking = asyncHandler(async (req, res, next) => {
     
     const booking = await Booking.create(multiBooking);
     console.log(`הזמנה מרובת חדרים נוצרה בהצלחה: ${booking._id}, מספר הזמנה: ${booking.bookingNumber}`);
+    
+    // שליחת אימייל אישור ללקוח
+    try {
+      await sendBookingConfirmation(booking);
+      console.log('נשלח אימייל אישור הזמנה ללקוח');
+    } catch (emailError) {
+      console.error('שגיאה בשליחת אימייל אישור הזמנה:', emailError);
+      // ממשיכים למרות שגיאה בשליחת האימייל
+    }
     
     res.status(201).json({
         success: true,

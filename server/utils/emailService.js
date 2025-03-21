@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport({
 /**
  * פונקציה לשליחת מייל אישור הזמנה
  * @param {Object} booking - אובייקט ההזמנה
- * @param {Object} room - פרטי החדר
+ * @param {Object} room - פרטי החדר (אופציונלי)
  */
 const sendBookingConfirmation = async (booking, room) => {
   try {
@@ -20,7 +20,8 @@ const sendBookingConfirmation = async (booking, room) => {
       bookingId: booking._id,
       bookingNumber: booking.bookingNumber,
       guestEmail: booking.guest.email,
-      guestName: booking.guest.name
+      guestName: booking.guest.name,
+      isMultiRoom: booking.isMultiRoomBooking || false
     });
     
     const checkIn = new Date(booking.checkIn).toLocaleDateString('he-IL');
@@ -34,8 +35,21 @@ const sendBookingConfirmation = async (booking, room) => {
     // כמות האורחים
     const guestCount = booking.guests || booking.numberOfGuests || 1;
     
-    // מספר החדרים (אם קיים)
-    const roomCount = booking.rooms?.length || 1;
+    // מספר החדרים
+    let roomDetails = '';
+    let roomCount = 1;
+    
+    // בדיקה אם זו הזמנה מרובת חדרים
+    if (booking.isMultiRoomBooking && booking.rooms && booking.rooms.length > 0) {
+      roomCount = booking.rooms.length;
+      roomDetails = `<p style="margin: 5px 0;">הזמנה מרובת חדרים (${roomCount} חדרים)</p>`;
+    } 
+    // אם לא, זוהי הזמנת חדר בודד
+    else if (room || booking.room) {
+      const roomInfo = room || booking.room;
+      const roomName = roomInfo.internalName || roomInfo.roomNumber || 'חדר סטנדרט';
+      roomDetails = `<p style="margin: 5px 0;">חדר: ${roomName}</p>`;
+    }
     
     // תוכן המייל
     const mailOptions = {
@@ -59,19 +73,11 @@ const sendBookingConfirmation = async (booking, room) => {
                 <td style="padding: 8px 0;">${booking.bookingNumber}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold;">מספר חדרים:</td>
-                <td style="padding: 8px 0;">${roomCount}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; font-weight: bold;">מספר אורחים:</td>
-                <td style="padding: 8px 0;">${guestCount}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; font-weight: bold;">תאריך הגעה:</td>
+                <td style="padding: 8px 0; font-weight: bold;">תאריך צ'ק-אין:</td>
                 <td style="padding: 8px 0;">${checkIn}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold;">תאריך יציאה:</td>
+                <td style="padding: 8px 0; font-weight: bold;">תאריך צ'ק-אאוט:</td>
                 <td style="padding: 8px 0;">${checkOut}</td>
               </tr>
               <tr>
@@ -79,8 +85,16 @@ const sendBookingConfirmation = async (booking, room) => {
                 <td style="padding: 8px 0;">${booking.nights}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold;">מחיר כולל:</td>
-                <td style="padding: 8px 0;">₪${booking.totalPrice.toFixed(2)}</td>
+                <td style="padding: 8px 0; font-weight: bold;">פרטי חדרים:</td>
+                <td style="padding: 8px 0;">${roomDetails}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">מספר אורחים:</td>
+                <td style="padding: 8px 0;">${guestCount}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">סכום כולל:</td>
+                <td style="padding: 8px 0;">₪${typeof booking.totalPrice === 'number' ? booking.totalPrice.toFixed(2) : booking.totalPrice}</td>
               </tr>
             </table>
           </div>

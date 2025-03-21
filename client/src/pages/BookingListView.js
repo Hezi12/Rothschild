@@ -420,10 +420,25 @@ const BookingListView = () => {
     
     // מצא את כל ההזמנות לחדר ספציפי בתאריך ספציפי
     const roomBookings = activeBookings.filter(booking => {
-      if (!booking.room) return false;
-      
-      const roomIdMatch = (booking.room._id === roomId || booking.room === roomId);
-      if (!roomIdMatch) return false;
+      // בדיקת הזמנות מרובות חדרים
+      if (booking.isMultiRoomBooking && booking.rooms && Array.isArray(booking.rooms)) {
+        // בדוק אם החדר הנוכחי נמצא ברשימת החדרים של ההזמנה המרובה
+        const isRoomIncluded = booking.rooms.some(room => 
+          (typeof room === 'object' && room._id === roomId) || 
+          (typeof room === 'string' && room === roomId)
+        );
+        
+        if (!isRoomIncluded) return false;
+      }
+      // בדיקת הזמנות חדר בודד
+      else if (booking.room) {
+        const roomIdMatch = (booking.room._id === roomId || booking.room === roomId);
+        if (!roomIdMatch) return false;
+      } 
+      // אם אין חדר בהזמנה, דלג על ההזמנה
+      else {
+        return false;
+      }
       
       const checkIn = booking.checkIn ? new Date(booking.checkIn) : null;
       const checkOut = booking.checkOut ? new Date(booking.checkOut) : null;
