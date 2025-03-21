@@ -66,6 +66,8 @@ import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { InputAdornment } from '@mui/material';
+import { DraggableBookingCell, DroppableBookingCell, handleBookingDrop } from '../features/drag-and-drop/DraggableBooking';
+import DragHint from '../features/drag-and-drop/DragHint';
 
 // קומפוננטות מותאמות אישית עם styled
 const StyledTableCell = styled(TableCell)(({ theme, isWeekend, isToday }) => ({
@@ -406,70 +408,56 @@ const BookingListView = () => {
   
   // פונקציה לקבלת הזמנות לחדר ספציפי ביום ספציפי
   const getBookingsForRoomAndDate = (roomId, date) => {
+    if (!bookings || !roomId || !date) return [];
+    
+    // מסנן הזמנות שבוטלו
+    const activeBookings = bookings.filter(booking => 
+      booking.paymentStatus !== 'canceled' && booking.status !== 'canceled'
+    );
+    
+    const dateStr = format(date, 'yyyy-MM-dd');
     const formattedDate = format(date, 'yyyy-MM-dd');
     
-    console.log(`בודק הזמנות לחדר ${roomId} בתאריך ${formattedDate}`);
-    
-    const roomBookings = bookings.filter(booking => {
-      const checkInDate = format(new Date(booking.checkIn), 'yyyy-MM-dd');
-      const checkOutDate = format(new Date(booking.checkOut), 'yyyy-MM-dd');
+    // מצא את כל ההזמנות לחדר ספציפי בתאריך ספציפי
+    const roomBookings = activeBookings.filter(booking => {
+      if (!booking.room) return false;
       
-      // תנאי לבדיקת התאריך - חייב להיות בין צ'ק אין לצ'ק אאוט
-      const isDateInRange = formattedDate >= checkInDate && formattedDate < checkOutDate;
+      const roomIdMatch = (booking.room._id === roomId || booking.room === roomId);
+      if (!roomIdMatch) return false;
       
-      if (!isDateInRange) {
-        return false;
-      }
+      const checkIn = booking.checkIn ? new Date(booking.checkIn) : null;
+      const checkOut = booking.checkOut ? new Date(booking.checkOut) : null;
       
-      console.log(`נמצאה הזמנה בטווח התאריכים: ${booking._id}, צ'ק-אין: ${checkInDate}, צ'ק-אאוט: ${checkOutDate}`);
+      if (!checkIn || !checkOut) return false;
       
-      // בדיקה אם ההזמנה היא להזמנת חדר בודד
-      if (booking.room && booking.room._id === roomId) {
-        console.log(`התאמה להזמנת חדר בודד: ${booking._id}, חדר: ${booking.room._id}`);
-        return true;
-      }
+      const formattedCheckIn = format(checkIn, 'yyyy-MM-dd');
+      const formattedCheckOut = format(checkOut, 'yyyy-MM-dd');
       
-      // בדיקה אם ההזמנה היא להזמנת חדרים מרובים
-      if (booking.rooms && Array.isArray(booking.rooms)) {
-        console.log(`בודק הזמנת חדרים מרובים: ${booking._id}, חדרים: ${JSON.stringify(booking.rooms)}`);
-        
-        // בדיקה אם מזהה החדר נמצא במערך rooms כמזהה
-        if (booking.rooms.includes(roomId)) {
-          console.log(`התאמה להזמנת חדרים מרובים (מזהה): ${booking._id}, חדר ${roomId} נמצא במערך`);
-          return true;
-        }
-        
-        // בדיקה אם מזהה החדר נמצא במערך rooms כאובייקט
-        if (booking.rooms.some(room => room._id === roomId)) {
-          console.log(`התאמה להזמנת חדרים מרובים (אובייקט): ${booking._id}, חדר ${roomId} נמצא במערך`);
-          return true;
-        }
-        
-        console.log(`אין התאמה להזמנת חדרים מרובים: ${booking._id}, חדר ${roomId} לא נמצא במערך`);
-      }
+      const startDate = new Date(formattedCheckIn);
+      const endDate = new Date(formattedCheckOut);
+      const targetDate = new Date(formattedDate);
       
-      return false;
+      // בדוק אם התאריך הנוכחי נמצא בטווח התאריכים של ההזמנה
+      return (targetDate >= startDate && targetDate < endDate);
     });
-    
-    console.log(`נמצאו ${roomBookings.length} הזמנות לחדר ${roomId} בתאריך ${formattedDate}`);
-    
-    if (roomBookings.length > 0) {
-      console.log(`פרטי הזמנות שנמצאו: ${JSON.stringify(roomBookings.map(booking => ({
-        id: booking._id,
-        bookingNumber: booking.bookingNumber,
-        checkIn: booking.checkIn,
-        checkOut: booking.checkOut,
-        isMultiRoom: booking.isMultiRoomBooking,
-        room: booking.room?._id,
-        rooms: booking.rooms
-      })))}`);
-    }
     
     return roomBookings;
   };
   
   // פונקציה לקבלת צבע התא לפי סטטוס ההזמנה
-  const getCellBgColor = (isBooked, isPast, paymentStatus, bookingInfo) => {
+  const getCellBgColor = (isBooked, isPast, paymentStatus, bookingInfo, booking) => {
+    // בדיקה אם יש סימן קריאה בהערות
+    if (isBooked && booking && booking.notes && booking.notes.includes('!')) {
+      // סימן קריאה בהערות - צבע אדום בולט
+      return alpha(theme.palette.error.main, 0.25);
+    }
+    
+    // בדיקת הזמנות מבוטלות
+    if (isBooked && paymentStatus === 'canceled') {
+      // הזמנה בוטלה - משתמשים בצבע אפור כהה
+      return alpha(theme.palette.grey[700], 0.15);
+    }
+    
     // חדר לא מוזמן
     if (!isBooked) {
       // חדר פנוי - צבע לבן/בהיר מאוד
@@ -579,7 +567,7 @@ const BookingListView = () => {
   const getCellContent = (room, date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     const bookingsForCell = getBookingsForRoomAndDate(room._id, date);
-    const isBooked = bookingsForCell.length > 0;
+    const isBooked = bookingsForCell && bookingsForCell.length > 0;
     const isPast = date < new Date(new Date().setHours(0,0,0,0)); // תאריך בעבר
     
     // אם אין הזמנה, נציג תא ריק עם אפשרות להוספת הזמנה
@@ -727,6 +715,21 @@ const BookingListView = () => {
     }
     
     // יש הזמנה - נציג פרטים עליה
+    if (!bookingsForCell || !bookingsForCell.length || !bookingsForCell[0]) {
+      // המקרה שבו היה אמור להיות לנו הזמנה אבל משום מה המערך ריק או האיבר הראשון חסר
+      return (
+        <Box sx={{ 
+          height: '100%', 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          bgcolor: alpha('#f5f5f5', 0.5)
+        }}>
+          <Typography variant="caption" color="text.secondary">אין נתונים</Typography>
+        </Box>
+      );
+    }
+    
     const booking = bookingsForCell[0]; // במקרה שלנו, יכולה להיות רק הזמנה אחת לחדר ליום
     
     // בדיקה אם זו הזמנה שנמשכת מכמה ימים
@@ -1166,6 +1169,13 @@ const BookingListView = () => {
     try {
       const { bookingId } = bookingDialog;
       
+      // בדיקה שיש לנו bookingId תקין
+      if (!bookingId) {
+        console.error('bookingId חסר בעת ניסיון לעדכן הזמנה');
+        toast.error('זיהוי הזמנה חסר - לא ניתן לעדכן');
+        return;
+      }
+      
       // לוודא שיש לנו את כל שדות המחיר שצריך
       const bookingToUpdate = {
         ...updatedData,
@@ -1183,6 +1193,16 @@ const BookingListView = () => {
         pricePerNightNoVat: bookingToUpdate.pricePerNightNoVat
       });
       
+      // וידוא שדות חובה נוספים
+      if (!bookingToUpdate.checkIn || !bookingToUpdate.checkOut) {
+        console.error('שדות תאריכים חסרים בעת ניסיון לעדכן הזמנה', {
+          checkIn: bookingToUpdate.checkIn,
+          checkOut: bookingToUpdate.checkOut
+        });
+        toast.error('שדות תאריכים חסרים - לא ניתן לעדכן');
+        return;
+      }
+      
       const response = await axios.put(`${process.env.REACT_APP_API_URL}/bookings/${bookingId}`, bookingToUpdate, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
@@ -1192,11 +1212,17 @@ const BookingListView = () => {
         closeBookingDialog();
         fetchBookings(); // רענון הנתונים
       } else {
-        toast.error('אירעה שגיאה בעדכון ההזמנה');
+        console.error('תשובת שרת לא תקינה:', response.data);
+        toast.error(response.data.message || 'אירעה שגיאה בעדכון ההזמנה');
       }
     } catch (error) {
       console.error('שגיאה בעדכון ההזמנה:', error);
-      toast.error('אירעה שגיאה בעדכון ההזמנה');
+      if (error.response) {
+        console.error('תשובת שרת:', error.response.data);
+        toast.error(`אירעה שגיאה בעדכון ההזמנה: ${error.response.data.message || error.message}`);
+      } else {
+        toast.error(`אירעה שגיאה בעדכון ההזמנה: ${error.message}`);
+      }
     }
   };
   
@@ -1698,10 +1724,10 @@ const BookingListView = () => {
   // פונקציה לטיפול בלחיצה על תא
   const handleCellClick = (roomId, date) => {
     const bookingsForCell = getBookingsForRoomAndDate(roomId, date);
-    const isBooked = bookingsForCell.length > 0;
+    const isBooked = bookingsForCell && bookingsForCell.length > 0;
     const isPast = date < new Date(new Date().setHours(0,0,0,0)); // תאריך בעבר
     
-    if (isBooked) {
+    if (isBooked && bookingsForCell[0] && bookingsForCell[0]._id) {
       // אם יש הזמנה, פתח את דיאלוג עריכת ההזמנה
       handleViewBooking(bookingsForCell[0]._id);
     } else {
@@ -1764,464 +1790,514 @@ const BookingListView = () => {
         }}
       >
         <Paper 
-          elevation={0} 
+        elevation={0} 
           sx={{ 
             p: 1.5, // פחות ריפוד - הוקטן מ-2
-            borderRadius: 3,
-            backgroundImage: 'linear-gradient(135deg, #f5f7fa 0%, #f8f9fa 100%)',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
+          borderRadius: 3,
+          backgroundImage: 'linear-gradient(135deg, #f5f7fa 0%, #f8f9fa 100%)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
             height: 'fit-content', // גובה מותאם לתוכן במקום גובה קבוע
             maxHeight: '98vh', // מעט פחות מגובה המסך המלא
             width: 'calc(100% - 6px)', // הוגדל מ-10px ל-6px
             marginLeft: '3px', // הוקטן מ-5px ל-3px
             marginRight: '3px', // הוקטן מ-5px ל-3px
             marginBottom: '10px' // מרווח תחתון זהה למרווחים בצדדים
-          }}
-        >
-          <Box sx={{ 
+        }}
+      >
+        <Box sx={{ 
             mb: 0.5, 
             pt: 0.25,  // מרווח עליון מוקטן משמעותית
-            px: 1,  // מרווח אופקי
-            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          px: 1,  // מרווח אופקי
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
             pb: 0.5  // מרווח תחתון מוקטן משמעותית
-          }}>
+        }}>
             <Grid container spacing={0.5} alignItems="center" justifyContent="space-between">
-              <Grid item xs={12} md={4}>
-                {/* הסרת הקופסה עם הכותרת והקישור בהתאם לבקשת המשתמש */}
-              </Grid>
-              
-              <Grid item xs={12} md={8}>
-                <Box sx={{ 
-                  display: 'flex', 
-                  gap: 1, 
-                  flexWrap: 'wrap',
-                  justifyContent: { xs: 'center', md: 'flex-end' },
-                  mt: { xs: 0, md: 0 }
-                  // הסרת המסגרת והריפוד מסביב לכפתורים
-                }}>
-                  <ActionButton 
-                    variant="outlined" 
-                    startIcon={<TodayIcon />}
-                    onClick={handleToday}
-                    size="small"
-                    color="secondary"
-                    sx={{ minWidth: '80px' }}
-                  >
-                    היום
-                  </ActionButton>
-                  
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    border: '1px solid',
-                    borderColor: alpha(theme.palette.primary.main, 0.3),
-                    borderRadius: 2,
-                    px: 0.5,
-                    bgcolor: alpha(theme.palette.background.paper, 0.8),
-                  }}>
-                    <IconButton 
-                      onClick={showPrevDays}
-                      size="small"
-                      color="primary"
-                    >
-                      <NavigateNextIcon />
-                    </IconButton>
-                    
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        mx: 1, 
-                        textAlign: 'center', 
-                        fontWeight: 'bold', 
-                        color: theme.palette.primary.dark
-                      }}
-                    >
-                      {daysInView.length > 0 
-                        ? `${format(daysInView[0], 'dd/MM')} - ${format(daysInView[daysInView.length - 1], 'dd/MM')}` 
-                        : 'טוען...'}
-                    </Typography>
-                    
-                    <IconButton 
-                      onClick={showNextDays}
-                      size="small"
-                      color="primary"
-                    >
-                      <NavigateBeforeIcon />
-                    </IconButton>
-                  </Box>
-                  
-                  {/* החלפת כפתור הזמנה חדשה לאייקון בלבד */}
-                  <IconButton
-                    color="primary"
-                    onClick={() => handleAddBooking(null, new Date())}
-                    size="small"
-                    sx={{ 
-                      bgcolor: alpha(theme.palette.primary.main, 0.1),
-                      '&:hover': {
-                        bgcolor: alpha(theme.palette.primary.main, 0.2)
-                      }
-                    }}
-                  >
-                    <AddIcon />
-                  </IconButton>
-                  
-                  {/* הסרת האייקונים למעבר בין מצבי תצוגה */}
-                </Box>
-              </Grid>
+            <Grid item xs={12} md={4}>
+              {/* הסרת הקופסה עם הכותרת והקישור בהתאם לבקשת המשתמש */}
             </Grid>
             
-            {/* הסרנו את הקופסה עם הטאבים */}
-          </Box>
-          
-          {viewMode === 'calendar' && (
-              <>
-                {loading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
-                  <CircularProgress thickness={4} size={40} sx={{ color: theme.palette.primary.main }} />
-                  </Box>
-                ) : error ? (
-                <Alert 
-                  severity="error" 
+            <Grid item xs={12} md={8}>
+              <Box sx={{ 
+                display: 'flex', 
+                gap: 1, 
+                flexWrap: 'wrap',
+                justifyContent: { xs: 'center', md: 'flex-end' },
+                  mt: { xs: 0, md: 0 }
+                // הסרת המסגרת והריפוד מסביב לכפתורים
+              }}>
+                <ActionButton 
+                  variant="outlined" 
+                  startIcon={<TodayIcon />}
+                  onClick={handleToday}
+                  size="small"
+                  color="secondary"
+                  sx={{ minWidth: '80px' }}
+                >
+                  היום
+                </ActionButton>
+                
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  border: '1px solid',
+                  borderColor: alpha(theme.palette.primary.main, 0.3),
+                  borderRadius: 2,
+                  px: 0.5,
+                  bgcolor: alpha(theme.palette.background.paper, 0.8),
+                }}>
+                  <IconButton 
+                    onClick={showPrevDays}
+                    size="small"
+                    color="primary"
+                  >
+                    <NavigateNextIcon />
+                  </IconButton>
+                  
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      mx: 1, 
+                      textAlign: 'center', 
+                      fontWeight: 'bold', 
+                      color: theme.palette.primary.dark
+                    }}
+                  >
+                    {daysInView.length > 0 
+                      ? `${format(daysInView[0], 'dd/MM')} - ${format(daysInView[daysInView.length - 1], 'dd/MM')}` 
+                      : 'טוען...'}
+                  </Typography>
+                  
+                  <IconButton 
+                    onClick={showNextDays}
+                    size="small"
+                    color="primary"
+                  >
+                    <NavigateBeforeIcon />
+                  </IconButton>
+                </Box>
+                
+                {/* החלפת כפתור הזמנה חדשה לאייקון בלבד */}
+                <IconButton
+                  color="primary"
+                  onClick={() => handleAddBooking(null, new Date())}
+                  size="small"
                   sx={{ 
-                    mb: 2, 
-                    borderRadius: 2,
+                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.2)
+                    }
                   }}
                 >
-                  {error}
-                </Alert>
-              ) : (
-                <Fade in={true} timeout={500}>
-                  <Box
-                    sx={{
-                      padding: 0,
-                      margin: 0,
-                      display: 'block',
+                  <AddIcon />
+                </IconButton>
+                
+                {/* הסרת האייקונים למעבר בין מצבי תצוגה */}
+              </Box>
+            </Grid>
+          </Grid>
+          
+          {/* הסרנו את הקופסה עם הטאבים */}
+        </Box>
+        
+        {viewMode === 'calendar' && (
+            <>
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+                <CircularProgress thickness={4} size={40} sx={{ color: theme.palette.primary.main }} />
+                </Box>
+              ) : error ? (
+              <Alert 
+                severity="error" 
+                sx={{ 
+                  mb: 2, 
+                  borderRadius: 2,
+                }}
+              >
+                {error}
+              </Alert>
+            ) : (
+              <Fade in={true} timeout={500}>
+                <Box
+                  sx={{
+                    padding: 0,
+                    margin: 0,
+                    display: 'block',
                       ml: 0,
                       mr: 0,
                       mb: 0, // ללא מרווח תחתון נוסף
                       width: '100%'
-                    }}
-                  >
-                    <Box sx={{ 
-                      borderRadius: 3, 
-                      overflow: 'hidden',
-                      bgcolor: alpha(theme.palette.background.paper, 0.8),
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
-                      border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-                      display: 'flex',  
-                      flexDirection: 'column',
-                      height: 'fit-content', // יתאים את הגובה לפי התוכן בדיוק
-                      mb: 0,
-                      pb: 0,
-                      mr: 0, // אין צורך במרווח נוסף כאן
-                      borderTopRightRadius: 0, // ללא עיגול בפינה הימנית העליונה
-                      borderBottomRightRadius: 0 // ללא עיגול בפינה הימנית התחתונה
-                    }}>
-                      <TableContainer sx={{ 
+                  }}
+                >
+                  <Box sx={{ 
+                    borderRadius: 3, 
+                    overflow: 'hidden',
+                    bgcolor: alpha(theme.palette.background.paper, 0.8),
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+                    border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                    display: 'flex',  
+                    flexDirection: 'column',
+                    height: 'fit-content', // יתאים את הגובה לפי התוכן בדיוק
+                    mb: 0,
+                    pb: 0,
+                    mr: 0, // אין צורך במרווח נוסף כאן
+                    borderTopRightRadius: 0, // ללא עיגול בפינה הימנית העליונה
+                    borderBottomRightRadius: 0 // ללא עיגול בפינה הימנית התחתונה
+                  }}>
+                      {/* הוספת הרמז לגרירה */}
+                      <DragHint />
+                      
+                    <TableContainer sx={{ 
                         height: 'fit-content',
-                        boxSizing: 'border-box',
-                        overflow: 'auto',
-                        pb: 0,
+                      boxSizing: 'border-box',
+                      overflow: 'auto',
+                      pb: 0,
                         pl: 0, // ללא מרווח מצד שמאל
                         pr: 0, // ללא מרווח מצד ימין
                         width: '100%',
                         maxWidth: '100%',
                         mx: 0, // ללא מרווח אופקי נוסף
-                        '&::-webkit-scrollbar': {
+                      '&::-webkit-scrollbar': {
                           width: '6px', // הוקטן מ-8px
                           height: '6px' // הוקטן מ-8px
-                        },
-                        '&::-webkit-scrollbar-thumb': {
-                          background: alpha(theme.palette.primary.main, 0.4),
-                          borderRadius: '8px',
-                          border: '2px solid transparent',
-                          backgroundClip: 'padding-box',
-                          '&:hover': {
-                            background: alpha(theme.palette.primary.main, 0.6)
-                          }
-                        },
-                        '&::-webkit-scrollbar-track': {
-                          background: alpha(theme.palette.background.paper, 0.8),
-                          borderRadius: '8px'
+                      },
+                      '&::-webkit-scrollbar-thumb': {
+                        background: alpha(theme.palette.primary.main, 0.4),
+                        borderRadius: '8px',
+                        border: '2px solid transparent',
+                        backgroundClip: 'padding-box',
+                        '&:hover': {
+                          background: alpha(theme.palette.primary.main, 0.6)
                         }
-                      }}>
-                        <Table stickyHeader sx={{ borderCollapse: 'collapse', borderSpacing: 0 }}>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell
-                                sx={{ 
-                                  width: 120, 
-                                  backgroundColor: theme.palette.background.paper,
-                                  borderBottom: `2px solid ${alpha(theme.palette.divider, 0.5)}`,
-                                  position: 'sticky',
-                                  top: 0,
-                                  left: 0,
-                                  zIndex: 11,
-                                  boxShadow: '2px 2px 8px rgba(0,0,0,0.1)',
+                      },
+                      '&::-webkit-scrollbar-track': {
+                        background: alpha(theme.palette.background.paper, 0.8),
+                        borderRadius: '8px'
+                      }
+                    }}>
+                      <Table stickyHeader sx={{ borderCollapse: 'collapse', borderSpacing: 0 }}>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell
+                              sx={{ 
+                                width: 120, 
+                                backgroundColor: theme.palette.background.paper,
+                                borderBottom: `2px solid ${alpha(theme.palette.divider, 0.5)}`,
+                                position: 'sticky',
+                                top: 0,
+                                left: 0,
+                                zIndex: 11,
+                                boxShadow: '2px 2px 8px rgba(0,0,0,0.1)',
                                   p: 1.5,
                                   pl: 2
-                                }}
-                              >
-                                <Typography variant="body2" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  <HotelIcon fontSize="small" sx={{ color: theme.palette.primary.main, fontSize: 18 }} />
-                                  חדרים
-                                </Typography>
-                              </TableCell>
-                              
-                              {daysInView.map((day, index) => {
-                                const isToday = isSameDay(day, new Date());
-                                const isFriday = getDay(day) === 5; // רק יום שישי
-                                return (
-                                  <StyledTableCell 
-                                    key={index} 
-                                    align="center" 
-                                    isWeekend={isFriday}
-                                    isToday={isToday}
-                                    sx={{ 
+                              }}
+                            >
+                              <Typography variant="body2" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <HotelIcon fontSize="small" sx={{ color: theme.palette.primary.main, fontSize: 18 }} />
+                                חדרים
+                              </Typography>
+                            </TableCell>
+                            
+                            {daysInView.map((day, index) => {
+                              const isToday = isSameDay(day, new Date());
+                              const isFriday = getDay(day) === 5; // רק יום שישי
+                              return (
+                                <StyledTableCell 
+                                  key={index} 
+                                  align="center" 
+                                  isWeekend={isFriday}
+                                  isToday={isToday}
+                                  sx={{ 
                                       width: '120px', // רוחב קבוע לכל עמודה
                                       minWidth: '120px', 
                                       maxWidth: '120px'
-                                    }}
-                                  >
-                                    {isToday && <HighlightedColumn />}
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                      <Box sx={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        color: isFriday ? theme.palette.warning.dark : isToday ? theme.palette.primary.main : theme.palette.text.primary,
-                                        mb: 0.5
-                                      }}>
-                                        {isFriday 
-                                          ? <CircleIcon fontSize="small" sx={{ mr: 0.5, fontSize: 6, color: theme.palette.warning.main }} />
-                                          : isToday 
-                                            ? <BlinkingDot fontSize="small" sx={{ mr: 0.5, fontSize: 8, color: theme.palette.primary.main }} />
-                                            : <CircleIcon fontSize="small" sx={{ mr: 0.5, fontSize: 6, color: theme.palette.grey[500] }} />
-                                        }
-                                        <Typography 
-                                          variant="caption" 
-                                          component="div" 
-                                          sx={{ 
-                                            fontWeight: isToday ? 700 : 600,
-                                            color: isFriday 
-                                              ? theme.palette.warning.dark 
-                                              : isToday 
-                                                ? theme.palette.primary.main 
-                                                : theme.palette.text.primary,
-                                            fontSize: '0.8rem' // גופן קטן יותר
-                                          }}
-                                        >
-                                          {format(day, 'EEEE', { locale: he })}
-                                        </Typography>
-                                      </Box>
-                                      <Typography 
-                                        variant="caption" 
-                                        component="div"
-                                        sx={{
-                                          fontWeight: isToday ? 600 : 400,
-                                          padding: '2px 4px', // פחות ריווח
-                                          borderRadius: 10,
-                                          bgcolor: isToday ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
-                                          fontSize: '0.8rem' // גופן קטן יותר
-                                        }}
-                                      >
-                                        {format(day, 'dd/MM')}
-                                      </Typography>
-                                    </Box>
-                                  </StyledTableCell>
-                                );
-                              })}
-                            </TableRow>
-                          </TableHead>
-                          
-                          <TableBody sx={{ minHeight: 0 }}>
-                            {rooms.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={daysInView.length + 1} align="center">
-                                  <Box sx={{ py: 4 }}>
-                                    <HotelIcon sx={{ fontSize: 40, color: alpha(theme.palette.text.secondary, 0.5), mb: 1 }} />
-                                    <Typography variant="subtitle1" sx={{ color: theme.palette.text.secondary }}>
-                                      אין חדרים להצגה
-                                    </Typography>
-                                  </Box>
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              rooms.map(room => (
-                                <TableRow 
-                                  key={room._id}
-                                    sx={{ 
-                                    '&:hover': { 
-                                      bgcolor: alpha(theme.palette.primary.light, 0.04)
-                                    },
-                                    transition: 'background-color 0.2s',
-                                    height: '60px' // גובה קבוע קטן יותר לשורה
                                   }}
                                 >
-                                  <StyledRoomCell component="th" scope="row">
+                                  {isToday && <HighlightedColumn />}
+                                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                     <Box sx={{ 
                                       display: 'flex', 
                                       alignItems: 'center', 
-                                      justifyContent: 'center',
-                                      position: 'relative',
-                                      zIndex: 3,
-                                      minWidth: '100px', // רוחב מינימלי לתאי החדרים
-                                      py: 1, pr: 0, mr: 0 // ריווח אנכי מקורי
+                                      color: isFriday ? theme.palette.warning.dark : isToday ? theme.palette.primary.main : theme.palette.text.primary,
+                                      mb: 0.5
                                     }}>
-                                      <Avatar 
+                                      {isFriday 
+                                        ? <CircleIcon fontSize="small" sx={{ mr: 0.5, fontSize: 6, color: theme.palette.warning.main }} />
+                                        : isToday 
+                                          ? <BlinkingDot fontSize="small" sx={{ mr: 0.5, fontSize: 8, color: theme.palette.primary.main }} />
+                                          : <CircleIcon fontSize="small" sx={{ mr: 0.5, fontSize: 6, color: theme.palette.grey[500] }} />
+                                      }
+                                      <Typography 
+                                        variant="caption" 
+                                        component="div" 
                                         sx={{ 
-                                          bgcolor: alpha(theme.palette.primary.main, 0.1), 
-                                          color: theme.palette.primary.dark,
-                                          width: 36, // גודל אווטאר מקורי
-                                          height: 36, // גודל אווטאר מקורי
-                                          fontWeight: 'bold',
-                                          fontSize: '0.9rem' // גופן מקורי
+                                          fontWeight: isToday ? 700 : 600,
+                                          color: isFriday 
+                                            ? theme.palette.warning.dark 
+                                            : isToday 
+                                              ? theme.palette.primary.main 
+                                              : theme.palette.text.primary,
+                                          fontSize: '0.8rem' // גופן קטן יותר
                                         }}
                                       >
-                                        {room.roomNumber}
-                                      </Avatar>
+                                        {format(day, 'EEEE', { locale: he })}
+                                      </Typography>
                                     </Box>
-                                  </StyledRoomCell>
+                                    <Typography 
+                                      variant="caption" 
+                                      component="div"
+                                      sx={{
+                                        fontWeight: isToday ? 600 : 400,
+                                        padding: '2px 4px', // פחות ריווח
+                                        borderRadius: 10,
+                                        bgcolor: isToday ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                                        fontSize: '0.8rem' // גופן קטן יותר
+                                      }}
+                                    >
+                                      {format(day, 'dd/MM')}
+                                    </Typography>
+                                  </Box>
+                                </StyledTableCell>
+                              );
+                            })}
+                          </TableRow>
+                        </TableHead>
+                        
+                        <TableBody sx={{ minHeight: 0 }}>
+                          {rooms.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={daysInView.length + 1} align="center">
+                                <Box sx={{ py: 4 }}>
+                                  <HotelIcon sx={{ fontSize: 40, color: alpha(theme.palette.text.secondary, 0.5), mb: 1 }} />
+                                  <Typography variant="subtitle1" sx={{ color: theme.palette.text.secondary }}>
+                                    אין חדרים להצגה
+                                  </Typography>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            rooms.map(room => (
+                              <TableRow 
+                                key={room._id}
+                                  sx={{ 
+                                  '&:hover': { 
+                                    bgcolor: alpha(theme.palette.primary.light, 0.04)
+                                  },
+                                  transition: 'background-color 0.2s',
+                                    height: '60px' // גובה קבוע קטן יותר לשורה
+                                }}
+                              >
+                                <StyledRoomCell component="th" scope="row">
+                                  <Box sx={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    position: 'relative',
+                                    zIndex: 3,
+                                    minWidth: '100px', // רוחב מינימלי לתאי החדרים
+                                    py: 1, pr: 0, mr: 0 // ריווח אנכי מקורי
+                                  }}>
+                                    <Avatar 
+                                      sx={{ 
+                                        bgcolor: alpha(theme.palette.primary.main, 0.1), 
+                                        color: theme.palette.primary.dark,
+                                        width: 36, // גודל אווטאר מקורי
+                                        height: 36, // גודל אווטאר מקורי
+                                        fontWeight: 'bold',
+                                        fontSize: '0.9rem' // גופן מקורי
+                                      }}
+                                    >
+                                      {room.roomNumber}
+                                    </Avatar>
+                                  </Box>
+                                </StyledRoomCell>
 
-                                  {daysInView.map((day, index) => {
-                                    // קבלת הזמנות לחדר ותאריך ספציפיים
-                                    const bookingsForCell = getBookingsForRoomAndDate(room._id, day);
-                                    const isBooked = bookingsForCell.length > 0;
-                                    const isPast = day < new Date(new Date().setHours(0,0,0,0)); // תאריך בעבר
-                                    const paymentStatus = isBooked ? bookingsForCell[0].paymentStatus : null;
-                                    const isCurrentDay = isSameDay(day, new Date());
-                                    
+                                {daysInView.map((day, index) => {
+                                  // קבלת הזמנות לחדר ותאריך ספציפיים
+                                  const bookingsForCell = getBookingsForRoomAndDate(room._id, day);
+                                    const isBooked = bookingsForCell && bookingsForCell.length > 0;
+                                  const isPast = day < new Date(new Date().setHours(0,0,0,0)); // תאריך בעבר
+                                  const paymentStatus = isBooked ? bookingsForCell[0].paymentStatus : null;
+                                  const isCurrentDay = isSameDay(day, new Date());
+                                  
                                     // הנתונים שקשורים להזמנה
-                                    let isMultiDay = false;
-                                    let isFirstDay = false;
-                                    let isLastDay = false;
+                                  let isMultiDay = false;
+                                  let isFirstDay = false;
+                                  let isLastDay = false;
                                     let isSingleDay = false;
                                     let isMiddleDay = false;
-                                    
+                                  
                                     // אם יש הזמנה, נחלץ את המידע על הסטטוס שלה
                                     if (isBooked && bookingsForCell.length > 0) {
-                                      const multiDayInfo = isPartOfMultiDayStay(bookingsForCell[0], room._id, day);
-                                      isMultiDay = multiDayInfo.isMultiDay;
-                                      isFirstDay = multiDayInfo.isStart;
-                                      isLastDay = multiDayInfo.isEnd;
+                                    const multiDayInfo = isPartOfMultiDayStay(bookingsForCell[0], room._id, day);
+                                    isMultiDay = multiDayInfo.isMultiDay;
+                                    isFirstDay = multiDayInfo.isStart;
+                                    isLastDay = multiDayInfo.isEnd;
                                       isMiddleDay = multiDayInfo.isMiddle;
                                       isSingleDay = multiDayInfo.isSingleDay;
-                                    }
-                                    
-                                    return (
-                                      <TableCell 
-                                        key={`${room._id}-${index}`} 
-                                        align="center"
-                                        onClick={() => handleCellClick(room._id, day)}
-                                        sx={{ 
-                                          cursor: 'pointer',
-                                          padding: '6px 4px', // ריווח מוקטן
-                                          position: 'relative',
-                                          bgcolor: getCellBgColor(isBooked, isPast, paymentStatus, { 
-                                            isStart: isFirstDay, 
-                                            isMiddle: isMiddleDay, 
-                                            isEnd: isLastDay, 
-                                            isMultiDay: isMultiDay,
-                                            isSingleDay: isSingleDay
-                                          }),
-                                          borderLeft: isMultiDay && !isFirstDay ? 0 : '1px solid rgba(224, 224, 224, 0.15)',
-                                          borderRight: isMultiDay && !isLastDay ? 0 : '1px solid rgba(224, 224, 224, 0.15)',
-                                          borderBottom: '1px solid rgba(224, 224, 224, 0.15)',
-                                          // הוספת עיצוב מיוחד ליום צ'ק-אין או הזמנה של יום אחד - ללא מסגרת כהה, רק הרקע
-                                          ...(isBooked && (isFirstDay || isSingleDay) && {
-                                            fontWeight: 'bold',
-                                          }),
-                                          // עיצוב ליום צ'ק-אאוט (יום האחרון בשהייה)
-                                          ...(isBooked && isLastDay && !isFirstDay && !isSingleDay && {
-                                            fontWeight: 'normal',
-                                          }),
-                                          '&:hover': {
-                                            filter: 'brightness(0.95)',
-                                            zIndex: 1
-                                          },
-                                          transition: 'all 0.2s ease',
-                                          minHeight: '60px', // גובה אחיד מוקטן
-                                          maxHeight: '60px',
-                                          height: '60px',
-                                          width: '100px', // רוחב קבוע - הוקטן מ-120px
-                                          minWidth: '95px', // הוקטן מ-100px
-                                          maxWidth: '100px', // הוקטן מ-120px
-                                          ...(isCurrentDay && {
-                                            zIndex: 1, // רק להגדרת z-index, בלי מסגרת
-                                          })
-                                        }}
-                                      >
-                                      {isCurrentDay && <HighlightedColumn />}
-                                      {getCellContent(room, day)}
-                                    </TableCell>
-                                    );
-                                  })}
-                                </TableRow>
-                              ))
-                            )}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
+                                  }
+                                  
+                                  return (
+                                      isBooked ? (
+                                        // תא עם הזמנה - ניתן לגרירה
+                                        <DraggableBookingCell
+                                      key={`${room._id}-${index}`} 
+                                          booking={bookingsForCell[0]}
+                                          roomId={room._id}
+                                          date={day}
+                                      onClick={() => handleCellClick(room._id, day)}
+                                      sx={{ 
+                                            cursor: 'grab',
+                                            padding: '6px 4px', // ריווח מוקטן
+                                        position: 'relative',
+                                            bgcolor: getCellBgColor(isBooked, isPast, paymentStatus, { 
+                                              isStart: isFirstDay, 
+                                              isMiddle: isMiddleDay, 
+                                              isEnd: isLastDay, 
+                                              isMultiDay: isMultiDay,
+                                              isSingleDay: isSingleDay
+                                            }, isBooked ? bookingsForCell[0] : null),
+                                        borderLeft: isMultiDay && !isFirstDay ? 0 : '1px solid rgba(224, 224, 224, 0.15)',
+                                        borderRight: isMultiDay && !isLastDay ? 0 : '1px solid rgba(224, 224, 224, 0.15)',
+                                        borderBottom: '1px solid rgba(224, 224, 224, 0.15)',
+                                            // הוספת עיצוב מיוחד ליום צ'ק-אין או הזמנה של יום אחד - ללא מסגרת כהה, רק הרקע
+                                            ...(isBooked && (isFirstDay || isSingleDay) && {
+                                              fontWeight: 'bold',
+                                            }),
+                                            // עיצוב ליום צ'ק-אאוט (יום האחרון בשהייה)
+                                            ...(isBooked && isLastDay && !isFirstDay && !isSingleDay && {
+                                              fontWeight: 'normal',
+                                            }),
+                                        '&:hover': {
+                                          filter: 'brightness(0.95)',
+                                          zIndex: 1
+                                        },
+                                        transition: 'all 0.2s ease',
+                                            minHeight: '60px', // גובה אחיד מוקטן
+                                            maxHeight: '60px',
+                                            height: '60px',
+                                            width: '100px', // רוחב קבוע - הוקטן מ-120px
+                                            minWidth: '95px', // הוקטן מ-100px
+                                            maxWidth: '100px', // הוקטן מ-120px
+                                        ...(isCurrentDay && {
+                                          zIndex: 1, // רק להגדרת z-index, בלי מסגרת
+                                        })
+                                      }}
+                                    >
+                                    {isCurrentDay && <HighlightedColumn />}
+                                    {getCellContent(room, day)}
+                                        </DraggableBookingCell>
+                                      ) : (
+                                        // תא פנוי - ניתן להשמיט עליו הזמנה
+                                        <DroppableBookingCell
+                                          key={`${room._id}-${index}`} 
+                                          roomId={room._id}
+                                          date={day}
+                                          isBooked={isBooked}
+                                          onDrop={(item) => handleBookingDrop(item, room._id, day, fetchBookings)}
+                                          onClick={() => handleCellClick(room._id, day)}
+                                          sx={{ 
+                                            cursor: 'pointer',
+                                            padding: '6px 4px', // ריווח מוקטן
+                                            position: 'relative',
+                                            bgcolor: getCellBgColor(isBooked, isPast, paymentStatus, { 
+                                              isStart: isFirstDay, 
+                                              isMiddle: isMiddleDay, 
+                                              isEnd: isLastDay, 
+                                              isMultiDay: isMultiDay,
+                                              isSingleDay: isSingleDay
+                                            }, isBooked ? bookingsForCell[0] : null),
+                                            borderLeft: '1px solid rgba(224, 224, 224, 0.15)',
+                                            borderRight: '1px solid rgba(224, 224, 224, 0.15)',
+                                            borderBottom: '1px solid rgba(224, 224, 224, 0.15)',
+                                            '&:hover': {
+                                              filter: 'brightness(0.95)',
+                                              zIndex: 1
+                                            },
+                                            transition: 'all 0.2s ease',
+                                            minHeight: '60px', // גובה אחיד מוקטן
+                                            maxHeight: '60px',
+                                            height: '60px',
+                                            width: '100px', // רוחב קבוע - הוקטן מ-120px
+                                            minWidth: '95px', // הוקטן מ-100px
+                                            maxWidth: '100px', // הוקטן מ-120px
+                                            ...(isCurrentDay && {
+                                              zIndex: 1, // רק להגדרת z-index, בלי מסגרת
+                                            })
+                                          }}
+                                        >
+                                          {isCurrentDay && <HighlightedColumn />}
+                                          {getCellContent(room, day)}
+                                        </DroppableBookingCell>
+                                      )
+                                  );
+                                })}
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
                       {/* הסרת הקופסה שחוסמת רווחים */}
-                    </Box>
                   </Box>
-                  </Fade>
-                  )}
-                </>
-              )}
-              
-            {/* ... existing code for other views and dialogs ... */}
-            </Paper>
+                </Box>
+                </Fade>
+                )}
+              </>
+            )}
             
-          {/* רינדור של הדיאלוגים */}
-            {/* דיאלוג עדכון מחיר */}
-          <Dialog 
-            open={priceDialog.open} 
-            onClose={handlePriceDialogClose}
-            PaperProps={{
-              sx: {
-                borderRadius: 3,
-                boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
-                backgroundImage: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                overflow: 'hidden',
-                width: { xs: '95%', sm: '450px' }
-              }
-            }}
-          >
-            <DialogTitle sx={{ 
-              borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-              pb: 2,
-              bgcolor: alpha(theme.palette.background.paper, 0.5),
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1
-            }}>
-              <AttachMoneyIcon sx={{ color: theme.palette.primary.main }} />
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                עדכון מחיר ליום
+          {/* ... existing code for other views and dialogs ... */}
+          </Paper>
+          
+        {/* רינדור של הדיאלוגים */}
+          {/* דיאלוג עדכון מחיר */}
+        <Dialog 
+          open={priceDialog.open} 
+          onClose={handlePriceDialogClose}
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+              backgroundImage: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+              overflow: 'hidden',
+              width: { xs: '95%', sm: '450px' }
+            }
+          }}
+        >
+          <DialogTitle sx={{ 
+            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            pb: 2,
+            bgcolor: alpha(theme.palette.background.paper, 0.5),
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}>
+            <AttachMoneyIcon sx={{ color: theme.palette.primary.main }} />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              עדכון מחיר ליום
+                </Typography>
+          </DialogTitle>
+          
+          <DialogContent sx={{ pt: 3, pb: 2 }}>
+            <Box>
+              <Typography variant="subtitle1" sx={{ 
+                mb: 3, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: 1 
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <HotelIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
+                  <Typography component="span" fontWeight="bold">
+                    חדר: {rooms.find(r => r._id === priceDialog.roomId)?.internalName || 'חדר'}
                   </Typography>
-            </DialogTitle>
-            
-            <DialogContent sx={{ pt: 3, pb: 2 }}>
-              <Box>
-                <Typography variant="subtitle1" sx={{ 
-                  mb: 3, 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: 1 
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <HotelIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
-                    <Typography component="span" fontWeight="bold">
-                      חדר: {rooms.find(r => r._id === priceDialog.roomId)?.internalName || 'חדר'}
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CalendarMonthIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
-                    <Typography component="span" fontWeight="bold">
+                </Box>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CalendarMonthIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
+                  <Typography component="span" fontWeight="bold">
                 תאריך: {priceDialog.date ? format(priceDialog.date, 'dd/MM/yyyy') : 'טוען...'}
               </Typography>
               </Box>
@@ -2276,7 +2352,7 @@ const BookingListView = () => {
           </DialogActions>
         </Dialog>
         
-        {/* דיאלוג עריכת הזמנה - מעוצב יותר קומפקטי */}
+        {/* דיאלוג עריכת הזמנה - מעוצב יותר קומפקטי ומודרני */}
         <Dialog 
           open={bookingDialog.open} 
           onClose={closeBookingDialog} 
@@ -2284,201 +2360,235 @@ const BookingListView = () => {
           fullWidth
           PaperProps={{
           sx: {
-            borderRadius: 3,
-            boxShadow: '0 15px 50px rgba(0,0,0,0.15)',
-            backgroundImage: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+            borderRadius: 2,
+            boxShadow: '0 8px 25px rgba(0,0,0,0.1)',
             overflow: 'hidden'
           }
         }}
       >
         <DialogTitle sx={{ 
           borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-          pb: 1.5,
-          pt: 1.5,
-          bgcolor: alpha(theme.palette.background.paper, 0.5)
+          py: 1,
+          px: 2,
+          minHeight: '56px'
         }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
                   הזמנה #{bookingDialog.bookingData?.bookingNumber || ''}
               </Typography>
                 <Button 
                   size="small" 
-                  variant="contained" 
+                  variant="outlined" 
+                  color="primary"
                   sx={{ 
-                    ml: 2,
+                    ml: 1,
                     borderRadius: 4,
-                    bgcolor: '#2196f3',
-                    color: '#fff',
-                    px: 2,
-                    '&:hover': {
-                      bgcolor: '#1976d2'
-                    }
+                    py: 0.2,
+                    px: 1.5,
+                    fontSize: '0.8rem',
+                    minWidth: 0
                   }}
                 >
-                  ממתין לתשלום
+                  ממתין
                 </Button>
               </Box>
-              {/* הסרת כפתור הוואטסאפ הישן */}
               <IconButton
                 aria-label="סגור"
                 onClick={closeBookingDialog}
+                size="small"
                   sx={{ 
                     color: theme.palette.text.secondary,
-                    '&:hover': { 
-                      bgcolor: alpha(theme.palette.error.main, 0.1),
-                      color: theme.palette.error.main
-                    }
+                  p: 0.8
                   }}
               >
-                <CloseIcon />
+                <CloseIcon fontSize="small" />
               </IconButton>
             </Box>
           </DialogTitle>
           
-        <DialogContent sx={{ px: { xs: 2, md: 2.5 }, py: 2 }}>
+        <DialogContent sx={{ px: 2, py: 1.5, maxHeight: '80vh' }}>
             {bookingDialog.loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 5 }}>
-              <CircularProgress thickness={4} size={60} sx={{ color: theme.palette.primary.main }} />
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 3 }}>
+              <CircularProgress thickness={4} size={40} sx={{ color: theme.palette.primary.main }} />
               </Box>
             ) : bookingDialog.bookingData ? (
-              <Grid container spacing={2}>
-                {/* כפתורי פעולה מהירים */}
-                <Grid item xs={12}>
+              <>
+                {/* כרטיסייה עליונה - פרטים כלליים וכפתורי פעולה */}
                 <Box sx={{ 
                   display: 'flex', 
-                  gap: 1, 
-                  flexWrap: 'wrap', 
-                  mb: 2, 
-                  justifyContent: 'flex-end' 
+                  flexDirection: { xs: 'column', sm: 'row' }, 
+                  justifyContent: 'space-between',
+                  alignItems: { xs: 'flex-start', sm: 'center' },
+                  gap: 1.5,
+                  mb: 1.5
                 }}>
+                  {/* פרטים כלליים */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    width: '100%',
+                    gap: { xs: 3, md: 4 }, 
+                  flexWrap: 'wrap', 
+                    justifyContent: 'space-between'
+                  }}>
+                    <Box sx={{ display: 'flex', gap: 3 }}>
+                      <Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>חדר</Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                          {bookingDialog.bookingData.room && typeof bookingDialog.bookingData.room === 'object' 
+                            ? bookingDialog.bookingData.room.roomNumber || ''
+                            : rooms.find(r => r._id === bookingDialog.bookingData.room)?.roomNumber || ''}
+                        </Typography>
+                      </Box>
+                      
+                      <Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>תאריכים</Typography>
+                        <Typography variant="body1" sx={{ fontWeight: '500', fontSize: '0.95rem', whiteSpace: 'nowrap' }}>
+                          {bookingDialog.bookingData.checkIn ? format(new Date(bookingDialog.bookingData.checkIn), 'dd/MM/yy') : ''} - {bookingDialog.bookingData.checkOut ? format(new Date(bookingDialog.bookingData.checkOut), 'dd/MM/yy') : ''}
+                          <Box component="span" sx={{ ml: 0.8, px: 0.8, py: 0.1, bgcolor: 'primary.50', borderRadius: 1, fontSize: '0.85rem' }}>
+                            {bookingDialog.bookingData.nights == 1 ? 'לילה אחד' : `${bookingDialog.bookingData.nights || 1} לילות`}
+                          </Box>
+                        </Typography>
+                      </Box>
+                    </Box>
+                    
+                    <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'center', ml: 'auto' }}>
+                      <Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>סה"כ</Typography>
+                        <Typography variant="body1" sx={{ 
+                          fontWeight: 'bold', 
+                          color: theme.palette.success.main,
+                          fontSize: '1.1rem',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          ₪{bookingDialog.bookingData.totalPrice || 0}
+                        </Typography>
+                      </Box>
+                    
                   <ActionButton
                       variant="outlined"
                       color="error"
                       size="small"
-                      startIcon={<CloseIcon />}
-                      onClick={() => {
-                      const updatedData = { ...bookingDialog.bookingData, paymentStatus: 'canceled' };
-                        handleUpdateBooking(updatedData);
+                          startIcon={<CloseIcon fontSize="small" />}
+                          onClick={async () => {
+                            try {
+                              const bookingId = bookingDialog.bookingId;
+                              
+                              // נסיון להשתמש בנקודת קצה הייעודית לביטול
+                              try {
+                                const response = await axios.post(
+                                  `${process.env.REACT_APP_API_URL}/bookings/${bookingId}/cancel`,
+                                  {},
+                                  { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }}
+                                );
+                                
+                                if (response.data.success) {
+                                  toast.success('ההזמנה בוטלה בהצלחה');
+                                  closeBookingDialog();
+                                  fetchBookings();
+                                  return;
+                                }
+                              } catch (cancelError) {
+                                console.log('ניסיון ביטול דרך נקודת קצה ייעודית נכשל, מנסה גישה אחרת', cancelError);
+                              }
+                              
+                              // אופציה חלופית - עדכון כל ההזמנה
+                              const originalData = { ...bookingDialog.bookingData };
+                              const updatedData = {
+                                ...originalData,
+                                paymentStatus: 'canceled',
+                                status: 'canceled'
+                              };
+                              
+                              const response = await axios.put(
+                                `${process.env.REACT_APP_API_URL}/bookings/${bookingId}`,
+                                updatedData,
+                                { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }}
+                              );
+                              
+                              if (response.data.success) {
+                                toast.success('ההזמנה בוטלה בהצלחה');
+                                closeBookingDialog();
+                                fetchBookings();
+                              } else {
+                                toast.error(response.data.message || 'אירעה שגיאה בביטול ההזמנה');
+                              }
+                            } catch (error) {
+                              console.error('שגיאה בביטול הזמנה:', error);
+                              // נסיון אחרון מינימלי
+                              try {
+                                const minimalData = { paymentStatus: 'canceled' };
+                                const response = await axios.put(
+                                  `${process.env.REACT_APP_API_URL}/bookings/${bookingDialog.bookingId}`,
+                                  minimalData,
+                                  { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }}
+                                );
+                                
+                                if (response.data.success) {
+                                  toast.success('ההזמנה בוטלה בהצלחה');
+                                  closeBookingDialog();
+                                  fetchBookings();
+                                  return;
+                                }
+                              } catch (finalError) {
+                                console.error('כל הניסיונות נכשלו:', finalError);
+                              }
+                              
+                              // הצגת שגיאה למשתמש
+                              toast.error('אירעה שגיאה בביטול ההזמנה');
+                            }
                       }}
                       sx={{
-                        borderRadius: 2,
-                        fontWeight: 'medium',
+                            borderRadius: 1.5,
+                            fontWeight: '500',
+                            px: 1.5,
+                            py: 0.5,
+                            fontSize: '0.85rem',
+                            minHeight: 0,
                         border: '1px solid #f44336',
                         '&:hover': {
                           bgcolor: 'rgba(244,67,54,0.04)'
                         }
                       }}
                     >
-                      ביטול הזמנה
+                          ביטול
                   </ActionButton>
-                    
-                  {/* כפתור "סמן כשולם" הוסר לפי בקשת המשתמש */}
                   </Box>
-                </Grid>
+                        </Box>
+                        </Box>
                 
-                {/* אזור עריכת מחירים */}
-                <Grid item xs={12}>
-                  <Paper 
-                    elevation={0} 
-                    sx={{ 
-                      p: 1.5, 
-                      borderRadius: 2, 
-                      mb: 2,
-                      bgcolor: alpha(theme.palette.primary.light, 0.05),
-                      border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
-                    }}
-                  >
-                    <Grid container spacing={1}>
-                      <Grid item xs={6} sm={3}>
-                        <Box>
-                        <Typography variant="caption" color="text.secondary">סה"כ לתשלום</Typography>
-                        <Typography variant="h6" sx={{ 
-                          fontWeight: 'bold',
-                          color: theme.palette.success.dark
-                        }}>
-                            ₪{bookingDialog.bookingData.totalPrice || 0}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      
-                      <Grid item xs={6} sm={3}>
-                        <Box>
-                        <Typography variant="caption" color="text.secondary">תאריכי שהייה</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {bookingDialog.bookingData.checkIn ? format(new Date(bookingDialog.bookingData.checkIn), 'dd/MM/yyyy') : ''} -<br />
-                          {bookingDialog.bookingData.checkOut ? format(new Date(bookingDialog.bookingData.checkOut), 'dd/MM/yyyy') : ''}
-                        </Typography>
-                        </Box>
-                      </Grid>
-                      
-                      <Grid item xs={6} sm={3}>
-                        <Box>
-                        <Typography variant="caption" color="text.secondary">מספר לילות</Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                          {bookingDialog.bookingData.nights || 1}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      
-                      <Grid item xs={6} sm={3}>
-                        <Box>
-                        <Typography variant="caption" color="text.secondary">מספר חדר</Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                          {rooms.find(r => r._id === bookingDialog.bookingData.room)?.roomNumber || ''}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                    </Grid>
-                  </Paper>
-                </Grid>
-                
-                {/* אזור עריכת מחירים */}
-                <Grid item xs={12}>
-                  <Paper 
-                    elevation={0} 
-                    sx={{ 
-                      p: 2, 
-                      borderRadius: 2,
-                      mb: 2
-                    }}
-                  >
-                    <Typography variant="subtitle1" sx={{ 
-                      mb: 1.5, 
-                      fontWeight: 600,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1
-                    }}>
-                      <MonetizationOnIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
-                      פרטי מחיר
-                    </Typography>
-                    
-                    <Grid container spacing={2}>
-                      {/* אפשרות תייר - פטור ממע"מ */}
-                      <Grid item xs={12}>
+                {/* תוכן ראשי - מערכת כרטיסיות */}
+                <Grid container spacing={1.5}>
+                  {/* עמודה ראשית - מחירים ופרטי האורח */}
+                  <Grid item xs={12} md={8}>
+                    {/* אזור מחירים */}
+                    <Paper elevation={0} sx={{ p: 1.5, borderRadius: 1.5, mb: 1.5, bgcolor: alpha('#f5f5f5', 0.3) }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 1 }}>
+                        <MonetizationOnIcon sx={{ color: theme.palette.primary.main, fontSize: '1.2rem' }} />
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>מחירים</Typography>
+                        <Box sx={{ ml: 'auto' }}>
                         <FormControlLabel
                           control={
                             <Checkbox
                               checked={bookingDialog.bookingData?.isTourist || false}
                               onChange={(e) => handleBookingFormChange('isTourist', e.target.checked)}
                               color="primary"
+                                size="small"
+                                sx={{ p: 0.5 }}
                             />
                           }
                           label={
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <Typography variant="body2">תייר (פטור ממע״מ)</Typography>
-                              <Tooltip title="סימון זה יסיר את המע״מ מהחישוב עבור אורחים שאינם תושבי ישראל">
-                                <InfoIcon fontSize="small" color="action" sx={{ opacity: 0.7 }} />
-                              </Tooltip>
-                            </Box>
-                          }
-                        />
-                      </Grid>
+                              <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>תייר (פטור ממע״מ)</Typography>
+                            }
+                            sx={{ m: 0 }}
+                          />
+                        </Box>
+                      </Box>
                       
-                      <Grid item xs={12} sm={4}>
+                      <Grid container spacing={1.5}>
+                        <Grid item xs={4}>
                         <TextField
-                          label="מחיר ללילה (ללא מע״מ)"
+                            label="ללא מע״מ"
                           size="small"
                           fullWidth
                           type="number"
@@ -2488,16 +2598,17 @@ const BookingListView = () => {
                             endAdornment: <InputAdornment position="end">₪</InputAdornment>,
                           }}
                           sx={{ 
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: 2
-                            }
+                              '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                              '& .MuiInputLabel-root': { fontSize: '0.85rem' },
+                              '& .MuiOutlinedInput-input': { py: 1, fontSize: '0.9rem' },
+                              '& .MuiInputAdornment-root': { '& p': { fontSize: '0.9rem' } }
                           }}
                         />
                       </Grid>
                       
-                      <Grid item xs={12} sm={4}>
+                        <Grid item xs={4}>
                         <TextField
-                          label="מחיר ללילה (כולל מע״מ)"
+                            label="כולל מע״מ"
                           size="small"
                           fullWidth
                           type="number"
@@ -2507,16 +2618,17 @@ const BookingListView = () => {
                             endAdornment: <InputAdornment position="end">₪</InputAdornment>,
                           }}
                           sx={{ 
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: 2
-                            }
+                              '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                              '& .MuiInputLabel-root': { fontSize: '0.85rem' },
+                              '& .MuiOutlinedInput-input': { py: 1, fontSize: '0.9rem' },
+                              '& .MuiInputAdornment-root': { '& p': { fontSize: '0.9rem' } }
                           }}
                         />
                       </Grid>
                       
-                      <Grid item xs={12} sm={4}>
+                        <Grid item xs={4}>
                         <TextField
-                          label="סה״כ מחיר להזמנה"
+                            label="סה״כ להזמנה"
                           size="small"
                           fullWidth
                           type="number"
@@ -2526,69 +2638,53 @@ const BookingListView = () => {
                             endAdornment: <InputAdornment position="end">₪</InputAdornment>,
                           }}
                           sx={{ 
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: 2
-                            }
+                              '& .MuiInputLabel-root': { fontSize: '0.85rem' },
+                              '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                              '& .MuiOutlinedInput-input': { py: 1, fontSize: '0.9rem' },
+                              '& .MuiInputAdornment-root': { '& p': { fontSize: '0.9rem' } }
                           }}
                         />
                       </Grid>
                     </Grid>
                   </Paper>
-                </Grid>
                 
-                {/* פרטי אורח ותשלום - סידור אופטימלי יותר */}
-                <Grid item xs={12} container spacing={2}>
                 {/* פרטי אורח */}
-                <Grid item xs={12} md={6}>
-                    <Paper 
-                      elevation={0} 
-                      sx={{ 
-                        p: 2, 
-                        borderRadius: 2,
-                        height: '100%'
-                      }}
-                    >
-                      <Typography variant="subtitle1" sx={{ 
-                        mb: 1.5, 
-                        fontWeight: 600,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1
-                      }}>
-                        <PersonIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
-                        פרטי אורח
-                      </Typography>
+                    <Paper elevation={0} sx={{ p: 1.5, borderRadius: 1.5, mb: 1.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 1 }}>
+                        <PersonIcon sx={{ color: theme.palette.primary.main, fontSize: '1.2rem' }} />
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>פרטי אורח</Typography>
+                      </Box>
                       
                       <Grid container spacing={1.5}>
-                        <Grid item xs={6}>
+                        <Grid item xs={6} sm={3}>
                   <TextField
                     label="שם פרטי"
                             size="small"
                     fullWidth
                     defaultValue={bookingDialog.bookingData.guest?.firstName || ''}
                             sx={{ 
-                              '& .MuiOutlinedInput-root': {
-                                borderRadius: 2
-                              }
+                              '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                              '& .MuiInputLabel-root': { fontSize: '0.85rem' },
+                              '& .MuiOutlinedInput-input': { py: 1, fontSize: '0.9rem' }
                             }}
                           />
                         </Grid>
                         
-                        <Grid item xs={6}>
+                        <Grid item xs={6} sm={3}>
                   <TextField
                     label="שם משפחה"
                             size="small"
                     fullWidth
                     defaultValue={bookingDialog.bookingData.guest?.lastName || ''}
                             sx={{ 
-                              '& .MuiOutlinedInput-root': {
-                                borderRadius: 2
-                              }
+                              '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                              '& .MuiInputLabel-root': { fontSize: '0.85rem' },
+                              '& .MuiOutlinedInput-input': { py: 1, fontSize: '0.9rem' }
                             }}
                   />
                         </Grid>
                   
-                        <Grid item xs={12}>
+                        <Grid item xs={6} sm={3}>
                   <TextField
                     label="דוא״ל"
                             size="small"
@@ -2596,46 +2692,43 @@ const BookingListView = () => {
                     defaultValue={bookingDialog.bookingData.guest?.email || ''}
                     type="email"
                             sx={{ 
-                              '& .MuiOutlinedInput-root': {
-                                borderRadius: 2
-                              }
+                              '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                              '& .MuiInputLabel-root': { fontSize: '0.85rem' },
+                              '& .MuiOutlinedInput-input': { py: 1, fontSize: '0.9rem' }
                             }}
                           />
                         </Grid>
                         
-                        <Grid item xs={12}>
+                        <Grid item xs={6} sm={3}>
                   <TextField
                     label="טלפון"
                             size="small"
                     fullWidth
                     defaultValue={bookingDialog.bookingData.guest?.phone || ''}
                             sx={{ 
-                              '& .MuiOutlinedInput-root': {
-                                borderRadius: 2
-                              }
+                              '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                              '& .MuiInputLabel-root': { fontSize: '0.85rem' },
+                              '& .MuiOutlinedInput-input': { py: 1, fontSize: '0.9rem' }
                             }}
                             InputProps={{
                               endAdornment: bookingDialog.bookingData.guest?.phone ? (
                                 <InputAdornment position="end">
-                                  <Tooltip title="שלח הודעת וואטסאפ">
+                                  <Tooltip title="וואטסאפ">
                                     <IconButton
                                       size="small"
                                       sx={{ 
                                         color: '#25D366',
-                                        '&:hover': { 
-                                          bgcolor: alpha('#25D366', 0.1)
-                                        }
+                                        '&:hover': { bgcolor: alpha('#25D366', 0.1) },
+                                        p: 0.5
                                       }}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        // מנקה את מספר הטלפון מתווים שאינם ספרות
                                         const cleanPhone = bookingDialog.bookingData.guest.phone.replace(/\D/g, '');
-                                        // מסיר את ה-0 מתחילת המספר אם יש ומוסיף קידומת ישראל
                                         const formattedPhone = cleanPhone.startsWith('0') ? `972${cleanPhone.substring(1)}` : cleanPhone;
                                         window.open(`https://wa.me/${formattedPhone}`, '_blank');
                                       }}
                                     >
-                                      <WhatsAppIcon fontSize="small" />
+                                      <WhatsAppIcon sx={{fontSize: '1.2rem'}} />
                                     </IconButton>
                                   </Tooltip>
                                 </InputAdornment>
@@ -2645,38 +2738,47 @@ const BookingListView = () => {
                         </Grid>
                       </Grid>
                     </Paper>
-                </Grid>
-                
-                  {/* פרטי תשלום */}
-                <Grid item xs={12} md={6}>
-                    <Paper 
-                      elevation={0} 
+                    
+                    {/* הערות */}
+                    <Paper elevation={0} sx={{ p: 1.5, borderRadius: 1.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 1 }}>
+                        <InfoIcon sx={{ color: theme.palette.primary.main, fontSize: '1.2rem' }} />
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>הערות</Typography>
+                      </Box>
+                      
+                      <TextField
+                        fullWidth
+                        size="small"
+                        multiline
+                        rows={2}
+                        placeholder="הערות להזמנה..."
+                        value={bookingDialog.bookingData.notes || ''}
+                        onChange={(e) => handleBookingFormChange('notes', e.target.value)}
                       sx={{ 
-                        p: 2, 
-                        borderRadius: 2,
-                        height: '100%'
-                      }}
-                    >
-                      <Typography variant="subtitle1" sx={{ 
-                        mb: 2, 
-                        fontWeight: 600,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        color: theme.palette.primary.main
-                      }}>
-                        פרטי תשלום <AttachMoneyIcon fontSize="small" />
-                      </Typography>
+                          '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                          '& .MuiInputBase-input': { fontSize: '0.9rem', py: 0.8 }
+                        }}
+                      />
+                    </Paper>
+                  </Grid>
                   
-                  <Grid container spacing={2}>
+                  {/* עמודת תשלום */}
+                  <Grid item xs={12} md={4}>
+                    <Paper elevation={0} sx={{ p: 1.5, borderRadius: 1.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 1 }}>
+                        <AttachMoneyIcon sx={{ color: theme.palette.primary.main, fontSize: '1.2rem' }} />
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>תשלום</Typography>
+                      </Box>
+                      
+                      <Grid container spacing={1.5}>
                     <Grid item xs={6}>
                           <FormControl 
                             fullWidth 
                             size="small"
                             sx={{ 
-                              '& .MuiOutlinedInput-root': {
-                                borderRadius: 2
-                              }
+                              '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                              '& .MuiInputLabel-root': { fontSize: '0.85rem' },
+                              '& .MuiSelect-select': { py: 1, fontSize: '0.9rem' }
                             }}
                           >
                             <InputLabel>אמצעי תשלום</InputLabel>
@@ -2698,15 +2800,15 @@ const BookingListView = () => {
                             fullWidth 
                             size="small"
                             sx={{ 
-                              '& .MuiOutlinedInput-root': {
-                                borderRadius: 2
-                              }
+                              '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                              '& .MuiInputLabel-root': { fontSize: '0.85rem' },
+                              '& .MuiSelect-select': { py: 1, fontSize: '0.9rem' }
                             }}
                           >
-                            <InputLabel>מתחים לתשלום</InputLabel>
+                            <InputLabel>סטטוס תשלום</InputLabel>
                             <Select
                               value={bookingDialog.bookingData?.paymentStatus || 'pending'}
-                              label="מתחים לתשלום"
+                              label="סטטוס תשלום"
                               onChange={(e) => handleBookingFormChange('paymentStatus', e.target.value)}
                             >
                               <MenuItem value="pending">ממתין לתשלום</MenuItem>
@@ -2718,11 +2820,7 @@ const BookingListView = () => {
                         </Grid>
                         
                         <Grid item xs={12}>
-                          <Typography variant="subtitle2" sx={{ 
-                            mb: 1, 
-                            mt: 1,
-                            fontWeight: 500
-                          }}>
+                          <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.8, fontWeight: 500, fontSize: '0.9rem' }}>
                             פרטי כרטיס אשראי
                           </Typography>
                           
@@ -2732,14 +2830,14 @@ const BookingListView = () => {
                         fullWidth
                             defaultValue={bookingDialog.bookingData.creditCard?.cardNumber || ''}
                             sx={{ 
-                              mb: 2,
-                              '& .MuiOutlinedInput-root': {
-                                borderRadius: 2
-                              }
+                              mb: 1.5,
+                              '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                              '& .MuiInputLabel-root': { fontSize: '0.85rem' },
+                              '& .MuiOutlinedInput-input': { py: 1, fontSize: '0.9rem' }
                             }}
                           />
                           
-                          <Grid container spacing={2}>
+                          <Grid container spacing={1.5}>
                             <Grid item xs={6}>
                               <TextField
                                 label="תוקף"
@@ -2748,9 +2846,9 @@ const BookingListView = () => {
                                 placeholder="MM/YY"
                                 defaultValue={formatCreditCardExpiry(bookingDialog.bookingData.creditCard)}
                                 sx={{ 
-                                  '& .MuiOutlinedInput-root': {
-                                    borderRadius: 2
-                                  }
+                                  '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                                  '& .MuiInputLabel-root': { fontSize: '0.85rem' },
+                                  '& .MuiOutlinedInput-input': { py: 1, fontSize: '0.9rem' }
                         }}
                       />
                     </Grid>
@@ -2763,9 +2861,9 @@ const BookingListView = () => {
                                 placeholder="123"
                                 defaultValue={bookingDialog.bookingData.creditCard?.cvv || ''}
                                 sx={{ 
-                                  '& .MuiOutlinedInput-root': {
-                                    borderRadius: 2
-                                  }
+                                  '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+                                  '& .MuiInputLabel-root': { fontSize: '0.85rem' },
+                                  '& .MuiOutlinedInput-input': { py: 1, fontSize: '0.9rem' }
                                 }}
                               />
                             </Grid>
@@ -2775,43 +2873,7 @@ const BookingListView = () => {
                     </Paper>
                     </Grid>
                   </Grid>
-                  
-              {/* הערות */}
-              <Grid item xs={12}>
-                <Paper 
-                  elevation={0} 
-                  sx={{ 
-                    p: 2, 
-                    borderRadius: 2
-                  }}
-                >
-                  <Typography variant="subtitle1" sx={{ 
-                    mb: 1.5, 
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1
-                  }}>
-                    <InfoIcon fontSize="small" sx={{ color: theme.palette.primary.main }} />
-                    הערות
-                  </Typography>
-                  
-                  <TextField
-                    fullWidth
-                    size="small"
-                    multiline
-                    rows={2}
-                    placeholder="הוסף הערות להזמנה כאן..."
-                    defaultValue={bookingDialog.bookingData.notes || ''}
-                    sx={{ 
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2
-                      }
-                    }}
-                  />
-                </Paper>
-              </Grid>
-            </Grid>
+              </>
           ) : (
             <Box sx={{ p: 2, textAlign: 'center' }}>
               <Typography>לא נמצאו פרטי הזמנה</Typography>
@@ -2819,16 +2881,18 @@ const BookingListView = () => {
           )}
         </DialogContent>
         
-        <DialogActions sx={{ p: 2, pt: 1, borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+        <DialogActions sx={{ p: 1.5, borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
           <Button 
             onClick={closeBookingDialog} 
             color="inherit"
             size="small"
             sx={{ 
-              borderRadius: 2, 
+              borderRadius: 1.5, 
               textTransform: 'none', 
               fontWeight: 600,
-              px: 2
+              px: 1.5,
+              fontSize: '0.9rem',
+              py: 0.6
             }}
           >
             סגירה
@@ -2838,9 +2902,15 @@ const BookingListView = () => {
             color="primary" 
             variant="contained"
             size="small"
-            startIcon={<CheckIcon />}
+            startIcon={<CheckIcon sx={{fontSize: '1rem'}} />}
+            sx={{
+              borderRadius: 1.5,
+              fontSize: '0.9rem',
+              py: 0.6,
+              px: 1.5
+            }}
           >
-            שמירת שינויים
+            שמירה
           </ActionButton>
         </DialogActions>
       </Dialog>
