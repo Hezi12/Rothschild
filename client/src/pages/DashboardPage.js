@@ -218,6 +218,23 @@ const DashboardPage = () => {
           </Button>
         </Grid>
       </Grid>
+      
+      {/* קישור לרשימת הזמנות פשוטה */}
+      <Grid container spacing={2} sx={{ mb: 4 }}>
+        <Grid item xs={12}>
+          <Button
+            component={Link}
+            to="/dashboard/simple-bookings"
+            fullWidth
+            variant="contained"
+            color="secondary"
+            size="large"
+            sx={{ fontWeight: 'bold' }}
+          >
+            רשימת הזמנות פשוטה - למתחמים אחרים
+          </Button>
+        </Grid>
+      </Grid>
 
       {/* שורת כלים נוספים */}
       <Box sx={{ mb: 4, display: 'flex', flexWrap: 'wrap', gap: 1 }}>

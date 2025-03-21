@@ -22,6 +22,7 @@ import CancellationRedirectPage from './pages/CancellationRedirectPage';
 import GalleryManagementPage from './pages/GalleryManagementPage';
 import BookingListView from './pages/BookingListView';
 import BookingsNewPage from './pages/BookingsNewPage';
+import SimpleBookingList from './pages/SimpleBookingList';
 
 // רכיבים
 import Layout from './components/Layout';
@@ -86,6 +87,7 @@ function App() {
             } />
             <Route path="/dashboard/bookings-calendar" element={<ProtectedRoute><BookingListView /></ProtectedRoute>} />
             <Route path="/dashboard/bookings-new" element={<ProtectedRoute><BookingsNewPage /></ProtectedRoute>} />
+            <Route path="/dashboard/simple-bookings" element={<ProtectedRoute><SimpleBookingList /></ProtectedRoute>} />
             <Route path="dashboard/rooms" element={
               <ProtectedRoute>
                 <RoomsListPage />
