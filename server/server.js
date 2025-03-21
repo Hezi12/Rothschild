@@ -11,6 +11,7 @@ dotenv.config();
 require('./models/User');
 require('./models/Room');
 require('./models/Booking');
+require('./models/SimpleBooking');
 require('./models/Gallery');
 require('./models/DynamicPrice');
 
@@ -55,6 +56,7 @@ const dynamicPriceRoutes = require('./routes/dynamicPrices');
 app.use('/api/rooms', roomRoutes);
 app.use('/api/rooms', roomRoutesNew);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/simple-bookings', require('./routes/simpleBookings'));
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/gallery', galleryRoutes);
