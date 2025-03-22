@@ -28,7 +28,8 @@ import {
   Person as PersonIcon,
   Hotel as HotelIcon,
   Today as TodayIcon,
-  InfoOutlined as InfoOutlinedIcon
+  InfoOutlined as InfoOutlinedIcon,
+  Language as LanguageIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -413,12 +414,27 @@ const DashboardPage = () => {
             <AppIconButton
               component={Link}
               to="/dashboard/rooms"
-              color="#27ae60" 
+              color="#8e44ad" 
             >
               <SettingsIcon sx={{ fontSize: 32, color: 'white', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.1))' }} />
             </AppIconButton>
             <Typography variant="body2" sx={{ mt: 1, fontSize: '0.8rem', fontWeight: 500, color: '#555', textAlign: 'center' }}>
               הגדרות
+            </Typography>
+          </Box>
+        </Grid>
+
+        <Grid item>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <AppIconButton
+              component={Link}
+              to="/"
+              color="#2ecc71" 
+            >
+              <LanguageIcon sx={{ fontSize: 32, color: 'white', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.1))' }} />
+            </AppIconButton>
+            <Typography variant="body2" sx={{ mt: 1, fontSize: '0.8rem', fontWeight: 500, color: '#555', textAlign: 'center' }}>
+              אתר הבית
             </Typography>
           </Box>
         </Grid>
@@ -759,10 +775,10 @@ const DashboardPage = () => {
                               <NotesIcon sx={{ fontSize: '0.8rem', mr: 0.5, mt: 0.2, color: 'rgba(0,0,0,0.4)' }} />
                               <Typography variant="body2" sx={{ color: 'rgba(0,0,0,0.6)', fontSize: '0.75rem' }}>
                                 {notes}
-                              </Typography>
+      </Typography>
                             </Box>
-          )}
-        </CardContent>
+                          )}
+                        </CardContent>
                       </RoomCard>
                     );
                   })}

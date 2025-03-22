@@ -331,7 +331,7 @@ const Layout = () => {
                   aria-label="account of current user"
                   aria-controls="menu-appbar"
                   aria-haspopup="true"
-                  onClick={handleMenu}
+                  onClick={isAdmin() ? () => navigate('/dashboard') : handleMenu}
                   color="primary"
                   sx={{
                     bgcolor: alpha(theme.palette.primary.main, 0.1),
@@ -428,12 +428,12 @@ const Layout = () => {
         {isAuthenticated() ? (
           <>
             {isAdmin() && (
-              <MenuItem component={Link} to="/dashboard" onClick={handleClose}>
+              <MenuItem component={Link} to="/dashboard" onClick={handleMobileClose}>
                 <DashboardIcon fontSize="small" sx={{ ml: 1 }} />
                 ניהול
               </MenuItem>
             )}
-            <MenuItem onClick={() => { handleClose(); handleLogout(); }}>
+            <MenuItem onClick={() => { handleMobileClose(); handleLogout(); }}>
               <LogoutIcon fontSize="small" sx={{ ml: 1 }} />
               התנתק
             </MenuItem>
