@@ -456,20 +456,22 @@ const Layout = () => {
         <Outlet />
       </Container>
 
-      <Box
-        component="footer"
-        sx={{
-          py: { xs: 2, sm: 3 },
-          px: { xs: 1, sm: 2 },
-          mt: 'auto',
-          backgroundColor: (theme) => theme.palette.grey[200],
-          textAlign: 'center'
-        }}
-      >
-        <Typography variant="body2" color="text.secondary">
-          © {new Date().getFullYear()} רוטשילד 79, פתח תקווה. כל הזכויות שמורות.
-        </Typography>
-      </Box>
+      {!isDashboardPage && (
+        <Box
+          component="footer"
+          sx={{
+            py: { xs: 2, sm: 3 },
+            px: { xs: 1, sm: 2 },
+            mt: 'auto',
+            backgroundColor: (theme) => theme.palette.grey[200],
+            textAlign: 'center'
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            © {new Date().getFullYear()} רוטשילד 79, פתח תקווה. כל הזכויות שמורות.
+          </Typography>
+        </Box>
+      )}
 
       <Box
         sx={{
