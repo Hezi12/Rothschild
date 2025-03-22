@@ -61,7 +61,8 @@ import {
   ListAlt as ListAltIcon,
   Collections as CollectionsIcon,
   Home as HomeIcon,
-  Groups as GroupsIcon
+  Groups as GroupsIcon,
+  Language as LanguageIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -1953,45 +1954,57 @@ const BookingListView = () => {
     <>
       {/* סרגל צדדי מינימליסטי */}
       <MinimalSidebar>
-        <SidebarButton title="דף הבית" placement="right" isActive={currentPath === '/'}>
-          <IconButton component={Link} to="/">
-            <HomeIcon fontSize="medium" />
-          </IconButton>
-        </SidebarButton>
-        
         <SidebarButton title="לוח מחוונים" placement="right" isActive={currentPath === '/dashboard'}>
-          <IconButton component={Link} to="/dashboard">
+          <IconButton 
+            component={Link} 
+            to="/dashboard"
+            sx={{ 
+              color: isActive => isActive ? '#3498db' : '#666',
+              '&:hover': { color: '#2980b9' }
+            }}
+          >
             <DashboardIcon fontSize="medium" />
           </IconButton>
         </SidebarButton>
         
-        <SidebarButton title="יומן הזמנות" placement="right" isActive={currentPath === '/dashboard/bookings-calendar'}>
-          <IconButton component={Link} to="/dashboard/bookings-calendar">
+        <SidebarButton title="תצוגת הזמנות" placement="right" isActive={currentPath === '/dashboard/bookings-new'}>
+          <IconButton 
+            component={Link} 
+            to="/dashboard/bookings-new"
+            sx={{ 
+              color: isActive => isActive ? '#9b59b6' : '#666',
+              '&:hover': { color: '#8e44ad' }
+            }}
+          >
             <CalendarMonthIcon fontSize="medium" />
           </IconButton>
         </SidebarButton>
         
-        <SidebarButton title="ניהול הזמנות" placement="right" isActive={currentPath === '/dashboard/bookings-new'}>
-          <IconButton component={Link} to="/dashboard/bookings-new">
-            <ListAltIcon fontSize="medium" />
-          </IconButton>
-        </SidebarButton>
-        
-        <SidebarButton title="רשימת הזמנות פשוטה" placement="right" isActive={currentPath === '/dashboard/simple-bookings'}>
-          <IconButton component={Link} to="/dashboard/simple-bookings">
-            <PersonIcon fontSize="medium" />
-          </IconButton>
-        </SidebarButton>
-        
-        <SidebarButton title="ניהול חדרים" placement="right" isActive={currentPath === '/dashboard/rooms'}>
-          <IconButton component={Link} to="/dashboard/rooms">
+        <SidebarButton title="106 / Airport" placement="right" isActive={currentPath === '/dashboard/simple-bookings'}>
+          <IconButton 
+            component={Link} 
+            to="/dashboard/simple-bookings"
+            sx={{ 
+              color: isActive => isActive ? '#f39c12' : '#666',
+              '&:hover': { color: '#d35400' }
+            }}
+          >
             <HotelIcon fontSize="medium" />
           </IconButton>
         </SidebarButton>
+
+        <Box sx={{ flexGrow: 1 }} /> {/* מרווח גמיש שידחוף את האייקון הבא לתחתית */}
         
-        <SidebarButton title="גלריה" placement="right" isActive={currentPath === '/dashboard/gallery'}>
-          <IconButton component={Link} to="/dashboard/gallery">
-            <CollectionsIcon fontSize="medium" />
+        <SidebarButton title="אתר הבית" placement="right" isActive={currentPath === '/'}>
+          <IconButton 
+            component={Link} 
+            to="/"
+            sx={{ 
+              color: isActive => isActive ? '#2ecc71' : '#666',
+              '&:hover': { color: '#27ae60' }
+            }}
+          >
+            <LanguageIcon fontSize="medium" />
           </IconButton>
         </SidebarButton>
       </MinimalSidebar>

@@ -35,7 +35,8 @@ import {
   Checkbox,
   Stack,
   Link,
-  Breadcrumbs
+  Breadcrumbs,
+  styled
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -50,19 +51,56 @@ import {
   Payments as PaymentsIcon,
   Launch as LaunchIcon,
   Receipt as ReceiptIcon,
-  CalendarMonth as CalendarMonthIcon
+  CalendarMonth as CalendarMonthIcon,
+  Dashboard as DashboardIcon,
+  Hotel as HotelIcon,
+  Language as LanguageIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { AuthContext } from '../context/AuthContext';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
+
+// קומפוננטה חדשה - סרגל צדדי מינימליסטי
+const MinimalSidebar = styled(Box)(({ theme }) => ({
+  position: 'fixed',
+  left: 0,
+  top: '50%',
+  transform: 'translateY(-50%)',
+  display: 'flex',
+  flexDirection: 'column',
+  padding: '10px 0',
+  backgroundColor: '#ffffff',
+  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+  borderRadius: '0 8px 8px 0',
+  zIndex: 100,
+  gap: '5px',
+  width: '60px'
+}));
+
+const SidebarButton = styled(Tooltip)(({ theme, isActive }) => ({
+  '& .MuiButtonBase-root': {
+    padding: '12px',
+    color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
+    backgroundColor: isActive ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+    '&:hover': {
+      backgroundColor: alpha(theme.palette.primary.main, 0.05)
+    },
+    transition: 'all 0.3s ease',
+    borderLeft: isActive ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
+    borderRight: 'none'
+  }
+}));
 
 // מסך ניהול הזמנות חדש ומשופר
 const BookingsNewPage = () => {
   // הקשר אימות
   const { isAdmin } = useContext(AuthContext);
+  // ניתוב ומיקום נוכחי
+  const location = useLocation();
+  const currentPath = location.pathname;
   
   // סטייטים
   const [bookings, setBookings] = useState([]);
@@ -764,7 +802,64 @@ const BookingsNewPage = () => {
   // רנדור הממשק
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+      {/* סרגל צדדי מינימליסטי */}
+      <MinimalSidebar>
+        <SidebarButton title="לוח מחוונים" placement="right" isActive={currentPath === '/dashboard'}>
+          <IconButton 
+            component={RouterLink} 
+            to="/dashboard"
+            sx={{ 
+              color: isActive => isActive ? '#3498db' : '#666',
+              '&:hover': { color: '#2980b9' }
+            }}
+          >
+            <DashboardIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="יומן הזמנות" placement="right" isActive={currentPath === '/dashboard/bookings-calendar'}>
+          <IconButton 
+            component={RouterLink} 
+            to="/dashboard/bookings-calendar"
+            sx={{ 
+              color: isActive => isActive ? '#e74c3c' : '#666',
+              '&:hover': { color: '#c0392b' }
+            }}
+          >
+            <EventIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="106 / Airport" placement="right" isActive={currentPath === '/dashboard/simple-bookings'}>
+          <IconButton 
+            component={RouterLink} 
+            to="/dashboard/simple-bookings"
+            sx={{ 
+              color: isActive => isActive ? '#f39c12' : '#666',
+              '&:hover': { color: '#d35400' }
+            }}
+          >
+            <HotelIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+
+        <Box sx={{ flexGrow: 1 }} /> {/* מרווח גמיש שידחוף את האייקון הבא לתחתית */}
+        
+        <SidebarButton title="אתר הבית" placement="right" isActive={currentPath === '/'}>
+          <IconButton 
+            component={RouterLink} 
+            to="/"
+            sx={{ 
+              color: isActive => isActive ? '#2ecc71' : '#666',
+              '&:hover': { color: '#27ae60' }
+            }}
+          >
+            <LanguageIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+      </MinimalSidebar>
+
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4, paddingLeft: '55px' }}>
         <Paper sx={{ p: 3, mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -772,23 +867,6 @@ const BookingsNewPage = () => {
                 <EventIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                 ניהול הזמנות
               </Typography>
-              <Tooltip title="עבור לתצוגת יומן">
-                <IconButton 
-                  component={RouterLink} 
-                  to="/dashboard/bookings-calendar" 
-                  size="small" 
-                  color="primary" 
-                  sx={{ 
-                    ml: 1,
-                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
-                    '&:hover': {
-                      bgcolor: (theme) => alpha(theme.palette.primary.main, 0.2)
-                    }
-                  }}
-                >
-                  <CalendarMonthIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
             </Box>
 
             <Button

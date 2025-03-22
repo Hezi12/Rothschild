@@ -26,14 +26,13 @@ import {
   Badge,
   Chip,
   Drawer,
-  SpeedDial,
-  SpeedDialAction,
-  SpeedDialIcon,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  CircularProgress
+  CircularProgress,
+  styled,
+  Container
 } from '@mui/material';
 import {
   ArrowForward as ArrowForwardIcon,
@@ -59,12 +58,16 @@ import {
   Settings as SettingsIcon,
   DateRange as DateRangeIcon,
   Edit as EditIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Event as EventIcon,
+  Hotel as HotelIcon,
+  Language as LanguageIcon
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { Link } from 'react-router-dom';
 
 // רשימת החדרים לפי מתחמים
 const LOCATIONS = {
@@ -77,16 +80,6 @@ const LOCATIONS = {
     rooms: ['2', '3', '5', '6', '7', '8']
   }
 };
-
-// אפשרויות לסרגל הכלים
-const TOOLBAR_ACTIONS = [
-  { icon: <CalendarMonthIcon />, name: 'יומן הזמנות', color: '#3f51b5' },
-  { icon: <DashboardIcon />, name: 'דשבורד', color: '#00796b' },
-  { icon: <AddIcon />, name: 'הזמנה חדשה', color: '#e91e63' },
-  { icon: <RefreshIcon />, name: 'רענן', color: '#ff9800' },
-  { icon: <PrintIcon />, name: 'הדפס', color: '#607d8b' },
-  { icon: <SettingsIcon />, name: 'הגדרות', color: '#455a64' }
-];
 
 // קומפוננטה עבור תא של חדר - זה הפתרון לבעיית ה-hooks
 const RoomBookingCell = ({ 
@@ -428,6 +421,37 @@ const RoomBookingCell = ({
   );
 };
 
+// קומפוננטה של סרגל צדדי אם לא קיימת כבר
+const MinimalSidebar = styled(Box)(({ theme }) => ({
+  position: 'fixed',
+  left: 0,
+  top: '50%',
+  transform: 'translateY(-50%)',
+  display: 'flex',
+  flexDirection: 'column',
+  padding: '10px 0',
+  backgroundColor: '#ffffff',
+  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+  borderRadius: '0 8px 8px 0',
+  zIndex: 100,
+  gap: '5px',
+  width: '60px'
+}));
+
+const SidebarButton = styled(Tooltip)(({ theme, isActive }) => ({
+  '& .MuiButtonBase-root': {
+    padding: '12px',
+    color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
+    backgroundColor: isActive ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+    '&:hover': {
+      backgroundColor: alpha(theme.palette.primary.main, 0.05)
+    },
+    transition: 'all 0.3s ease',
+    borderLeft: isActive ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
+    borderRight: 'none'
+  }
+}));
+
 const SimpleBookingList = () => {
   const theme = useTheme();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -435,6 +459,7 @@ const SimpleBookingList = () => {
   const [multiNightBookings, setMultiNightBookings] = useState({});
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
   
   // טעינת נתוני הזמנות מהשרת בעת טעינת הדף
   useEffect(() => {
@@ -809,278 +834,287 @@ const SimpleBookingList = () => {
     return multiNightBookings[currentDateKey]?.[locationId]?.[roomId] || null;
   };
 
-  // טיפול בפעולה מסרגל הכלים
-  const handleToolbarAction = (actionName) => {
-    switch (actionName) {
-      case 'יומן הזמנות':
-        window.location.href = '/bookings-calendar';
-        break;
-      case 'דשבורד':
-        window.location.href = '/dashboard';
-        break;
-      case 'הזמנה חדשה':
-        window.location.href = '/bookings/new';
-        break;
-      case 'רענן':
-        fetchBookings(); // טעינה מחדש מהשרת
-        break;
-      case 'הדפס':
-        window.print();
-        break;
-      default:
-        toast.info(`פעולה "${actionName}" עדיין לא הוטמעה`);
-    }
-  };
-
   return (
-    <Box sx={{ 
-      maxWidth: 1200, 
-      mx: 'auto', 
-      p: 2,
-      mb: 4,
-      position: 'relative'
-    }}>
-      {/* כותרת הדף */}
-      <Typography 
-        variant="h4" 
-        gutterBottom 
-        sx={{ 
-          fontWeight: 'bold',
-          textAlign: 'center',
-          mb: 3,
-          color: theme.palette.primary.dark,
-          letterSpacing: '0.5px',
-          position: 'relative'
-        }}
-      >
-        רשימת הזמנות פשוטה
-      </Typography>
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+      {/* סרגל צדדי מינימליסטי */}
+      <MinimalSidebar>
+        <SidebarButton title="לוח מחוונים" placement="right" isActive={currentPath === '/dashboard'}>
+          <IconButton 
+            component={Link} 
+            to="/dashboard"
+            sx={{ 
+              color: isActive => isActive ? '#3498db' : '#666',
+              '&:hover': { color: '#2980b9' }
+            }}
+          >
+            <DashboardIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="יומן הזמנות" placement="right" isActive={currentPath === '/dashboard/bookings-calendar'}>
+          <IconButton 
+            component={Link} 
+            to="/dashboard/bookings-calendar"
+            sx={{ 
+              color: isActive => isActive ? '#e74c3c' : '#666',
+              '&:hover': { color: '#c0392b' }
+            }}
+          >
+            <EventIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="תצוגת הזמנות" placement="right" isActive={currentPath === '/dashboard/bookings-new'}>
+          <IconButton 
+            component={Link} 
+            to="/dashboard/bookings-new"
+            sx={{ 
+              color: isActive => isActive ? '#9b59b6' : '#666',
+              '&:hover': { color: '#8e44ad' }
+            }}
+          >
+            <CalendarMonthIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+        
+        <Box sx={{ flexGrow: 1 }} /> {/* מרווח גמיש שידחוף את האייקון הבא לתחתית */}
+        
+        <SidebarButton title="אתר הבית" placement="right" isActive={currentPath === '/'}>
+          <IconButton 
+            component={Link} 
+            to="/"
+            sx={{ 
+              color: isActive => isActive ? '#2ecc71' : '#666',
+              '&:hover': { color: '#27ae60' }
+            }}
+          >
+            <LanguageIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+      </MinimalSidebar>
       
-      {/* סרגל ניווט תאריכים */}
-      <Paper 
-        elevation={2}
-        sx={{ 
-          p: 1.5, 
-          mb: 3, 
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderRadius: 2,
-          background: isWeekend ? 
-            `linear-gradient(to right, ${alpha(theme.palette.primary.main, 0.07)}, ${alpha(theme.palette.primary.light, 0.1)})` : 
-            'white',
-          border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
-          boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.08)}`
-        }}
-      >
-        <IconButton 
-          onClick={handlePrevDay}
-          size="small"
+      {/* תוכן העמוד בסגנון dashboard */}
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4, paddingLeft: '55px' }}>
+        <Paper 
+          elevation={0} 
           sx={{ 
-            borderRadius: 1.5,
-            color: theme.palette.primary.main,
-            '&:hover': { 
-              backgroundColor: alpha(theme.palette.primary.main, 0.1) 
-            }
+            p: 3, 
+            mb: 3, 
+            borderRadius: 2,
+            boxShadow: '0 2px 10px rgba(0,0,0,0.08)'
           }}
         >
-          <ArrowForwardIcon />
-        </IconButton>
-        
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 2,
-          flex: 1,
-          justifyContent: 'center'
-        }}>
-          <Button
-            startIcon={<TodayIcon />}
-            onClick={handleToday}
-            variant="outlined"
-            size="small"
-            color="primary"
-            sx={{ 
-              borderRadius: 1.5,
-              px: 1.5,
-              '&:hover': {
-                boxShadow: `0 1px 5px ${alpha(theme.palette.primary.main, 0.2)}`
-              }
-            }}
-          >
-            היום
-          </Button>
-          
-          <Button
-            onClick={handleOpenDatePicker}
-            variant="text"
-            color="primary"
-            sx={{ 
-              borderRadius: 1.5,
-              fontWeight: 500,
-              minWidth: 250
-            }}
-            startIcon={<DateRangeIcon />}
-          >
-            <Typography 
-              variant="h6" 
+          {/* כותרת הדף בסגנון dashboard */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+                <HotelIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                106 / Airport Guest House
+              </Typography>
+            </Box>
+            
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<RefreshIcon />}
+              onClick={fetchBookings}
               sx={{ 
-                fontWeight: 500,
-                textAlign: 'center',
-                color: isWeekend ? theme.palette.primary.dark : theme.palette.primary.main,
+                borderRadius: 1.5,
+                boxShadow: 2
               }}
             >
-              {formattedDate}
-            </Typography>
-          </Button>
-        </Box>
-        
-        <IconButton 
-          onClick={handleNextDay}
-          size="small"
-          sx={{ 
-            borderRadius: 1.5,
-            color: theme.palette.primary.main,
-            '&:hover': { 
-              backgroundColor: alpha(theme.palette.primary.main, 0.1) 
-            }
-          }}
-        >
-          <ArrowBackIcon />
-        </IconButton>
-      </Paper>
-      
-      {/* חיווי טעינה */}
-      {isLoading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
-          <CircularProgress />
-        </Box>
-      )}
-      
-      {/* תצוגת המתחמים והחדרים */}
-      <Grid container spacing={2}>
-        {Object.entries(LOCATIONS).map(([locationId, location]) => (
-          <Grid item xs={12} key={locationId}>
-            <Card 
-              elevation={2}
-              sx={{
-                borderRadius: 2,
-                overflow: 'hidden',
-                border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
-                mb: 1,
-                '&:hover': {
-                  boxShadow: `0 5px 15px ${alpha(theme.palette.primary.main, 0.1)}`
-                },
-                transition: 'box-shadow 0.3s ease'
-              }}
-            >
-              <CardHeader
-                title={location.name}
-                sx={{
-                  background: `linear-gradient(to right, ${alpha(theme.palette.primary.main, 0.8)}, ${alpha(theme.palette.primary.dark, 0.9)})`,
-                  color: 'white',
-                  py: 1,
-                  px: 2,
-                  '& .MuiCardHeader-title': {
-                    fontSize: '1.1rem',
-                    fontWeight: '600'
-                  }
-                }}
-              />
-              
-              <List disablePadding>
-                {location.rooms.map(roomId => {
-                  // בדיקה אם החדר מאוכלס כחלק מהזמנה רב-לילות
-                  const multiNightBooking = isPartOfMultiNightBooking(locationId, roomId);
-                  
-                  if (multiNightBooking) {
-                    // החדר מאוכלס כחלק מהזמנה רב-לילות
-                    return (
-                      <RoomBookingCell 
-                        key={roomId}
-                        locationId={locationId}
-                        roomId={roomId}
-                        booking={multiNightBooking}
-                        currentDateKey={currentDateKey}
-                        onSave={handleSaveBooking}
-                        onDelete={handleDeleteBooking}
-                        isMultiNightDisplay={true}
-                        originalBookingDate={multiNightBooking.originalBookingDate}
-                      />
-                    );
-                  } else {
-                    // קבלת נתוני ההזמנה הקיימת או יצירת ברירת מחדל חדשה
-                    const booking = bookings[currentDateKey]?.[locationId]?.[roomId] || { 
-                      guestName: '', 
-                      phone: '', 
-                      notes: '',
-                      isPaid: false,
-                      nights: 1
-                    };
-                    
-                    // שימוש בקומפוננטה הנפרדת
-                    return (
-                      <RoomBookingCell 
-                        key={roomId}
-                        locationId={locationId}
-                        roomId={roomId}
-                        booking={booking}
-                        currentDateKey={currentDateKey}
-                        onSave={handleSaveBooking}
-                        onDelete={handleDeleteBooking}
-                        isMultiNightDisplay={false}
-                      />
-                    );
-                  }
-                })}
-              </List>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      {/* SpeedDial - סרגל כלים קבוע בצד */}
-      <Box sx={{ 
-        position: 'fixed', 
-        right: { xs: 16, sm: 24 }, 
-        bottom: { xs: 16, sm: 24 },
-        zIndex: 1000
-      }}>
-        <SpeedDial
-          ariaLabel="סרגל כלים"
-          icon={<SpeedDialIcon icon={<EditIcon />} openIcon={<CloseIcon />} />}
-          direction="up"
-          FabProps={{
-            sx: {
-              bgcolor: theme.palette.primary.main,
-              '&:hover': {
-                bgcolor: theme.palette.primary.dark,
-              }
-            }
-          }}
-        >
-          {TOOLBAR_ACTIONS.map((action) => (
-            <SpeedDialAction
-              key={action.name}
-              icon={action.icon}
-              tooltipTitle={action.name}
-              onClick={() => handleToolbarAction(action.name)}
-              FabProps={{
-                sx: {
-                  bgcolor: alpha(action.color, 0.9),
-                  color: 'white',
-                  '&:hover': {
-                    bgcolor: action.color,
-                  }
+              רענון
+            </Button>
+          </Box>
+          
+          <Divider sx={{ mb: 3 }} />
+          
+          {/* סרגל ניווט תאריכים בסגנון dashboard */}
+          <Paper 
+            elevation={1}
+            sx={{ 
+              p: 1.5, 
+              mb: 3, 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderRadius: 2,
+              background: isWeekend ? 
+                `linear-gradient(to right, ${alpha(theme.palette.primary.main, 0.05)}, ${alpha(theme.palette.primary.light, 0.08)})` : 
+                'white',
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.06)}`
+            }}
+          >
+            <IconButton 
+              onClick={handlePrevDay}
+              size="small"
+              sx={{ 
+                borderRadius: 1.5,
+                color: theme.palette.primary.main,
+                '&:hover': { 
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1) 
                 }
               }}
-            />
-          ))}
-        </SpeedDial>
-      </Box>
+            >
+              <ArrowForwardIcon />
+            </IconButton>
+            
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 2,
+              flex: 1,
+              justifyContent: 'center'
+            }}>
+              <Button
+                startIcon={<TodayIcon />}
+                onClick={handleToday}
+                variant="outlined"
+                size="small"
+                color="primary"
+                sx={{ 
+                  borderRadius: 1.5,
+                  px: 1.5,
+                  '&:hover': {
+                    boxShadow: `0 1px 5px ${alpha(theme.palette.primary.main, 0.2)}`
+                  }
+                }}
+              >
+                היום
+              </Button>
+              
+              <Button
+                onClick={handleOpenDatePicker}
+                variant="text"
+                color="primary"
+                sx={{ 
+                  borderRadius: 1.5,
+                  fontWeight: 500,
+                  minWidth: 250
+                }}
+                startIcon={<DateRangeIcon />}
+              >
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: 500,
+                    textAlign: 'center',
+                    color: isWeekend ? theme.palette.primary.dark : theme.palette.primary.main,
+                  }}
+                >
+                  {formattedDate}
+                </Typography>
+              </Button>
+            </Box>
+            
+            <IconButton 
+              onClick={handleNextDay}
+              size="small"
+              sx={{ 
+                borderRadius: 1.5,
+                color: theme.palette.primary.main,
+                '&:hover': { 
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1) 
+                }
+              }}
+            >
+              <ArrowBackIcon />
+            </IconButton>
+          </Paper>
+          
+          {/* חיווי טעינה */}
+          {isLoading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+              <CircularProgress thickness={3} sx={{ color: theme.palette.primary.main }} />
+            </Box>
+          )}
+          
+          {/* תצוגת המתחמים והחדרים */}
+          <Grid container spacing={2}>
+            {Object.entries(LOCATIONS).map(([locationId, location]) => (
+              <Grid item xs={12} key={locationId}>
+                <Card 
+                  elevation={0}
+                  sx={{
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                    border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                    mb: 1,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    '&:hover': {
+                      boxShadow: `0 5px 15px ${alpha(theme.palette.primary.main, 0.08)}`
+                    },
+                    transition: 'box-shadow 0.3s ease'
+                  }}
+                >
+                  <CardHeader
+                    title={location.name}
+                    sx={{
+                      background: `linear-gradient(to right, ${alpha(theme.palette.primary.main, 0.7)}, ${alpha(theme.palette.primary.dark, 0.85)})`,
+                      color: 'white',
+                      py: 1,
+                      px: 2,
+                      '& .MuiCardHeader-title': {
+                        fontSize: '1rem',
+                        fontWeight: '600'
+                      }
+                    }}
+                  />
+                  
+                  <List disablePadding>
+                    {location.rooms.map(roomId => {
+                      // בדיקה אם החדר מאוכלס כחלק מהזמנה רב-לילות
+                      const multiNightBooking = isPartOfMultiNightBooking(locationId, roomId);
+                      
+                      if (multiNightBooking) {
+                        // החדר מאוכלס כחלק מהזמנה רב-לילות
+                        return (
+                          <RoomBookingCell 
+                            key={roomId}
+                            locationId={locationId}
+                            roomId={roomId}
+                            booking={multiNightBooking}
+                            currentDateKey={currentDateKey}
+                            onSave={handleSaveBooking}
+                            onDelete={handleDeleteBooking}
+                            isMultiNightDisplay={true}
+                            originalBookingDate={multiNightBooking.originalBookingDate}
+                          />
+                        );
+                      } else {
+                        // קבלת נתוני ההזמנה הקיימת או יצירת ברירת מחדל חדשה
+                        const booking = bookings[currentDateKey]?.[locationId]?.[roomId] || { 
+                          guestName: '', 
+                          phone: '', 
+                          notes: '',
+                          isPaid: false,
+                          nights: 1
+                        };
+                        
+                        // שימוש בקומפוננטה הנפרדת
+                        return (
+                          <RoomBookingCell 
+                            key={roomId}
+                            locationId={locationId}
+                            roomId={roomId}
+                            booking={booking}
+                            currentDateKey={currentDateKey}
+                            onSave={handleSaveBooking}
+                            onDelete={handleDeleteBooking}
+                            isMultiNightDisplay={false}
+                          />
+                        );
+                      }
+                    })}
+                  </List>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Paper>
 
-      {/* בוחר תאריך - דיאלוג */}
-      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+        {/* בוחר תאריך - דיאלוג */}
         <Dialog
           open={isDatePickerOpen}
           onClose={() => setIsDatePickerOpen(false)}
@@ -1105,8 +1139,8 @@ const SimpleBookingList = () => {
             </Button>
           </DialogActions>
         </Dialog>
-      </LocalizationProvider>
-    </Box>
+      </Container>
+    </LocalizationProvider>
   );
 };
 
