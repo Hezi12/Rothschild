@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   AppBar, 
   Toolbar, 
@@ -15,7 +15,8 @@ import {
   useMediaQuery,
   Tooltip,
   alpha,
-  Chip
+  Chip,
+  Link
 } from '@mui/material';
 import { 
   AccountCircle,
@@ -92,7 +93,7 @@ const Layout = () => {
           }}>
             {/* לוגו בצד ימין */}
             <Box 
-              component={Link}
+              component={RouterLink}
               to="/"
               sx={{ 
                 textDecoration: 'none',
@@ -352,7 +353,7 @@ const Layout = () => {
                 <Tooltip title="התחברות">
                   <IconButton 
                     color="primary" 
-                    component={Link} 
+                    component={RouterLink} 
                     to="/login"
                     sx={{
                       bgcolor: alpha(theme.palette.primary.main, 0.05),
@@ -399,7 +400,7 @@ const Layout = () => {
         </MenuItem>
         <Divider />
         {isAdmin() && (
-          <MenuItem component={Link} to="/dashboard" onClick={handleClose}>
+          <MenuItem component={RouterLink} to="/dashboard" onClick={handleClose}>
             <DashboardIcon fontSize="small" sx={{ ml: 1 }} />
             ניהול
           </MenuItem>
@@ -428,7 +429,7 @@ const Layout = () => {
         {isAuthenticated() ? (
           <>
             {isAdmin() && (
-              <MenuItem component={Link} to="/dashboard" onClick={handleMobileClose}>
+              <MenuItem component={RouterLink} to="/dashboard" onClick={handleMobileClose}>
                 <DashboardIcon fontSize="small" sx={{ ml: 1 }} />
                 ניהול
               </MenuItem>
@@ -439,7 +440,7 @@ const Layout = () => {
             </MenuItem>
           </>
         ) : (
-          <MenuItem component={Link} to="/login" onClick={handleClose}>
+          <MenuItem component={RouterLink} to="/login" onClick={handleClose}>
             התחברות
           </MenuItem>
         )}
@@ -470,6 +471,23 @@ const Layout = () => {
           <Typography variant="body2" color="text.secondary">
             © {new Date().getFullYear()} רוטשילד 79, פתח תקווה. כל הזכויות שמורות.
           </Typography>
+          <Box sx={{ mt: 1 }}>
+            <Link 
+              component={RouterLink} 
+              to="/accessibility-statement"
+              color="text.secondary"
+              sx={{ 
+                mx: 1, 
+                fontSize: '0.8rem',
+                textDecoration: 'none',
+                '&:hover': {
+                  textDecoration: 'underline',
+                }
+              }}
+            >
+              הצהרת נגישות
+            </Link>
+          </Box>
         </Box>
       )}
 
