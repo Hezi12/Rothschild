@@ -163,9 +163,12 @@ const DashboardPage = () => {
         
         console.log(`מתחיל לטעון הזמנות לתאריך ${formatDate(selectedDate)}...`);
         
+        // עדכון: שינוי נתיב API לשימוש בכתובת מלאה בסביבת הייצור
+        const apiBaseUrl = process.env.REACT_APP_API_URL || '';
+        
         const [normalBookingsResponse, simpleBookingsResponse] = await Promise.all([
           axios.get(`${process.env.REACT_APP_API_URL}/bookings`),
-          axios.get(`/api/simple-bookings`, {
+          axios.get(`${apiBaseUrl}/simple-bookings`, {
             headers: { 'Authorization': `Bearer ${token}` }
           })
         ]);
