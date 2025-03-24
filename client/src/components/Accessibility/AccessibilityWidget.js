@@ -284,7 +284,7 @@ const AccessibilityWidget = () => {
           sx={{
             position: 'fixed',
             left: 16,
-            bottom: 16,
+            bottom: 90,
             zIndex: theme.zIndex.drawer + 2,
             bgcolor: theme.palette.primary.main,
             color: 'white',
