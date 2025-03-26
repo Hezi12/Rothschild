@@ -1029,23 +1029,21 @@ exports.hardDeleteManyBookings = async (req, res) => {
 // עדכון סטטוס תשלום
 exports.updatePaymentStatus = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { bookingId } = req.params;
     const { paymentStatus, paidAmount, paymentMethod } = req.body;
     
     if (!paymentStatus) {
-      return res.status(400).json({
-        success: false,
-        message: 'חסר סטטוס תשלום'
+      return res.status(400).json({ 
+        success: false, 
+        message: 'חובה לספק סטטוס תשלום' 
       });
     }
     
-    // בניית אובייקט עדכון
+    // הגדרת עדכוני ההזמנה
     const updateData = {
       paymentStatus,
-      updatedAt: new Date()
     };
     
-    // הוספת שדות אופציונליים אם סופקו
     if (paidAmount !== undefined) {
       updateData.paidAmount = paidAmount;
     }
@@ -1054,31 +1052,31 @@ exports.updatePaymentStatus = async (req, res) => {
       updateData.paymentMethod = paymentMethod;
     }
     
-    // עדכון ההזמנה ישירות
+    // עדכון הזמנה
     const updatedBooking = await Booking.findByIdAndUpdate(
-      id,
-      { $set: updateData },
-      { new: true, runValidators: false }
+      bookingId, 
+      updateData, 
+      { new: true }
     );
     
     if (!updatedBooking) {
-      return res.status(404).json({
-        success: false,
-        message: 'ההזמנה לא נמצאה'
+      return res.status(404).json({ 
+        success: false, 
+        message: 'ההזמנה לא נמצאה' 
       });
     }
     
-    res.json({
-      success: true,
-      message: 'סטטוס התשלום עודכן בהצלחה',
-      data: updatedBooking
+    res.status(200).json({ 
+      success: true, 
+      data: updatedBooking,
+      message: 'סטטוס התשלום עודכן בהצלחה'
     });
   } catch (error) {
     console.error('שגיאה בעדכון סטטוס תשלום:', error);
-    res.status(500).json({
-      success: false,
-      message: 'אירעה שגיאה בעדכון סטטוס התשלום',
-      error: error.message
+    res.status(500).json({ 
+      success: false, 
+      message: 'שגיאת שרת בעת עדכון סטטוס תשלום',
+      error: error.message 
     });
   }
 };

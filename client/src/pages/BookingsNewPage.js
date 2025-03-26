@@ -123,6 +123,8 @@ const BookingsNewPage = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
   const [openHardDeleteDialog, setOpenHardDeleteDialog] = useState(false);
+  const [tempPaymentStatus, setTempPaymentStatus] = useState('');
+  const [tempPaymentMethod, setTempPaymentMethod] = useState('');
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [selectedBookingIds, setSelectedBookingIds] = useState([]);
   const [formData, setFormData] = useState({
@@ -589,13 +591,13 @@ const BookingsNewPage = () => {
     window.open(`${invoiceUrl}?token=${token}`, '_blank');
   };
   
-  const handleUpdatePaymentStatus = async (bookingId, newStatus) => {
+  const handleUpdatePaymentStatus = async (bookingId, newStatus, paymentMethod = '') => {
     if (!selectedBooking) return;
     
     try {
       await contextUpdateBooking(selectedBooking._id, { 
         paymentStatus: newStatus, 
-        paymentMethod: '' 
+        paymentMethod: paymentMethod 
       });
       
       setOpenPaymentDialog(false);
@@ -635,7 +637,8 @@ const BookingsNewPage = () => {
       case 'paid': return 'שולם';
       case 'partial': return 'שולם חלקית';
       case 'pending': return 'לא שולם';
-      default: return status;
+      case 'canceled': return 'בוטל';
+      default: return status || 'לא ידוע';
     }
   };
   
@@ -644,6 +647,7 @@ const BookingsNewPage = () => {
       case 'paid': return 'success';
       case 'partial': return 'warning';
       case 'pending': return 'error';
+      case 'canceled': return 'error';
       default: return 'default';
     }
   };
@@ -1524,35 +1528,53 @@ const BookingsNewPage = () => {
         
         {/* דיאלוג עדכון סטטוס תשלום */}
         <Dialog open={openPaymentDialog} onClose={() => setOpenPaymentDialog(false)}>
-          <DialogTitle>
-            עדכון סטטוס תשלום
-          </DialogTitle>
+          <DialogTitle>עדכון סטטוס תשלום</DialogTitle>
           <DialogContent>
-            <Typography gutterBottom>
-              בחר סטטוס תשלום עבור הזמנה {selectedBooking?.bookingNumber}:
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
-              <Button
-                variant="outlined"
-                color="success"
-                startIcon={<CheckCircleIcon />}
-                onClick={() => handleUpdatePaymentStatus(selectedBooking._id, 'paid')}
-              >
-                שולם
-              </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<CancelIcon />}
-                onClick={() => handleUpdatePaymentStatus(selectedBooking._id, 'pending')}
-              >
-                לא שולם
-              </Button>
+            <DialogContentText>
+              בחר סטטוס תשלום חדש ואמצעי תשלום:
+            </DialogContentText>
+            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <FormControl fullWidth>
+                <InputLabel>סטטוס תשלום</InputLabel>
+                <Select
+                  value={tempPaymentStatus || (selectedBooking ? selectedBooking.paymentStatus : 'pending')}
+                  onChange={(e) => setTempPaymentStatus(e.target.value)}
+                  label="סטטוס תשלום"
+                >
+                  <MenuItem value="pending">לא שולם</MenuItem>
+                  <MenuItem value="partial">שולם חלקית</MenuItem>
+                  <MenuItem value="paid">שולם</MenuItem>
+                </Select>
+              </FormControl>
+              
+              <FormControl fullWidth sx={{ mt: 2 }}>
+                <InputLabel>אמצעי תשלום</InputLabel>
+                <Select
+                  value={tempPaymentMethod || (selectedBooking ? selectedBooking.paymentMethod : '')}
+                  onChange={(e) => setTempPaymentMethod(e.target.value)}
+                  label="אמצעי תשלום"
+                >
+                  <MenuItem value="credit">כרטיס אשראי</MenuItem>
+                  <MenuItem value="creditOr">אשראי אור יהודה</MenuItem>
+                  <MenuItem value="creditRothschild">אשראי רוטשילד</MenuItem>
+                  <MenuItem value="cash">מזומן</MenuItem>
+                  <MenuItem value="mizrahi">מזרחי</MenuItem>
+                  <MenuItem value="poalim">פועלים</MenuItem>
+                  <MenuItem value="other">אחר</MenuItem>
+                </Select>
+              </FormControl>
             </Box>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenPaymentDialog(false)} color="inherit">
-              סגור
+              ביטול
+            </Button>
+            <Button 
+              onClick={() => handleUpdatePaymentStatus(selectedBooking?._id, tempPaymentStatus, tempPaymentMethod)} 
+              color="primary" 
+              variant="contained"
+            >
+              עדכון
             </Button>
           </DialogActions>
         </Dialog>

@@ -3038,10 +3038,13 @@ const BookingListView = () => {
                           >
                             <InputLabel>אמצעי תשלום</InputLabel>
                             <Select
-                              defaultValue={bookingDialog.bookingData.paymentMethod || ''}
+                              value={bookingDialog.bookingData.paymentMethod || ''}
                               label="אמצעי תשלום"
+                              onChange={(e) => handleBookingFormChange('paymentMethod', e.target.value)}
                             >
                               <MenuItem value="credit">כרטיס אשראי</MenuItem>
+                              <MenuItem value="creditOr">אשראי אור יהודה</MenuItem>
+                              <MenuItem value="creditRothschild">אשראי רוטשילד</MenuItem>
                               <MenuItem value="cash">מזומן</MenuItem>
                               <MenuItem value="mizrahi">העברה מזרחי</MenuItem>
                               <MenuItem value="poalim">העברה פועלים</MenuItem>
@@ -3435,8 +3438,11 @@ const BookingListView = () => {
                     label="אמצעי תשלום"
                   >
                     <MenuItem value="credit">כרטיס אשראי</MenuItem>
+                    <MenuItem value="creditOr">אשראי אור יהודה</MenuItem>
+                    <MenuItem value="creditRothschild">אשראי רוטשילד</MenuItem>
                     <MenuItem value="cash">מזומן</MenuItem>
-                    <MenuItem value="bankTransfer">העברה בנקאית</MenuItem>
+                    <MenuItem value="mizrahi">העברה מזרחי</MenuItem>
+                    <MenuItem value="poalim">העברה פועלים</MenuItem>
                     <MenuItem value="other">אחר</MenuItem>
                   </Select>
                 </FormControl>
