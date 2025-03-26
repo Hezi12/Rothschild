@@ -3,6 +3,7 @@ import { NavItem } from './NavItem';
 import EventIcon from '@mui/icons-material/Event';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import SummarizeIcon from '@mui/icons-material/Summarize';
 import { Divider, Typography } from '@mui/material';
 
 const Sidebar = () => {
@@ -24,6 +25,14 @@ const Sidebar = () => {
         text="לוח זמינות חדרים והזמנות - חדש!" 
         icon={<CalendarMonthIcon />} 
         isActive={pathname === '/dashboard/bookings-calendar'}
+      />
+      
+      {/* דוח הכנסות */}
+      <NavItem 
+        to="/dashboard/income-report" 
+        text="דוח הכנסות" 
+        icon={<SummarizeIcon />} 
+        isActive={pathname === '/dashboard/income-report'}
       />
       
       <Divider style={{ margin: '8px 0' }} />
