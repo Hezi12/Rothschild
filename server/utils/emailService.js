@@ -251,7 +251,119 @@ const sendCancellationAlert = async (booking, cancellationDetails) => {
   }
 };
 
+/**
+ * פונקציה לשליחת התראה למנהל על הזמנה חדשה
+ * @param {Object} booking - אובייקט ההזמנה
+ * @param {Object} room - אובייקט החדר (אופציונלי)
+ */
+const sendBookingNotificationToAdmin = async (booking, room) => {
+  try {
+    console.log('שליחת התראה למנהל על הזמנה חדשה:', {
+      bookingId: booking._id,
+      bookingNumber: booking.bookingNumber
+    });
+    
+    const checkIn = new Date(booking.checkIn).toLocaleDateString('he-IL');
+    const checkOut = new Date(booking.checkOut).toLocaleDateString('he-IL');
+    const today = new Date().toLocaleDateString('he-IL');
+    
+    // מידע על החדר
+    let roomInfo = 'לא צוין';
+    if (room) {
+      roomInfo = `${room.internalName || room.roomNumber} (${room.type})`;
+    } else if (booking.room) {
+      roomInfo = `${booking.room.internalName || booking.room.roomNumber} (${booking.room.type})`;
+    } else if (booking.isMultiRoomBooking && booking.rooms) {
+      roomInfo = `הזמנה מרובת חדרים (${booking.rooms.length} חדרים)`;
+    } else if (booking.roomId) {
+      roomInfo = `חדר מס' ${booking.roomId}`;
+    }
+    
+    // תוכן המייל
+    const mailOptions = {
+      from: '"מערכת רוטשילד 79" <diamshotels@gmail.com>',
+      to: process.env.ADMIN_EMAIL || 'diamshotels@gmail.com',
+      subject: `הזמנה חדשה #${booking.bookingNumber} - רוטשילד 79`,
+      html: `
+        <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.5; color: #333; max-width: 600px; margin: 0 auto; font-size: 16px;">
+          <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1976d2; padding-bottom: 15px;">
+            <h2 style="color: #1976d2; margin-bottom: 8px; font-size: 28px;">התקבלה הזמנה חדשה</h2>
+            <p style="font-size: 18px; color: #666; margin: 0;">רוטשילד 79, פתח תקווה</p>
+          </div>
+          
+          <p style="font-size: 18px; margin-bottom: 12px;">שלום,</p>
+          <p style="font-size: 18px; margin-bottom: 15px;">התקבלה הזמנה חדשה במערכת:</p>
+          
+          <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #1976d2;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 17px;">
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; width: 40%;">מספר הזמנה:</td>
+                <td style="padding: 8px 0;">${booking.bookingNumber}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">תאריך הזמנה:</td>
+                <td style="padding: 8px 0;">${today}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">שם אורח:</td>
+                <td style="padding: 8px 0;">${booking.guest.firstName} ${booking.guest.lastName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">טלפון:</td>
+                <td style="padding: 8px 0;">${booking.guest.phone}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">אימייל:</td>
+                <td style="padding: 8px 0;">${booking.guest.email}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">חדר:</td>
+                <td style="padding: 8px 0;">${roomInfo}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">תאריך הגעה:</td>
+                <td style="padding: 8px 0;">${checkIn}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">תאריך יציאה:</td>
+                <td style="padding: 8px 0;">${checkOut}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">מספר לילות:</td>
+                <td style="padding: 8px 0;">${booking.nights}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">מחיר כולל:</td>
+                <td style="padding: 8px 0;">₪${typeof booking.totalPrice === 'number' ? booking.totalPrice.toFixed(2) : booking.totalPrice}</td>
+              </tr>
+              ${booking.notes ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold;">הערות:</td>
+                <td style="padding: 8px 0;">${booking.notes}</td>
+              </tr>
+              ` : ''}
+            </table>
+          </div>
+          
+          <div style="text-align: center; margin-top: 25px; padding-top: 15px; border-top: 1px solid #ddd; color: #777;">
+            <p style="font-size: 17px; margin: 0;">להתחברות למערכת הניהול <a href="${process.env.FRONTEND_URL}/login">לחץ כאן</a></p>
+          </div>
+        </div>
+      `
+    };
+    
+    // שליחת המייל
+    const info = await transporter.sendMail(mailOptions);
+    console.log('מייל התראה נשלח למנהל: %s', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('שגיאה בשליחת התראה למנהל:', error);
+    return false;
+  }
+};
+
 module.exports = {
   sendBookingConfirmation,
-  sendCancellationAlert
+  sendCancellationAlert,
+  sendBookingNotificationToAdmin
 }; 

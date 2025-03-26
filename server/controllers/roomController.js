@@ -8,8 +8,11 @@ const { isAvailable } = require('../utils/availability');
 const asyncHandler = require('../middleware/async');
 const ErrorResponse = require('../utils/errorResponse');
 const PricePeriod = require('../models/PricePeriod');
-const { addDays, format, parseISO } = require('date-fns');
-const { sendBookingConfirmation } = require('../utils/emailService');
+const { addDays, format, parseISO, startOfDay, endOfDay, endOfWeek } = require('date-fns');
+const { sendBookingConfirmation, sendBookingNotificationToAdmin } = require('../utils/emailService');
+const Gallery = require('../models/Gallery');
+const path = require('path');
+const fs = require('fs');
 
 // פונקציה לחישוב מחיר עם מחירים מיוחדים
 const calculatePriceWithSpecialPrices = (room, checkInDate, nights) => {
@@ -701,10 +704,18 @@ exports.createMultiRoomBooking = asyncHandler(async (req, res, next) => {
     
     // שליחת אימייל אישור ללקוח
     try {
-      await sendBookingConfirmation(booking);
-      console.log('נשלח אימייל אישור הזמנה ללקוח');
+      if (booking.guest.email && booking.guest.email !== '' && booking.guest.email !== 'guest@example.com') {
+        await sendBookingConfirmation(booking);
+        console.log('נשלח אימייל אישור הזמנה ללקוח');
+      } else {
+        console.log(`לא נשלח אימייל אישור להזמנה ${booking.bookingNumber} - אין כתובת אימייל תקפה`);
+      }
+      
+      // שליחת התראה למנהל על הזמנה חדשה
+      await sendBookingNotificationToAdmin(booking);
+      console.log(`נשלחה התראה למנהל על הזמנה חדשה מרובת חדרים ${booking.bookingNumber}`);
     } catch (emailError) {
-      console.error('שגיאה בשליחת אימייל אישור הזמנה:', emailError);
+      console.error('שגיאה בשליחת אימייל:', emailError);
       // ממשיכים למרות שגיאה בשליחת האימייל
     }
     

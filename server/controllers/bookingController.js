@@ -3,7 +3,7 @@ const Room = require('../models/Room');
 const mongoose = require('mongoose');
 const { startOfDay, endOfDay, parseISO, format, addHours } = require('date-fns');
 const { validationResult } = require('express-validator');
-const { sendBookingConfirmation } = require('../utils/emailService');
+const { sendBookingConfirmation, sendBookingNotificationToAdmin } = require('../utils/emailService');
 const DynamicPrice = require('../models/DynamicPrice');
 
 /**
@@ -445,6 +445,10 @@ exports.createBooking = async (req, res) => {
       } else {
         console.log(`לא נשלח אימייל אישור להזמנה ${bookingNumber} - אין כתובת אימייל תקפה`);
       }
+      
+      // שליחת התראה למנהל על הזמנה חדשה (בכל מקרה)
+      await sendBookingNotificationToAdmin(booking, room);
+      console.log(`נשלחה התראה למנהל על הזמנה חדשה ${bookingNumber}`);
     } catch (emailError) {
       console.error('שגיאה בשליחת אימייל אישור:', emailError);
       // אנחנו לא רוצים שההזמנה תיכשל בגלל בעיית אימייל
