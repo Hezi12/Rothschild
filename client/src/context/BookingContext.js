@@ -140,6 +140,43 @@ export const BookingProvider = ({ children }) => {
     }
   };
 
+  // עדכון סטטוס תשלום ואמצעי תשלום
+  const updatePaymentStatus = async (bookingId, status, method) => {
+    try {
+      setLoading(true);
+      
+      const response = await axios.put(
+        `${process.env.REACT_APP_API_URL}/bookings/${bookingId}/payment`,
+        { paymentStatus: status, paymentMethod: method },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      
+      if (response.data.success) {
+        // עדכון המצב המקומי
+        setBookings(prevBookings => 
+          prevBookings.map(booking => 
+            booking._id === bookingId ? 
+              { ...booking, paymentStatus: status, paymentMethod: method } : 
+              booking
+          )
+        );
+        setLastFetchTime(new Date());
+      }
+      
+      return { success: true, data: response.data.data };
+    } catch (err) {
+      console.error('שגיאה בעדכון סטטוס תשלום:', err);
+      setError('שגיאה בעדכון סטטוס התשלום');
+      return { success: false, error: err.response?.data || err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // מחיקת הזמנה או מספר הזמנות
   const deleteBooking = async (bookingId) => {
     try {
@@ -194,6 +231,90 @@ export const BookingProvider = ({ children }) => {
     }
   };
 
+  // פונקציית עזר לעדכון שדות בטופס ההזמנה (לשימוש בקומפוננטים השונים)
+  const handleBookingFormChange = (bookingData, field, value, vatRate = 17) => {
+    const updatedBookingData = { ...bookingData };
+    
+    if (field.includes('.')) { 
+      const [parent, child] = field.split('.'); 
+      updatedBookingData[parent] = { 
+        ...updatedBookingData[parent], 
+        [child]: value 
+      }; 
+    } else { 
+      updatedBookingData[field] = value; 
+    }
+    
+    // טיפול בשדות מחיר
+    const nights = updatedBookingData.nights || 1;
+
+    // אם שינו מחיר ללילה ללא מע"מ
+    if (field === 'pricePerNightNoVat' && value) {
+      const priceNoVat = parseFloat(value);
+      const isTourist = updatedBookingData.isTourist;
+      
+      // חישוב מחיר עם מע"מ תלוי אם תייר
+      if (isTourist) {
+        updatedBookingData.pricePerNight = priceNoVat; // תייר - אין מע"מ
+      } else {
+        updatedBookingData.pricePerNight = Math.round((priceNoVat * (1 + vatRate / 100)) * 100) / 100;
+      }
+      
+      // עדכון סה"כ מחיר
+      updatedBookingData.totalPrice = Math.round(updatedBookingData.pricePerNight * nights * 100) / 100;
+    }
+    
+    // אם שינו מחיר ללילה כולל מע"מ
+    if (field === 'pricePerNight' && value) {
+      const priceWithVat = parseFloat(value);
+      const isTourist = updatedBookingData.isTourist;
+      
+      // חישוב מחיר ללא מע"מ תלוי אם תייר
+      if (isTourist) {
+        updatedBookingData.pricePerNightNoVat = priceWithVat; // תייר - זהה למחיר עם מע"מ
+      } else {
+        updatedBookingData.pricePerNightNoVat = Math.round((priceWithVat / (1 + vatRate / 100)) * 100) / 100;
+      }
+      
+      // עדכון סה"כ מחיר
+      updatedBookingData.totalPrice = Math.round(priceWithVat * nights * 100) / 100;
+    }
+    
+    // אם שינו סה"כ מחיר
+    if (field === 'totalPrice' && value) {
+      const totalPrice = parseFloat(value);
+      const isTourist = updatedBookingData.isTourist;
+      
+      // עדכון מחיר ללילה כולל מע"מ
+      updatedBookingData.pricePerNight = Math.round((totalPrice / nights) * 100) / 100;
+      
+      // עדכון מחיר ללילה ללא מע"מ תלוי אם תייר
+      if (isTourist) {
+        updatedBookingData.pricePerNightNoVat = updatedBookingData.pricePerNight; // תייר - זהה למחיר עם מע"מ
+      } else {
+        updatedBookingData.pricePerNightNoVat = Math.round((updatedBookingData.pricePerNight / (1 + vatRate / 100)) * 100) / 100;
+      }
+    }
+    
+    // אם שינו את השדה isTourist
+    if (field === 'isTourist') {
+      const isTourist = value === true || value === 'true';
+      
+      if (isTourist) {
+        // תייר: מחיר ללילה כולל מע"מ = מחיר ללא מע"מ (אין מע"מ)
+        updatedBookingData.pricePerNight = updatedBookingData.pricePerNightNoVat;
+      } else {
+        // לא תייר: חישוב מחיר כולל מע"מ
+        updatedBookingData.pricePerNight = Math.round((updatedBookingData.pricePerNightNoVat * (1 + vatRate / 100)) * 100) / 100;
+      }
+      
+      // עדכון סה"כ מחיר
+      updatedBookingData.totalPrice = Math.round(updatedBookingData.pricePerNight * nights * 100) / 100;
+    }
+    
+    return updatedBookingData;
+  };
+
   return (
     <BookingContext.Provider
       value={{
@@ -204,7 +325,9 @@ export const BookingProvider = ({ children }) => {
         fetchBookings,
         createBooking,
         updateBooking,
-        deleteBooking
+        updatePaymentStatus,
+        deleteBooking,
+        handleBookingFormChange
       }}
     >
       {children}

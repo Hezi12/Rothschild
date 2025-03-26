@@ -199,14 +199,39 @@ const SidebarButton = styled(Tooltip)(({ theme, isActive }) => ({
 /* eslint-disable no-unused-vars */
 
 const BookingListView = () => {
+  const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+  
+  // האם המכשיר טאבלט (מסך בינוני)
+  const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  // שיעור המע"מ
+  const vatRate = 17;
+  
+  // גישה ל-Context
   const { isAdmin } = useContext(AuthContext);
   // הוספת שימוש בקונטקסט הזמנות
-  const { bookings: contextBookings, fetchBookings: contextFetchBookings } = useContext(BookingContext);
+  const { 
+    bookings: contextBookings, 
+    fetchBookings: contextFetchBookings, 
+    updateBooking, 
+    updatePaymentStatus, 
+    deleteBooking,
+    handleBookingFormChange: contextHandleBookingFormChange 
+  } = useContext(BookingContext);
+  
+  // סטייטים להודעות
+  const [snackbarState, setSnackbarState] = useState({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
+
+  // סטייטים זמניים לעדכון תשלום
+  const [tempPaymentStatus, setTempPaymentStatus] = useState(null);
+  const [tempPaymentMethod, setTempPaymentMethod] = useState(null);
   
   // סטייטים
   const [loading, setLoading] = useState(true);
@@ -229,9 +254,6 @@ const BookingListView = () => {
     bookingData: null,
     loading: false
   });
-  
-  // סטייט עבור אחוז המע"מ
-  const [vatRate, setVatRate] = useState(18); // 18% מע"מ  
   
   // סטייט חדש עבור דיאלוג יצירת הזמנה חדשה
   const [newBookingDialog, setNewBookingDialog] = useState({
@@ -1297,93 +1319,74 @@ const BookingListView = () => {
     });
   };
 
-  // טיפול בשינוי שדה בדיאלוג עריכת הזמנה
-  const handleBookingFormChange = (field, value) => { 
-    setBookingDialog(prev => { 
-      const updatedBookingData = { ...prev.bookingData }; 
+  // עדכון שדה בטופס ההזמנה
+  const handleBookingFormChange = (field, value) => {
+    setBookingDialog(prev => {
+      // השתמש בפונקציה מהקונטקסט לעדכון נתוני ההזמנה
+      const updatedBookingData = contextHandleBookingFormChange(
+        prev.bookingData, 
+        field, 
+        value, 
+        vatRate
+      );
       
-      if (field.includes('.')) { 
-        const [parent, child] = field.split('.'); 
-        updatedBookingData[parent] = { 
-          ...updatedBookingData[parent], 
-          [child]: value 
-        }; 
-      } else { 
-        updatedBookingData[field] = value; 
+      return {
+        ...prev,
+        bookingData: updatedBookingData
+      };
+    });
+  };
+  
+  // עדכון סטטוס תשלום מתוך דיאלוג ההזמנה
+  const handleUpdatePaymentStatus = async () => {
+    if (!bookingDialog.bookingData?._id) return;
+    
+    const bookingId = bookingDialog.bookingData._id;
+    const status = bookingDialog.bookingData.paymentStatus;
+    const method = bookingDialog.bookingData.paymentMethod;
+    
+    try {
+      setLoading(true);
+      
+      const result = await updatePaymentStatus(bookingId, status, method);
+      
+      if (result.success) {
+        setSnackbarState({
+          open: true,
+          message: 'סטטוס תשלום עודכן בהצלחה',
+          severity: 'success'
+        });
+        
+        // איפוס משתני הביניים אם יש צורך
+        setTempPaymentStatus(null);
+        setTempPaymentMethod(null);
+      } else {
+        setSnackbarState({
+          open: true,
+          message: 'שגיאה בעדכון סטטוס תשלום',
+          severity: 'error'
+        });
       }
-      
-      // טיפול בשדות מחיר
-      const nights = updatedBookingData.nights || 1;
-
-      // אם שינו מחיר ללילה ללא מע"מ
-      if (field === 'pricePerNightNoVat' && value) {
-        const priceNoVat = parseFloat(value);
-        const isTourist = updatedBookingData.isTourist;
-        
-        // חישוב מחיר עם מע"מ תלוי אם תייר
-        if (isTourist) {
-          updatedBookingData.pricePerNight = priceNoVat; // תייר - אין מע"מ
-        } else {
-          updatedBookingData.pricePerNight = Math.round((priceNoVat * (1 + vatRate / 100)) * 100) / 100;
-        }
-        
-        // עדכון סה"כ מחיר
-        updatedBookingData.totalPrice = Math.round(updatedBookingData.pricePerNight * nights * 100) / 100;
-      }
-      
-      // אם שינו מחיר ללילה כולל מע"מ
-      if (field === 'pricePerNight' && value) {
-        const priceWithVat = parseFloat(value);
-        const isTourist = updatedBookingData.isTourist;
-        
-        // חישוב מחיר ללא מע"מ תלוי אם תייר
-        if (isTourist) {
-          updatedBookingData.pricePerNightNoVat = priceWithVat; // תייר - זהה למחיר עם מע"מ
-        } else {
-          updatedBookingData.pricePerNightNoVat = Math.round((priceWithVat / (1 + vatRate / 100)) * 100) / 100;
-        }
-        
-        // עדכון סה"כ מחיר
-        updatedBookingData.totalPrice = Math.round(priceWithVat * nights * 100) / 100;
-      }
-      
-      // אם שינו סה"כ מחיר
-      if (field === 'totalPrice' && value) {
-        const totalPrice = parseFloat(value);
-        const isTourist = updatedBookingData.isTourist;
-        
-        // עדכון מחיר ללילה כולל מע"מ
-        updatedBookingData.pricePerNight = Math.round((totalPrice / nights) * 100) / 100;
-        
-        // עדכון מחיר ללילה ללא מע"מ תלוי אם תייר
-        if (isTourist) {
-          updatedBookingData.pricePerNightNoVat = updatedBookingData.pricePerNight; // תייר - זהה למחיר עם מע"מ
-        } else {
-          updatedBookingData.pricePerNightNoVat = Math.round((updatedBookingData.pricePerNight / (1 + vatRate / 100)) * 100) / 100;
-        }
-      }
-      
-      // אם שינו את השדה isTourist
-      if (field === 'isTourist') {
-        const isTourist = value === true || value === 'true';
-        
-        if (isTourist) {
-          // תייר: מחיר ללילה כולל מע"מ = מחיר ללא מע"מ (אין מע"מ)
-          updatedBookingData.pricePerNight = updatedBookingData.pricePerNightNoVat;
-        } else {
-          // לא תייר: חישוב מחיר כולל מע"מ
-          updatedBookingData.pricePerNight = Math.round((updatedBookingData.pricePerNightNoVat * (1 + vatRate / 100)) * 100) / 100;
-        }
-        
-        // עדכון סה"כ מחיר
-        updatedBookingData.totalPrice = Math.round(updatedBookingData.pricePerNight * nights * 100) / 100;
-      }
-      
-      return { 
-        ...prev, 
-        bookingData: updatedBookingData 
-      }; 
-    }); 
+    } catch (error) {
+      console.error('שגיאה בעדכון סטטוס תשלום:', error);
+      setSnackbarState({
+        open: true,
+        message: 'שגיאה בעדכון סטטוס תשלום',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // מטפל בשינוי סטטוס תשלום ואמצעי תשלום בדיאלוג
+  const handlePaymentChange = (field, value) => {
+    handleBookingFormChange(field, value);
+    
+    // אם סטטוס התשלום או אמצעי התשלום השתנה, יש לעדכן גם בשרת
+    if (field === 'paymentStatus' || field === 'paymentMethod') {
+      handleUpdatePaymentStatus();
+    }
   };
 
   // עדכון פרטי הזמנה
@@ -3043,7 +3046,7 @@ const BookingListView = () => {
                             <Select
                               value={bookingDialog.bookingData.paymentMethod || ''}
                               label="אמצעי תשלום"
-                              onChange={(e) => handleBookingFormChange('paymentMethod', e.target.value)}
+                              onChange={(e) => handlePaymentChange('paymentMethod', e.target.value)}
                             >
                               <MenuItem value="credit">כרטיס אשראי</MenuItem>
                               <MenuItem value="creditOr">אשראי אור יהודה</MenuItem>
@@ -3070,7 +3073,7 @@ const BookingListView = () => {
                             <Select
                               value={bookingDialog.bookingData?.paymentStatus || 'pending'}
                               label="סטטוס תשלום"
-                              onChange={(e) => handleBookingFormChange('paymentStatus', e.target.value)}
+                              onChange={(e) => handlePaymentChange('paymentStatus', e.target.value)}
                             >
                               <MenuItem value="pending">ממתין לתשלום</MenuItem>
                               <MenuItem value="partial">שולם חלקית</MenuItem>

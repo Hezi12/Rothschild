@@ -116,7 +116,8 @@ const BookingsNewPage = () => {
     fetchBookings: contextFetchBookings,
     createBooking: contextCreateBooking,
     updateBooking: contextUpdateBooking,
-    deleteBooking: contextDeleteBooking
+    deleteBooking: contextDeleteBooking,
+    updatePaymentStatus,
   } = useContext(BookingContext);
   
   // ניתוב ומיקום נוכחי
@@ -168,6 +169,13 @@ const BookingsNewPage = () => {
     roomId: '',
     guestName: '',
     status: ''
+  });
+  
+  // מצב להודעות snackbar
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'info'
   });
   
   // לוגיקה לטעינת נתונים מהשרת
@@ -600,26 +608,52 @@ const BookingsNewPage = () => {
     window.open(`${invoiceUrl}?token=${token}`, '_blank');
   };
   
-  const handleUpdatePaymentStatus = async (bookingId, newStatus, paymentMethod = '') => {
-    if (!selectedBooking) return;
-    
+  const handleUpdatePaymentStatus = async (bookingId, status, method) => {
+    if (!bookingId) return;
+
     try {
-      await contextUpdateBooking(selectedBooking._id, { 
-        paymentStatus: newStatus, 
-        paymentMethod: paymentMethod 
-      });
+      setLoading(true);
+      const result = await updatePaymentStatus(bookingId, status, method);
       
-      setOpenPaymentDialog(false);
-      setSelectedBooking(null);
-      // איפוס הערכים הזמניים לאחר העדכון
-      setTempPaymentStatus('');
-      setTempPaymentMethod('');
-      fetchBookings(); // רענון הזמנות
-      alert('סטטוס התשלום עודכן בהצלחה');
+      if (result.success) {
+        // רענון נתוני ההזמנות כדי לראות את העדכון
+        await fetchBookings();
+        
+        // עדכון ההזמנה הנבחרת אם היא זו שעודכנה
+        if (selectedBooking && selectedBooking._id === bookingId) {
+          setSelectedBooking(prevBooking => ({
+            ...prevBooking,
+            paymentStatus: status,
+            paymentMethod: method
+          }));
+        }
+        
+        // איפוס משתני הביניים
+        setTempPaymentStatus(null);
+        setTempPaymentMethod(null);
+        
+        setOpenPaymentDialog(false);
+        setSnackbar({
+          open: true,
+          message: 'סטטוס התשלום עודכן בהצלחה!',
+          severity: 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'שגיאה בעדכון סטטוס התשלום',
+          severity: 'error'
+        });
+      }
     } catch (error) {
       console.error('שגיאה בעדכון סטטוס תשלום:', error);
-      setError(error.response?.data?.message || 'שגיאה בעדכון סטטוס התשלום');
-      alert(`שגיאה: ${error.response?.data?.message || 'שגיאה בעדכון סטטוס התשלום'}`);
+      setSnackbar({
+        open: true,
+        message: 'שגיאה בעדכון סטטוס התשלום',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
     }
   };
   
