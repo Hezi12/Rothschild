@@ -704,16 +704,50 @@ const BookingsNewPage = () => {
           bookingData.nights = nights;
         }
         
+        // וידוא שפרטי האורח קיימים ומלאים
+        if (!bookingData.guest) {
+          bookingData.guest = {
+            firstName: 'אורח',
+            lastName: 'ללא שם',
+            phone: '',
+            email: ''
+          };
+        } else {
+          // בדיקה ומילוי שדות חסרים של האורח
+          if ((!bookingData.guest.firstName || bookingData.guest.firstName === '') && 
+              (!bookingData.guest.lastName || bookingData.guest.lastName === '')) {
+            
+            // אם יש שדה name, נשתמש בו לחילוץ שם פרטי ומשפחה
+            if (bookingData.guest.name) {
+              const nameParts = bookingData.guest.name.split(' ');
+              bookingData.guest.firstName = nameParts[0] || 'אורח';
+              bookingData.guest.lastName = nameParts.slice(1).join(' ') || 'ללא שם';
+            } else {
+              // אם אין שום שדה שם, נשתמש בערכי ברירת מחדל
+              bookingData.guest.firstName = 'אורח';
+              bookingData.guest.lastName = 'ללא שם';
+            }
+          } else {
+            // ודא שהשדות לא יהיו undefined
+            bookingData.guest.firstName = bookingData.guest.firstName || 'אורח';
+            bookingData.guest.lastName = bookingData.guest.lastName || 'ללא שם';
+          }
+          
+          // ודא שיש שדות טלפון ואימייל, אפילו ריקים
+          bookingData.guest.phone = bookingData.guest.phone || '';
+          bookingData.guest.email = bookingData.guest.email || '';
+        }
+        
         // עדכון הטופס עם נתוני ההזמנה
         setFormData({
           roomId: bookingData.room?._id || bookingData.roomId || '',
           checkIn: bookingData.checkIn || null,
           checkOut: bookingData.checkOut || null,
           guest: {
-            firstName: bookingData.guest?.firstName || '',
-            lastName: bookingData.guest?.lastName || '',
-            phone: bookingData.guest?.phone || '',
-            email: bookingData.guest?.email || ''
+            firstName: bookingData.guest.firstName || 'אורח',
+            lastName: bookingData.guest.lastName || 'ללא שם',
+            phone: bookingData.guest.phone || '',
+            email: bookingData.guest.email || ''
           },
           creditCard: bookingData.creditCard || {
             cardNumber: '',
@@ -989,10 +1023,25 @@ const BookingsNewPage = () => {
                             {booking.room?.internalName || `חדר ${booking.room?.roomNumber}`}
                           </TableCell>
                           <TableCell>
-                            <Tooltip title={`טלפון: ${booking.guest.phone || 'לא צוין'}\nאימייל: ${booking.guest.email || 'לא צוין'}`}>
+                            <Tooltip title={`טלפון: ${booking.guest?.phone || 'לא צוין'}\nאימייל: ${booking.guest?.email || 'לא צוין'}`}>
                               <Box component="span" sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                                {booking.guest.firstName || ''} {booking.guest.lastName || ''}
-                                {booking.guest.phone && (
+                                {/* בדיקה מורחבת למיקום שם האורח */}
+                                {booking.guest ? (
+                                  <>
+                                    {/* אפשרות 1: שמות בנפרד בתוך guest */}
+                                    {booking.guest.firstName || booking.guest.firstName === '' ? booking.guest.firstName : ''}
+                                    {' '}
+                                    {booking.guest.lastName || booking.guest.lastName === '' ? booking.guest.lastName : ''}
+                                    
+                                    {/* אפשרות 2: שם בשדה name בתוך guest */}
+                                    {!booking.guest.firstName && !booking.guest.lastName && booking.guest.name ? booking.guest.name : ''}
+                                    
+                                    {/* אפשרות 3: כשאין כלום בכלל */}
+                                    {!booking.guest.firstName && !booking.guest.lastName && !booking.guest.name ? 'אורח ללא שם' : ''}
+                                  </>
+                                ) : 'אורח ללא שם'}
+                                
+                                {booking.guest?.phone && (
                                   <IconButton 
                                     size="small" 
                                     color="primary" 
