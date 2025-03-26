@@ -1431,6 +1431,9 @@ const BookingListView = () => {
       
       if (response.data.success) {
         toast.success('ההזמנה עודכנה בהצלחה');
+        
+        // ב-BookingListView אין לנו דיאלוג תשלום נפרד, אז אין צורך לסגור אותו
+        
         closeBookingDialog();
         fetchBookingsData(); // רענון הנתונים
       } else {

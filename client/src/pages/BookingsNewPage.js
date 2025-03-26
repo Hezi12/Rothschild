@@ -611,6 +611,9 @@ const BookingsNewPage = () => {
       
       setOpenPaymentDialog(false);
       setSelectedBooking(null);
+      // איפוס הערכים הזמניים לאחר העדכון
+      setTempPaymentStatus('');
+      setTempPaymentMethod('');
       fetchBookings(); // רענון הזמנות
       alert('סטטוס התשלום עודכן בהצלחה');
     } catch (error) {
