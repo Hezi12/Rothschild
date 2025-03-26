@@ -65,6 +65,7 @@ import {
   Language as LanguageIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
+import { BookingContext } from '../context/BookingContext';
 import { toast } from 'react-toastify';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { InputAdornment } from '@mui/material';
@@ -198,18 +199,20 @@ const SidebarButton = styled(Tooltip)(({ theme, isActive }) => ({
 /* eslint-disable no-unused-vars */
 
 const BookingListView = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   const { isAdmin } = useContext(AuthContext);
-  const location = useLocation();
-  const currentPath = location.pathname;
-
-  // סטייט לשמירת נתונים
-  const [rooms, setRooms] = useState([]);
-  const [bookings, setBookings] = useState([]);
+  // הוספת שימוש בקונטקסט הזמנות
+  const { bookings: contextBookings, fetchBookings: contextFetchBookings } = useContext(BookingContext);
+  
+  // סטייטים
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [bookings, setBookings] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [daysInView, setDaysInView] = useState([]);
   const [activeTab, setActiveTab] = useState(0);
@@ -275,7 +278,7 @@ const BookingListView = () => {
   // משתנה סטייט למחירים דינמיים
   const [dynamicPrices, setDynamicPrices] = useState([]);
   
-  const navigate = useNavigate();
+  const currentPath = location.pathname;
   
   // פונקציה לטעינת מחירים דינמיים
   const fetchDynamicPrices = async (startDate, endDate) => {
@@ -382,7 +385,7 @@ const BookingListView = () => {
     }
   };
   
-  // טעינת הזמנות
+  // פונקציה לטעינת נתונים שמשתמשת בקונטקסט
   const fetchBookings = async () => {
     try {
       if (daysInView.length === 0) return;
@@ -391,15 +394,9 @@ const BookingListView = () => {
       const startDate = format(daysInView[0], 'yyyy-MM-dd');
       const endDate = format(daysInView[daysInView.length - 1], 'yyyy-MM-dd');
       
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings`, {
-        params: { startDate, endDate },
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
+      // שימוש בקונטקסט במקום קריאה ישירה לAPI
+      await contextFetchBookings({ startDate, endDate });
       
-      if (response.data.success) {
-        console.log('נטענו הזמנות:', response.data.data);
-        setBookings(response.data.data);
-      }
     } catch (error) {
       console.error('שגיאה בטעינת ההזמנות:', error);
       setError('אירעה שגיאה בטעינת ההזמנות');
@@ -1933,6 +1930,13 @@ const BookingListView = () => {
       fetchDynamicPrices(daysInView[0], daysInView[daysInView.length - 1]);
     }
   }, [daysInView]);
+  
+  // האזנה לשינויים בנתוני הקונטקסט
+  useEffect(() => {
+    if (contextBookings && contextBookings.length > 0) {
+      setBookings(contextBookings);
+    }
+  }, [contextBookings]);
   
   // פונקציה לטיפול בלחיצה על תא
   const handleCellClick = (roomId, date) => {

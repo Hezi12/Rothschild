@@ -60,6 +60,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { AuthContext } from '../context/AuthContext';
+import { BookingContext } from '../context/BookingContext';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
 
@@ -98,6 +99,17 @@ const SidebarButton = styled(Tooltip)(({ theme, isActive }) => ({
 const BookingsNewPage = () => {
   // הקשר אימות
   const { isAdmin } = useContext(AuthContext);
+  // קונטקסט הזמנות
+  const { 
+    bookings: contextBookings, 
+    loading: contextLoading, 
+    error: contextError, 
+    fetchBookings: contextFetchBookings,
+    createBooking: contextCreateBooking,
+    updateBooking: contextUpdateBooking,
+    deleteBooking: contextDeleteBooking
+  } = useContext(BookingContext);
+  
   // ניתוב ומיקום נוכחי
   const location = useLocation();
   const currentPath = location.pathname;
@@ -164,49 +176,33 @@ const BookingsNewPage = () => {
     }
   }, []);
   
+  // פונקציה לטעינת הזמנות עם הקונטקסט
   const fetchBookings = useCallback(async () => {
     setLoading(true);
     try {
-      // בניית מחרוזת query מהפילטרים
-      let queryParams = [];
-      
-      if (filters.startDate) {
-        queryParams.push(`startDate=${format(filters.startDate, 'yyyy-MM-dd')}`);
-      }
-      
-      if (filters.endDate) {
-        queryParams.push(`endDate=${format(filters.endDate, 'yyyy-MM-dd')}`);
-      }
-      
-      if (filters.roomId) {
-        queryParams.push(`roomId=${filters.roomId}`);
-      }
-      
-      if (filters.guestName) {
-        queryParams.push(`guestName=${filters.guestName}`);
-      }
-      
-      if (filters.status) {
-        queryParams.push(`status=${filters.status}`);
-      }
-      
-      const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
-      
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings${queryString}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      setBookings(response.data.data);
-      setError('');
+      await contextFetchBookings(filters);
     } catch (error) {
       console.error('שגיאה בטעינת הזמנות:', error);
       setError('שגיאה בטעינת ההזמנות');
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, contextFetchBookings]);
+  
+  // עדכון הסטייט המקומי כשמשתנים הנתונים בקונטקסט
+  useEffect(() => {
+    if (contextBookings) {
+      setBookings(contextBookings);
+    }
+    
+    if (contextLoading !== undefined) {
+      setLoading(contextLoading);
+    }
+    
+    if (contextError) {
+      setError(contextError);
+    }
+  }, [contextBookings, contextLoading, contextError]);
   
   // אפקט למשיכת נתונים בטעינה ראשונית
   useEffect(() => {
@@ -488,29 +484,13 @@ const BookingsNewPage = () => {
       let response;
       if (selectedBooking) {
         // עדכון הזמנה קיימת
-        response = await axios.put(
-          `${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}`,
-          bookingData,
-          {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          }
-        );
+        response = await contextUpdateBooking(selectedBooking._id, bookingData);
         console.log("תגובת השרת לעדכון הזמנה:", response.data);
         setError('');
         alert('ההזמנה עודכנה בהצלחה');
       } else {
         // יצירת הזמנה חדשה
-        response = await axios.post(
-          `${process.env.REACT_APP_API_URL}/bookings`,
-          bookingData,
-          {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          }
-        );
+        response = await contextCreateBooking(bookingData);
         console.log("תגובת השרת ליצירת הזמנה:", response.data);
         setError('');
         alert('ההזמנה נוצרה בהצלחה');
@@ -543,11 +523,7 @@ const BookingsNewPage = () => {
     if (!selectedBooking) return;
     
     try {
-      await axios.delete(`${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      await contextDeleteBooking(selectedBooking._id);
       
       setOpenDeleteDialog(false);
       setSelectedBooking(null);
@@ -566,23 +542,12 @@ const BookingsNewPage = () => {
     try {
       if (selectedBookingIds.length > 0) {
         // מחיקת מספר הזמנות
-        await axios.post(`${process.env.REACT_APP_API_URL}/bookings/hard-delete-many`, 
-          { bookingIds: selectedBookingIds },
-          {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          }
-        );
+        await contextDeleteBooking(selectedBookingIds);
         alert(`${selectedBookingIds.length} הזמנות נמחקו לצמיתות בהצלחה`);
         setSelectedBookingIds([]);
       } else {
         // מחיקת הזמנה בודדת
-        await axios.delete(`${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}/hard-delete`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
+        await contextDeleteBooking(selectedBooking._id);
         alert('ההזמנה נמחקה לצמיתות בהצלחה');
       }
       
@@ -628,18 +593,10 @@ const BookingsNewPage = () => {
     if (!selectedBooking) return;
     
     try {
-      await axios.put(
-        `${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}/payment-status`,
-        { 
-          paymentStatus: newStatus, 
-          paymentMethod: '' 
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      await contextUpdateBooking(selectedBooking._id, { 
+        paymentStatus: newStatus, 
+        paymentMethod: '' 
+      });
       
       setOpenPaymentDialog(false);
       setSelectedBooking(null);

@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from 'jwt-decode';
 import axios from 'axios';
 
 // יצירת קונטקסט
@@ -43,17 +43,17 @@ export const AuthProvider = ({ children }) => {
     const checkToken = async () => {
       if (token) {
         try {
-          // בדיקת תוקף הטוקן
-          const decoded = jwtDecode(token);
-          const currentTime = Date.now() / 1000;
+          // במקום לבדוק את הטוקן, נשלח בקשה לשרת
+          const response = await axios.get(`${process.env.REACT_APP_API_URL}/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
           
-          if (decoded.exp < currentTime) {
-            // הטוקן פג תוקף
-            logout();
-          } else {
-            // קבלת פרטי המשתמש מהשרת
-            const response = await axios.get(`${process.env.REACT_APP_API_URL}/auth/me`);
+          if (response.data && response.data.success) {
             setUser(response.data.user);
+          } else {
+            logout();
           }
         } catch (error) {
           console.error('שגיאה באימות המשתמש:', error);

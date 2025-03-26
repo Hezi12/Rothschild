@@ -30,6 +30,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AccessibilityWidget from './components/Accessibility/AccessibilityWidget';
 import AccessibilityStatement from './components/Accessibility/AccessibilityStatement';
 
+// קונטקסטים
+import { BookingProvider } from './context/BookingContext';
+
 // יצירת קאש RTL
 const cacheRtl = createCache({
   key: 'muirtl',
@@ -69,49 +72,51 @@ function App() {
     <CacheProvider value={cacheRtl}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <AccessibilityWidget />
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            {/* נתיבים ציבוריים */}
-            <Route index element={<HomePage />} />
-            <Route path="room/:id" element={<RoomPage />} />
-            <Route path="search-results" element={<SearchResultsPage />} />
-            <Route path="booking" element={<BookingPage />} />
-            <Route path="login" element={<LoginPage />} />
-            <Route path="/cancel-booking/:id" element={<CancellationRequestPage />} />
-            <Route path="cancel-booking/:id" element={<CancellationRequestPage />} />
-            <Route path="cancel-redirect/:id" element={<CancellationRedirectPage />} />
-            <Route path="accessibility-statement" element={<AccessibilityStatement />} />
-            
-            {/* נתיבים מוגנים (רק למנהלים) */}
-            <Route path="dashboard" element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/bookings-calendar" element={<ProtectedRoute><BookingListView /></ProtectedRoute>} />
-            <Route path="/dashboard/bookings-new" element={<ProtectedRoute><BookingsNewPage /></ProtectedRoute>} />
-            <Route path="/dashboard/simple-bookings" element={<ProtectedRoute><SimpleBookingList /></ProtectedRoute>} />
-            <Route path="dashboard/rooms" element={
-              <ProtectedRoute>
-                <RoomsListPage />
-              </ProtectedRoute>
-            } />
-            <Route path="dashboard/gallery" element={
-              <ProtectedRoute>
-                <GalleryManagementPage />
-              </ProtectedRoute>
-            } />
-            <Route path="dashboard/calendar-links" element={
-              <ProtectedRoute>
-                <CalendarLinksPage />
-              </ProtectedRoute>
-            } />
-            
-            {/* דף 404 */}
-            <Route path="*" element={<NotFoundPage />} />
-          </Route>
-        </Routes>
+        <BookingProvider>
+          <AccessibilityWidget />
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              {/* נתיבים ציבוריים */}
+              <Route index element={<HomePage />} />
+              <Route path="room/:id" element={<RoomPage />} />
+              <Route path="search-results" element={<SearchResultsPage />} />
+              <Route path="booking" element={<BookingPage />} />
+              <Route path="login" element={<LoginPage />} />
+              <Route path="/cancel-booking/:id" element={<CancellationRequestPage />} />
+              <Route path="cancel-booking/:id" element={<CancellationRequestPage />} />
+              <Route path="cancel-redirect/:id" element={<CancellationRedirectPage />} />
+              <Route path="accessibility-statement" element={<AccessibilityStatement />} />
+              
+              {/* נתיבים מוגנים (רק למנהלים) */}
+              <Route path="dashboard" element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/dashboard/bookings-calendar" element={<ProtectedRoute><BookingListView /></ProtectedRoute>} />
+              <Route path="/dashboard/bookings-new" element={<ProtectedRoute><BookingsNewPage /></ProtectedRoute>} />
+              <Route path="/dashboard/simple-bookings" element={<ProtectedRoute><SimpleBookingList /></ProtectedRoute>} />
+              <Route path="dashboard/rooms" element={
+                <ProtectedRoute>
+                  <RoomsListPage />
+                </ProtectedRoute>
+              } />
+              <Route path="dashboard/gallery" element={
+                <ProtectedRoute>
+                  <GalleryManagementPage />
+                </ProtectedRoute>
+              } />
+              <Route path="dashboard/calendar-links" element={
+                <ProtectedRoute>
+                  <CalendarLinksPage />
+                </ProtectedRoute>
+              } />
+              
+              {/* דף 404 */}
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        </BookingProvider>
       </ThemeProvider>
     </CacheProvider>
   );
