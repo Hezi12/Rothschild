@@ -36,7 +36,7 @@ import {
   Stack,
   Link,
   Breadcrumbs,
-  styled
+  DialogContentText
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -65,35 +65,44 @@ import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
 
 // קומפוננטה חדשה - סרגל צדדי מינימליסטי
-const MinimalSidebar = styled(Box)(({ theme }) => ({
-  position: 'fixed',
-  left: 0,
-  top: '50%',
-  transform: 'translateY(-50%)',
-  display: 'flex',
-  flexDirection: 'column',
-  padding: '10px 0',
-  backgroundColor: '#ffffff',
-  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-  borderRadius: '0 8px 8px 0',
-  zIndex: 100,
-  gap: '5px',
-  width: '60px'
-}));
+const MinimalSidebar = (props) => (
+  <Box
+    {...props}
+    sx={{
+      position: 'fixed',
+      left: 0,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      display: 'flex',
+      flexDirection: 'column',
+      padding: '10px 0',
+      backgroundColor: '#ffffff',
+      boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+      borderRadius: '0 8px 8px 0',
+      zIndex: 100,
+      gap: '5px',
+      width: '60px'
+    }}
+  />
+);
 
-const SidebarButton = styled(Tooltip)(({ theme, isActive }) => ({
-  '& .MuiButtonBase-root': {
-    padding: '12px',
-    color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
-    backgroundColor: isActive ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
-    '&:hover': {
-      backgroundColor: alpha(theme.palette.primary.main, 0.05)
-    },
-    transition: 'all 0.3s ease',
-    borderLeft: isActive ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
-    borderRight: 'none'
-  }
-}));
+const SidebarButton = ({ children, title, placement, isActive }) => (
+  <Tooltip title={title} placement={placement || "right"}>
+    {React.cloneElement(children, {
+      sx: {
+        padding: '12px',
+        color: isActive ? theme => theme.palette.primary.main : theme => theme.palette.text.secondary,
+        backgroundColor: isActive ? theme => alpha(theme.palette.primary.main, 0.1) : 'transparent',
+        '&:hover': {
+          backgroundColor: theme => alpha(theme.palette.primary.main, 0.05)
+        },
+        transition: 'all 0.3s ease',
+        borderLeft: isActive ? theme => `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
+        borderRight: 'none'
+      }
+    })}
+  </Tooltip>
+);
 
 // מסך ניהול הזמנות חדש ומשופר
 const BookingsNewPage = () => {
