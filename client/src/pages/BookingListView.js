@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import axios from 'axios';
-import { format, addDays, addMonths, subMonths, isSameDay, getDay, differenceInDays } from 'date-fns';
+import { format, addDays, addMonths, subMonths, isSameDay, getDay, differenceInDays, parseISO } from 'date-fns';
 import { he } from 'date-fns/locale';
 import {
   Container,
@@ -385,25 +385,52 @@ const BookingListView = () => {
     }
   };
   
-  // פונקציה לטעינת נתונים שמשתמשת בקונטקסט
-  const fetchBookings = async () => {
+  // פונקציה לטעינת הזמנות
+  const fetchBookings = useCallback(async (month = currentMonth) => {
     try {
-      if (daysInView.length === 0) return;
-      
       setLoading(true);
-      const startDate = format(daysInView[0], 'yyyy-MM-dd');
-      const endDate = format(daysInView[daysInView.length - 1], 'yyyy-MM-dd');
       
-      // שימוש בקונטקסט במקום קריאה ישירה לAPI
-      await contextFetchBookings({ startDate, endDate });
+      // יצירת טווח תאריכים לחודש הנבחר
+      const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
+      const lastDay = new Date(month.getFullYear(), month.getMonth() + 1, 0);
       
+      // נוסיף עוד ימים בהתאם למספר הימים לתצוגה
+      const extendedLastDay = addDays(lastDay, 14);
+      
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings`, {
+        params: {
+          startDate: format(firstDay, 'yyyy-MM-dd'),
+          endDate: format(extendedLastDay, 'yyyy-MM-dd')
+        },
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.data.success) {
+        // המרת מחרוזות תאריך לאובייקטים
+        const processedBookings = response.data.data.map(booking => ({
+          ...booking,
+          checkIn: booking.checkIn ? parseISO(booking.checkIn) : null,
+          checkOut: booking.checkOut ? parseISO(booking.checkOut) : null
+        }));
+        setBookings(processedBookings);
+        
+        // עדכון רשימת הימים לתצוגה - נשתמש בפונקציה הקיימת
+        const daysToShow = isMobile ? 3 : isTablet ? 7 : 14;
+        const days = [];
+        for (let i = 0; i < daysToShow; i++) {
+          days.push(addDays(month, i));
+        }
+        setDaysInView(days);
+      }
     } catch (error) {
-      console.error('שגיאה בטעינת ההזמנות:', error);
-      setError('אירעה שגיאה בטעינת ההזמנות');
+      console.error('שגיאה בטעינת הזמנות:', error);
+      setError('שגיאה בטעינת ההזמנות');
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentMonth, isMobile, isTablet]);
   
   // פונקציה לקבלת הזמנות לחדר ספציפי ביום ספציפי
   const getBookingsForRoomAndDate = (roomId, date) => {

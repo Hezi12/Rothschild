@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import axios from 'axios';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { he } from 'date-fns/locale';
 import {
   Container,
@@ -213,8 +213,8 @@ const BookingsNewPage = () => {
   // עדכון המחיר הכולל כאשר המחיר הבסיסי או התאריכים משתנים
   useEffect(() => {
     if (formData.checkIn && formData.checkOut && formData.basePrice) {
-      const checkIn = new Date(formData.checkIn);
-      const checkOut = new Date(formData.checkOut);
+      const checkIn = formData.checkIn instanceof Date ? formData.checkIn : parseISO(formData.checkIn);
+      const checkOut = formData.checkOut instanceof Date ? formData.checkOut : parseISO(formData.checkOut);
       const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
       
       if (nights > 0) {
@@ -665,94 +665,76 @@ const BookingsNewPage = () => {
     window.open(`https://wa.me/${formattedNumber}`, '_blank');
   };
   
-  // פונקציה להבאת פרטי הזמנה מהשרת
+  // פונקציה לטעינת פרטי הזמנה מהשרת
   const fetchBookingDetails = async (bookingId) => {
+    setOpenDialog(true);
+    
     try {
-      setLoading(true);
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/bookings/${bookingId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      setSelectedBooking({ loading: true });
       
-      console.log('פרטי הזמנה מהשרת:', response.data);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings/${bookingId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      console.log('פרטי הזמנה מהשרת:', response);
       
       if (response.data.success) {
-        const booking = response.data.data;
+        const bookingData = response.data.data;
         
-        console.log('פרטי כרטיס אשראי:', {
-          value: booking.creditCard,
-          type: typeof booking.creditCard,
-          exists: !!booking.creditCard,
-          isObject: booking.creditCard && typeof booking.creditCard === 'object',
-          keys: booking.creditCard ? Object.keys(booking.creditCard) : [],
-          hasCardNumber: booking.creditCard && booking.creditCard.cardNumber,
-          // שדות ספציפיים
-          cardNumber: booking.creditCard?.cardNumber,
-          expiryDate: booking.creditCard?.expiryDate,
-          cvv: booking.creditCard?.cvv,
-          cardholderName: booking.creditCard?.cardholderName
-        });
+        // בדיקה אם יש פרטי כרטיס אשראי
+        console.log('פרטי כרטיס אשראי:', bookingData.creditCard);
         
-        // עיבוד לפרטי כרטיס אשראי (מטפל במקרה שאין אובייקט, או שהוא ריק)
-        const creditCard = booking.creditCard || {
-          cardNumber: '',
-          expiryDate: '',
-          cvv: '',
-          cardholderName: ''
-        };
-        
-        // תיעוד - אם אין אובייקט כרטיס אשראי או שהוא ריק
-        if (!booking.creditCard || Object.keys(booking.creditCard).length === 0) {
-          console.log('אין פרטי כרטיס אשראי בהזמנה, משתמש בערכי ברירת מחדל ריקים');
+        // המרת מחרוזות תאריך לאובייקטי Date
+        if (bookingData.checkIn && typeof bookingData.checkIn === 'string') {
+          bookingData.checkIn = parseISO(bookingData.checkIn);
         }
         
-        // חישוב מחיר ללילה
-        let pricePerNight = 0;
-        if (booking.nights && booking.nights > 0) {
-          pricePerNight = booking.totalPrice / booking.nights;
+        if (bookingData.checkOut && typeof bookingData.checkOut === 'string') {
+          bookingData.checkOut = parseISO(bookingData.checkOut);
         }
         
-        // הגדרת ערכי טופס ברירת מחדל מהזמנה קיימת
+        // חישוב מחדש של מספר הלילות
+        if (bookingData.checkIn && bookingData.checkOut) {
+          const nights = Math.ceil(
+            (new Date(bookingData.checkOut) - new Date(bookingData.checkIn)) / 
+            (1000 * 60 * 60 * 24)
+          );
+          bookingData.nights = nights;
+        }
+        
+        // עדכון הטופס עם נתוני ההזמנה
         setFormData({
-          roomId: booking.room._id,
-          checkIn: booking.checkIn,
-          checkOut: booking.checkOut,
-          nights: booking.nights,
-          basePrice: booking.basePrice || 0,
-          totalPrice: booking.totalPrice || 0,
-          pricePerNight: pricePerNight,
-          status: booking.status || 'confirmed',
-          isTourist: booking.isTourist || false,
-          notes: booking.notes || '',
+          roomId: bookingData.room?._id || bookingData.roomId || '',
+          checkIn: bookingData.checkIn || null,
+          checkOut: bookingData.checkOut || null,
           guest: {
-            firstName: booking.guest?.firstName || '',
-            lastName: booking.guest?.lastName || '',
-            email: booking.guest?.email || '',
-            phone: booking.guest?.phone || '',
-            idNumber: booking.guest?.idNumber || ''
+            firstName: bookingData.guest?.firstName || '',
+            lastName: bookingData.guest?.lastName || '',
+            phone: bookingData.guest?.phone || '',
+            email: bookingData.guest?.email || ''
           },
-          creditCard: {
-            cardNumber: creditCard.cardNumber || '',
-            expiryDate: creditCard.expiryDate || '',
-            cvv: creditCard.cvv || '',
-            cardholderName: creditCard.cardholderName || ''
-          }
+          creditCard: bookingData.creditCard || {
+            cardNumber: '',
+            expiryDate: '',
+            cvv: '',
+            cardholderName: ''
+          },
+          isTourist: bookingData.isTourist || false,
+          notes: bookingData.notes || '',
+          status: bookingData.status || 'confirmed',
+          basePrice: bookingData.basePrice || 0,
+          totalPrice: bookingData.totalPrice || 0,
+          nights: bookingData.nights || 0,
+          pricePerNight: bookingData.pricePerNight || 0
         });
         
-        setSelectedBooking(booking);
-        setOpenDialog(true);
-      } else {
-        setError('שגיאה בטעינת פרטי ההזמנה');
+        setSelectedBooking(bookingData);
       }
     } catch (error) {
-      console.error('שגיאה בטעינת פרטי ההזמנה:', error);
+      console.error('שגיאה בטעינת פרטי הזמנה:', error);
       setError('שגיאה בטעינת פרטי ההזמנה');
-    } finally {
-      setLoading(false);
     }
   };
   
