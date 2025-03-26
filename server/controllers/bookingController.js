@@ -305,8 +305,8 @@ exports.createBooking = async (req, res) => {
 
     // התאמת אובייקט האורח בהתאם למבנה המצופה
     const guestData = {
-      firstName: guest.firstName || (guest.name ? guest.name.split(' ')[0] : ''),
-      lastName: guest.lastName || (guest.name ? guest.name.split(' ').slice(1).join(' ') : ''),
+      firstName: guest.firstName || (guest.name ? guest.name.split(' ')[0] : 'אורח'),
+      lastName: guest.lastName || (guest.name ? guest.name.split(' ').slice(1).join(' ') : 'ללא שם'),
       email: guest.email || '',
       phone: guest.phone || '',
       country: guest.country || 'ישראל',
@@ -866,6 +866,20 @@ exports.updateBooking = async (req, res) => {
       ...updatedFields,
       creditCard: updatedFields.creditCard ? 'כולל פרטי כרטיס אשראי' : 'ללא פרטי כרטיס אשראי'
     });
+    
+    // אם יש עדכון של פרטי האורח, נוודא שיש שדות שם
+    if (req.body.guest) {
+      const guest = req.body.guest;
+      
+      // וידוא שיש שם פרטי ושם משפחה
+      if (!guest.firstName || guest.firstName.trim() === '') {
+        guest.firstName = guest.name ? guest.name.split(' ')[0] : 'אורח';
+      }
+      
+      if (!guest.lastName || guest.lastName.trim() === '') {
+        guest.lastName = guest.name ? guest.name.split(' ').slice(1).join(' ') : 'ללא שם';
+      }
+    }
     
     // עדכון ההזמנה בדאטהבייס
     const updatedBooking = await Booking.findByIdAndUpdate(

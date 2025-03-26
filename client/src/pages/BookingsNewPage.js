@@ -991,7 +991,7 @@ const BookingsNewPage = () => {
                           <TableCell>
                             <Tooltip title={`טלפון: ${booking.guest.phone || 'לא צוין'}\nאימייל: ${booking.guest.email || 'לא צוין'}`}>
                               <Box component="span" sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                                {booking.guest.firstName} {booking.guest.lastName}
+                                {booking.guest.firstName || ''} {booking.guest.lastName || ''}
                                 {booking.guest.phone && (
                                   <IconButton 
                                     size="small" 
