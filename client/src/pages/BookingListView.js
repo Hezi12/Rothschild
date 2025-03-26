@@ -273,7 +273,7 @@ const BookingListView = () => {
     }
     
     setDaysInView(days);
-  }, [daysToShow]);
+  }, [daysToShow, isMobile, isTablet]);
   
   // משתנה סטייט למחירים דינמיים
   const [dynamicPrices, setDynamicPrices] = useState([]);
@@ -385,8 +385,8 @@ const BookingListView = () => {
     }
   };
   
-  // פונקציה לטעינת הזמנות
-  const fetchBookings = useCallback(async (month = currentMonth) => {
+  // פונקציה לטעינת הזמנות מהקונטקסט במקום מקומית
+  const fetchBookingsData = useCallback(async (month = currentMonth) => {
     try {
       setLoading(true);
       
@@ -397,40 +397,25 @@ const BookingListView = () => {
       // נוסיף עוד ימים בהתאם למספר הימים לתצוגה
       const extendedLastDay = addDays(lastDay, 14);
       
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings`, {
-        params: {
-          startDate: format(firstDay, 'yyyy-MM-dd'),
-          endDate: format(extendedLastDay, 'yyyy-MM-dd')
-        },
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      // קריאה לקונטקסט במקום API ישירות
+      await contextFetchBookings({
+        startDate: format(firstDay, 'yyyy-MM-dd'),
+        endDate: format(extendedLastDay, 'yyyy-MM-dd')
       });
       
-      if (response.data.success) {
-        // המרת מחרוזות תאריך לאובייקטים
-        const processedBookings = response.data.data.map(booking => ({
-          ...booking,
-          checkIn: booking.checkIn ? parseISO(booking.checkIn) : null,
-          checkOut: booking.checkOut ? parseISO(booking.checkOut) : null
-        }));
-        setBookings(processedBookings);
-        
-        // עדכון רשימת הימים לתצוגה - נשתמש בפונקציה הקיימת
-        const daysToShow = isMobile ? 3 : isTablet ? 7 : 14;
-        const days = [];
-        for (let i = 0; i < daysToShow; i++) {
-          days.push(addDays(month, i));
-        }
-        setDaysInView(days);
+      // עדכון רשימת הימים לתצוגה
+      const days = [];
+      for (let i = 0; i < daysToShow; i++) {
+        days.push(addDays(month, i));
       }
+      setDaysInView(days);
     } catch (error) {
       console.error('שגיאה בטעינת הזמנות:', error);
       setError('שגיאה בטעינת ההזמנות');
     } finally {
       setLoading(false);
     }
-  }, [currentMonth, isMobile, isTablet]);
+  }, [currentMonth, isMobile, isTablet, daysToShow, contextFetchBookings]);
   
   // פונקציה לקבלת הזמנות לחדר ספציפי ביום ספציפי
   const getBookingsForRoomAndDate = (roomId, date) => {
@@ -1447,7 +1432,7 @@ const BookingListView = () => {
       if (response.data.success) {
         toast.success('ההזמנה עודכנה בהצלחה');
         closeBookingDialog();
-        fetchBookings(); // רענון הנתונים
+        fetchBookingsData(); // רענון הנתונים
       } else {
         console.error('תשובת שרת לא תקינה:', response.data);
         toast.error(response.data.message || 'אירעה שגיאה בעדכון ההזמנה');
@@ -1803,7 +1788,7 @@ const BookingListView = () => {
       closeNewBookingDialog();
       
       // רענון הזמנות
-      fetchBookings();
+      fetchBookingsData();
       
       // הודעה למשתמש
       toast.success('ההזמנה נוצרה בהצלחה');
@@ -1948,22 +1933,30 @@ const BookingListView = () => {
     return formatted.trim();
   };
   
-  // עדכון קריאה לפונקציה לטעינת מחירים דינמיים כשהדף נטען
-  useEffect(() => {
-    fetchBookings();
-    fetchRooms();
-    // הוסף טעינת מחירים דינמיים
-    if (daysInView && daysInView.length > 0) {
-      fetchDynamicPrices(daysInView[0], daysInView[daysInView.length - 1]);
-    }
-  }, [daysInView]);
-  
   // האזנה לשינויים בנתוני הקונטקסט
   useEffect(() => {
     if (contextBookings && contextBookings.length > 0) {
-      setBookings(contextBookings);
+      // המרת מחרוזות תאריך לאובייקטים
+      const processedBookings = contextBookings.map(booking => ({
+        ...booking,
+        checkIn: booking.checkIn ? (typeof booking.checkIn === 'string' ? parseISO(booking.checkIn) : booking.checkIn) : null,
+        checkOut: booking.checkOut ? (typeof booking.checkOut === 'string' ? parseISO(booking.checkOut) : booking.checkOut) : null
+      }));
+      setBookings(processedBookings);
     }
   }, [contextBookings]);
+  
+  // טעינת נתונים בטעינה ראשונית
+  useEffect(() => {
+    fetchRooms();
+    // שימוש בפונקציה החדשה שפועלת מול הקונטקסט
+    fetchBookingsData();
+    
+    // טעינת מחירים דינמיים
+    if (daysInView.length > 0) {
+      fetchDynamicPrices(daysInView[0], daysInView[daysInView.length - 1]);
+    }
+  }, [fetchBookingsData]);
   
   // פונקציה לטיפול בלחיצה על תא
   const handleCellClick = (roomId, date) => {
@@ -2458,7 +2451,7 @@ const BookingListView = () => {
                                           roomId={room._id}
                                           date={day}
                                           isBooked={isBooked}
-                                          onDrop={(item) => handleBookingDrop(item, room._id, day, fetchBookings)}
+                                          onDrop={(item) => handleBookingDrop(item, room._id, day, fetchBookingsData)}
                                           onClick={() => handleCellClick(room._id, day)}
                                           sx={{ 
                                             cursor: 'pointer',
@@ -2747,7 +2740,7 @@ const BookingListView = () => {
                                 if (response.data.success) {
                                   toast.success('ההזמנה בוטלה בהצלחה');
                                   closeBookingDialog();
-                                  fetchBookings();
+                                  fetchBookingsData();
                                   return;
                                 }
                               } catch (cancelError) {
@@ -2771,7 +2764,7 @@ const BookingListView = () => {
                               if (response.data.success) {
                                 toast.success('ההזמנה בוטלה בהצלחה');
                                 closeBookingDialog();
-                                fetchBookings();
+                                fetchBookingsData();
                               } else {
                                 toast.error(response.data.message || 'אירעה שגיאה בביטול ההזמנה');
                               }
@@ -2789,7 +2782,7 @@ const BookingListView = () => {
                                 if (response.data.success) {
                                   toast.success('ההזמנה בוטלה בהצלחה');
                                   closeBookingDialog();
-                                  fetchBookings();
+                                  fetchBookingsData();
                                   return;
                                 }
                               } catch (finalError) {

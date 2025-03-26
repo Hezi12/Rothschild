@@ -8,10 +8,24 @@ export const BookingProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastFetchTime, setLastFetchTime] = useState(null);
+  const [fetchInProgress, setFetchInProgress] = useState(false);
 
-  // פונקציה לטעינת הזמנות עם אפשרות לפילטרים
+  // פונקציה לטעינת הזמנות עם אפשרות לפילטרים ומניעת בקשות כפולות
   const fetchBookings = useCallback(async (filters = {}) => {
+    // אם יש טעינה כבר בתהליך, אל תשלח בקשה נוספת
+    if (fetchInProgress) {
+      console.log('טעינת הזמנות כבר מתבצעת, דילוג על הבקשה החדשה');
+      return;
+    }
+    
+    // בדיקה אם חלפו לפחות 5 שניות מהבקשה האחרונה
+    if (lastFetchTime && new Date() - lastFetchTime < 5000) {
+      console.log('חלפו פחות מ-5 שניות מהבקשה האחרונה, דילוג');
+      return;
+    }
+    
     try {
+      setFetchInProgress(true);
       setLoading(true);
       
       // בניית שאילתת הפילטרים
@@ -59,8 +73,9 @@ export const BookingProvider = ({ children }) => {
       setError('שגיאה בטעינת ההזמנות מהשרת');
     } finally {
       setLoading(false);
+      setFetchInProgress(false);
     }
-  }, []);
+  }, [lastFetchTime, fetchInProgress]);
 
   // טעינה ראשונית של הזמנות
   useEffect(() => {

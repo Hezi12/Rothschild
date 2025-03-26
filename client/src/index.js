@@ -7,6 +7,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import 'react-toastify/dist/ReactToastify.css';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
+import BookingProvider from './context/BookingContext';
 import './index.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -14,20 +15,22 @@ root.render(
   <React.StrictMode>
     <HashRouter>
       <AuthProvider>
-        <DndProvider backend={HTML5Backend}>
-          <App />
-          <ToastContainer
-            position="top-left"
-            autoClose={5000}
-            hideProgressBar={false}
-            newestOnTop
-            closeOnClick
-            rtl
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-          />
-        </DndProvider>
+        <BookingProvider>
+          <DndProvider backend={HTML5Backend}>
+            <App />
+            <ToastContainer
+              position="top-left"
+              autoClose={5000}
+              hideProgressBar={false}
+              newestOnTop
+              closeOnClick
+              rtl
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+            />
+          </DndProvider>
+        </BookingProvider>
       </AuthProvider>
     </HashRouter>
   </React.StrictMode>
