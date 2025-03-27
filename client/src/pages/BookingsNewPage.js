@@ -609,18 +609,67 @@ const BookingsNewPage = () => {
   };
   
   const handleUpdatePaymentStatus = async (bookingId, status, method) => {
-    if (!bookingId) return;
+    console.log('===== תחילת עדכון סטטוס תשלום בדף BookingsNewPage =====');
+    if (!bookingId) {
+      console.error('אין מזהה הזמנה בעת ניסיון לעדכן סטטוס תשלום');
+      setSnackbar({
+        open: true,
+        message: 'שגיאה: חסר מזהה הזמנה',
+        severity: 'error'
+      });
+      return;
+    }
 
     try {
       setLoading(true);
+      console.log('נתוני עדכון סטטוס תשלום:', { 
+        bookingId, 
+        status, 
+        method,
+        selectedBooking: selectedBooking ? {
+          bookingNumber: selectedBooking.bookingNumber,
+          currentStatus: selectedBooking.paymentStatus,
+          currentMethod: selectedBooking.paymentMethod
+        } : null
+      });
+      
+      // ודא שיש לנו ערכים תקינים
+      if (!status) {
+        console.error('חסר סטטוס תשלום');
+        setSnackbar({
+          open: true,
+          message: 'לא ניתן לעדכן - חסר סטטוס תשלום',
+          severity: 'error'
+        });
+        return;
+      }
+      
+      // וידוא שיש גם אמצעי תשלום אם הסטטוס הוא 'paid'
+      if (status === 'paid' && !method) {
+        console.warn('מוגדר סטטוס שולם, אבל חסר אמצעי תשלום');
+        // אנחנו ממשיכים למרות האזהרה, אבל מציגים התראה
+        setSnackbar({
+          open: true,
+          message: 'לתשלומים שהושלמו מומלץ לציין גם את אמצעי התשלום',
+          severity: 'warning'
+        });
+      }
+      
+      console.log(`שולח עדכון לשרת: updatePaymentStatus(${bookingId}, ${status}, ${method})`);
+      
       const result = await updatePaymentStatus(bookingId, status, method);
       
+      console.log('תוצאת עדכון סטטוס תשלום:', result);
+      
       if (result.success) {
+        console.log('עדכון סטטוס תשלום הצליח');
+        
         // רענון נתוני ההזמנות כדי לראות את העדכון
         await fetchBookings();
         
         // עדכון ההזמנה הנבחרת אם היא זו שעודכנה
         if (selectedBooking && selectedBooking._id === bookingId) {
+          console.log('מעדכן את ההזמנה הנבחרת במצב המקומי');
           setSelectedBooking(prevBooking => ({
             ...prevBooking,
             paymentStatus: status,
@@ -639,20 +688,25 @@ const BookingsNewPage = () => {
           severity: 'success'
         });
       } else {
+        console.error('כישלון בעדכון סטטוס תשלום:', result.error);
         setSnackbar({
           open: true,
-          message: 'שגיאה בעדכון סטטוס התשלום',
+          message: `שגיאה בעדכון סטטוס התשלום: ${result.error || 'שגיאה לא ידועה'}`,
           severity: 'error'
         });
       }
     } catch (error) {
+      console.error('===== שגיאה בעדכון סטטוס תשלום =====');
       console.error('שגיאה בעדכון סטטוס תשלום:', error);
+      console.error('פרטי השגיאה:', error.response?.data || error.message);
+      
       setSnackbar({
         open: true,
-        message: 'שגיאה בעדכון סטטוס התשלום',
+        message: `שגיאה בעדכון סטטוס התשלום: ${error.message || 'שגיאה לא ידועה'}`,
         severity: 'error'
       });
     } finally {
+      console.log('===== סיום עדכון סטטוס תשלום בדף BookingsNewPage =====');
       setLoading(false);
     }
   };

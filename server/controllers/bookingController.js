@@ -1032,11 +1032,39 @@ exports.hardDeleteManyBookings = async (req, res) => {
 
 // עדכון סטטוס תשלום
 exports.updatePaymentStatus = async (req, res) => {
+  console.log('===== תחילת עדכון סטטוס תשלום בצד שרת =====');
   try {
-    const { bookingId } = req.params;
+    const bookingId = req.params.id;
     const { paymentStatus, paidAmount, paymentMethod } = req.body;
     
+    console.log('בקשה לעדכון סטטוס תשלום:', {
+      bookingId,
+      paymentStatus,
+      paidAmount,
+      paymentMethod
+    });
+    
+    // שליפת ההזמנה לפני העדכון כדי לזהות שינויים
+    const existingBooking = await Booking.findById(bookingId).populate('room');
+    
+    if (!existingBooking) {
+      console.error(`הזמנה עם מזהה ${bookingId} לא נמצאה`);
+      return res.status(404).json({ 
+        success: false, 
+        message: 'ההזמנה לא נמצאה' 
+      });
+    }
+    
+    console.log('הזמנה לפני עדכון:', {
+      bookingNumber: existingBooking.bookingNumber,
+      paymentStatus: existingBooking.paymentStatus,
+      paymentMethod: existingBooking.paymentMethod,
+      room: existingBooking.room?.roomNumber,
+      guest: existingBooking.guest ? `${existingBooking.guest.firstName} ${existingBooking.guest.lastName}` : 'לא ידוע'
+    });
+    
     if (!paymentStatus) {
+      console.error('סטטוס תשלום חסר בבקשה');
       return res.status(400).json({ 
         success: false, 
         message: 'חובה לספק סטטוס תשלום' 
@@ -1056,27 +1084,58 @@ exports.updatePaymentStatus = async (req, res) => {
       updateData.paymentMethod = paymentMethod;
     }
     
+    console.log('מעדכן הזמנה עם הנתונים:', updateData);
+    
     // עדכון הזמנה
     const updatedBooking = await Booking.findByIdAndUpdate(
       bookingId, 
       updateData, 
       { new: true }
-    );
+    ).populate('room');
     
     if (!updatedBooking) {
+      console.error('ההזמנה לא נמצאה אחרי ניסיון עדכון');
       return res.status(404).json({ 
         success: false, 
         message: 'ההזמנה לא נמצאה' 
       });
     }
     
+    console.log('עדכון הזמנה הצליח', {
+      bookingNumber: updatedBooking.bookingNumber,
+      paymentStatus: updatedBooking.paymentStatus,
+      paymentMethod: updatedBooking.paymentMethod
+    });
+    
+    // מחזירים מידע יותר מפורט על ההזמנה שעודכנה
+    const bookingDetails = {
+      _id: updatedBooking._id,
+      bookingNumber: updatedBooking.bookingNumber,
+      paymentStatus: updatedBooking.paymentStatus,
+      paymentMethod: updatedBooking.paymentMethod,
+      totalPrice: updatedBooking.totalPrice,
+      paidAmount: updatedBooking.paidAmount,
+      roomNumber: updatedBooking.room?.roomNumber || 'לא ידוע',
+      checkIn: updatedBooking.checkIn,
+      checkOut: updatedBooking.checkOut,
+      guestName: updatedBooking.guest ? `${updatedBooking.guest.firstName} ${updatedBooking.guest.lastName}` : 'לא ידוע'
+    };
+    
+    console.log('===== סיום מוצלח של עדכון סטטוס תשלום =====');
+    
     res.status(200).json({ 
       success: true, 
       data: updatedBooking,
+      bookingDetails,
       message: 'סטטוס התשלום עודכן בהצלחה'
     });
   } catch (error) {
+    console.error('===== שגיאה בעדכון סטטוס תשלום =====');
     console.error('שגיאה בעדכון סטטוס תשלום:', error);
+    console.error('סוג השגיאה:', error.name);
+    console.error('הודעת שגיאה:', error.message);
+    console.error('Stack:', error.stack);
+    
     res.status(500).json({ 
       success: false, 
       message: 'שגיאת שרת בעת עדכון סטטוס תשלום',

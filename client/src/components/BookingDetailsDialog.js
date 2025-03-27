@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -27,10 +27,14 @@ import LaunchIcon from '@mui/icons-material/Launch';
 const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [editedBooking, setEditedBooking] = useState(null);
+  const [editedBooking, setEditedBooking] = useState({});
+
+  // הוספת שדות מצב לעדכון סטטוס תשלום
+  const [paymentStatus, setPaymentStatus] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
 
   // כשהדיאלוג נפתח, אתחל את הנתונים
-  React.useEffect(() => {
+  useEffect(() => {
     if (booking) {
       // טיפול בשדות האורח - וידוא שיש גם firstName/lastName וגם name
       // במודל הישן יש guest.name, במודל החדש יש guest.firstName + guest.lastName
@@ -66,8 +70,16 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
           expiryDate: creditCard.expiryDate || '',
           cvv: creditCard.cvv || '',
           cardholderName: creditCard.cardholderName || ''
-        }
+        },
+        totalPrice: booking.totalPrice || 0,
+        notes: booking.notes || '',
+        paymentStatus: booking.paymentStatus || 'pending',
+        paymentMethod: booking.paymentMethod || ''
       });
+      
+      // הגדרת ערכים התחלתיים לסטטוס תשלום ואמצעי תשלום
+      setPaymentStatus(booking.paymentStatus || 'pending');
+      setPaymentMethod(booking.paymentMethod || '');
     }
   }, [booking]);
 
@@ -221,6 +233,97 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
     }
   };
 
+  // פונקציה לעדכון סטטוס תשלום
+  const handleUpdatePaymentStatus = async (status, method) => {
+    console.log('===== תחילת עדכון סטטוס תשלום מדיאלוג פרטי הזמנה =====');
+    
+    if (!booking || !booking._id) {
+      console.error('חסר מזהה הזמנה');
+      toast.error('שגיאה: חסר מזהה הזמנה');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // עדכון הסטטוס המקומי תחילה
+      let newStatus = status || paymentStatus;
+      const newMethod = method || paymentMethod;
+      
+      // המרה מערכי עברית לאנגלית לפי הצורך
+      if (typeof newStatus === 'string') {
+        switch(newStatus) {
+          case 'שולם':
+            newStatus = 'paid';
+            break;
+          case 'לא שולם':
+          case 'ממתין לתשלום':
+          case 'ממתין':
+          case 'טרם שולם':
+            newStatus = 'pending';
+            break;
+          case 'שולם חלקית':
+          case 'חלקי':
+          case 'תשלום חלקי':
+            newStatus = 'partial';
+            break;
+          case 'מבוטל':
+          case 'בוטל':
+            newStatus = 'canceled';
+            break;
+          // אם כבר באנגלית, להשאיר כפי שהוא
+        }
+      }
+      
+      console.log('נתוני עדכון סטטוס תשלום:', {
+        bookingId: booking._id,
+        status: newStatus,
+        method: newMethod,
+        oldStatus: booking.paymentStatus,
+        oldMethod: booking.paymentMethod
+      });
+      
+      // שימוש בנתיב API הייעודי לעדכון סטטוס תשלום
+      const response = await axios.put(
+        `${process.env.REACT_APP_API_URL}/bookings/${booking._id}/payment-status`,
+        {
+          paymentStatus: newStatus,
+          paymentMethod: newMethod
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      
+      console.log('תשובה מהשרת:', response.data);
+      
+      if (response.data.success) {
+        console.log('עדכון סטטוס תשלום הצליח');
+        
+        toast.success('סטטוס התשלום עודכן בהצלחה');
+        
+        // שימוש בתשובת השרת לעדכון המצב המקומי
+        if (onBookingChange) {
+          onBookingChange(response.data.data);
+        }
+      } else {
+        console.error('השרת החזיר שגיאה:', response.data.message);
+        toast.error(`שגיאה בעדכון סטטוס התשלום: ${response.data.message}`);
+      }
+    } catch (error) {
+      console.error('===== שגיאה בעדכון סטטוס תשלום =====');
+      console.error('שגיאה בעדכון סטטוס התשלום:', error);
+      console.error('פרטי השגיאה:', error.response?.data || error.message);
+      
+      toast.error('שגיאה בעדכון סטטוס התשלום. אנא נסה שנית.');
+    } finally {
+      console.log('===== סיום עדכון סטטוס תשלום מדיאלוג פרטי הזמנה =====');
+      setLoading(false);
+    }
+  };
+
   // מצב צפייה בלבד - להציג פרטי הזמנה
   const renderViewMode = () => (
     <>
@@ -295,10 +398,30 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
 
           <Grid item xs={12} sm={6}>
             <Typography variant="subtitle2">סטטוס תשלום:</Typography>
-            <Typography variant="body1">
-              {booking.paymentStatus === 'paid' ? 'שולם' : 
-               booking.paymentStatus === 'partial' ? 'תשלום חלקי' : 'טרם שולם'}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+              <FormControl variant="outlined" size="small" sx={{ minWidth: 120, mr: 1 }}>
+                <Select
+                  value={paymentStatus}
+                  onChange={(e) => setPaymentStatus(e.target.value)}
+                  disabled={loading}
+                >
+                  <MenuItem value="pending">טרם שולם</MenuItem>
+                  <MenuItem value="partial">תשלום חלקי</MenuItem>
+                  <MenuItem value="paid">שולם</MenuItem>
+                </Select>
+              </FormControl>
+              
+              {/* כפתור לעדכון סטטוס תשלום */}
+              <Button
+                variant="contained"
+                color="primary"
+                size="small"
+                onClick={() => handleUpdatePaymentStatus()}
+                disabled={loading || paymentStatus === booking.paymentStatus}
+              >
+                עדכון
+              </Button>
+            </Box>
           </Grid>
 
           <Grid item xs={12}>
@@ -353,6 +476,39 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
               <Typography variant="body1">{booking.notes}</Typography>
             </Grid>
           )}
+
+          <Grid item xs={12} sm={6}>
+            <Typography variant="subtitle2">אמצעי תשלום:</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+              <FormControl variant="outlined" size="small" sx={{ minWidth: 150, mr: 1 }}>
+                <Select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  disabled={loading}
+                >
+                  <MenuItem value="">לא צוין</MenuItem>
+                  <MenuItem value="credit">כרטיס אשראי</MenuItem>
+                  <MenuItem value="cash">מזומן</MenuItem>
+                  <MenuItem value="creditOr">אשראי - אור יהודה</MenuItem>
+                  <MenuItem value="creditRothschild">אשראי - רוטשילד</MenuItem>
+                  <MenuItem value="mizrahi">העברה - מזרחי</MenuItem>
+                  <MenuItem value="poalim">העברה - פועלים</MenuItem>
+                  <MenuItem value="other">אחר</MenuItem>
+                </Select>
+              </FormControl>
+              
+              {/* כפתור לעדכון אמצעי תשלום */}
+              <Button
+                variant="contained"
+                color="primary"
+                size="small"
+                onClick={() => handleUpdatePaymentStatus(paymentStatus, paymentMethod)}
+                disabled={loading || paymentMethod === booking.paymentMethod}
+              >
+                עדכון
+              </Button>
+            </Box>
+          </Grid>
         </Grid>
       </DialogContent>
       <DialogActions>

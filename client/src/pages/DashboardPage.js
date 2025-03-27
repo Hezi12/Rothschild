@@ -29,7 +29,8 @@ import {
   Hotel as HotelIcon,
   Today as TodayIcon,
   InfoOutlined as InfoOutlinedIcon,
-  Language as LanguageIcon
+  Language as LanguageIcon,
+  Summarize as SummarizeIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -438,6 +439,21 @@ const DashboardPage = () => {
             </AppIconButton>
             <Typography variant="body2" sx={{ mt: 1, fontSize: '0.8rem', fontWeight: 500, color: '#555', textAlign: 'center' }}>
               אתר הבית
+            </Typography>
+          </Box>
+        </Grid>
+
+        <Grid item>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <AppIconButton
+              component={Link}
+              to="/dashboard/income-report"
+              color="#27ae60" 
+            >
+              <SummarizeIcon sx={{ fontSize: 32, color: 'white', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.1))' }} />
+            </AppIconButton>
+            <Typography variant="body2" sx={{ mt: 1, fontSize: '0.8rem', fontWeight: 500, color: '#555', textAlign: 'center' }}>
+              דוח הכנסות
             </Typography>
           </Box>
         </Grid>

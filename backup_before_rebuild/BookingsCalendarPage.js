@@ -677,27 +677,88 @@ const BookingsCalendarPage = () => {
   
   // פונקציות לעדכון סטטוס תשלום ופעולות נוספות
   const handleUpdatePaymentStatus = async () => {
+    console.log('===== תחילת עדכון סטטוס תשלום בדף BookingsCalendarPage =====');
+    
     try {
       setLoading(true);
-      await axios.put(`${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}`, {
-        paymentStatus: paymentStatus
+      
+      // המרה מערכי עברית לאנגלית לפי הצורך
+      let englishPaymentStatus;
+      switch(paymentStatus) {
+        case 'שולם':
+          englishPaymentStatus = 'paid';
+          break;
+        case 'לא שולם':
+          englishPaymentStatus = 'pending';
+          break;
+        case 'שולם חלקית':
+          englishPaymentStatus = 'partial';
+          break;
+        case 'מבוטל':
+        case 'בוטל':
+          englishPaymentStatus = 'canceled';
+          break;
+        default:
+          englishPaymentStatus = paymentStatus;
+      }
+      
+      // לוג נתוני עדכון
+      console.log('נתוני העדכון:', {
+        bookingId: selectedBooking._id,
+        oldStatus: selectedBooking.paymentStatus,
+        newStatus: paymentStatus,
+        englishPaymentStatus,
+        oldMethod: selectedBooking.paymentMethod || 'לא מוגדר',
+        // שומרים על אמצעי התשלום הקיים אם יש
+        paymentMethod: selectedBooking.paymentMethod || null
       });
       
-      // עדכון הרשימה המקומית
-      setBookings(prevBookings => 
-        prevBookings.map(booking => 
-          booking._id === selectedBooking._id 
-            ? { ...booking, paymentStatus } 
-            : booking
-        )
+      // שימוש בנתיב API הייעודי לעדכון סטטוס תשלום
+      console.log(`שולח עדכון סטטוס תשלום לשרת: PUT /bookings/${selectedBooking._id}/payment-status`);
+      const response = await axios.put(
+        `${process.env.REACT_APP_API_URL}/bookings/${selectedBooking._id}/payment-status`,
+        {
+          paymentStatus: englishPaymentStatus,
+          paymentMethod: selectedBooking.paymentMethod || null
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
       );
       
-      setSelectedBooking({...selectedBooking, paymentStatus});
-      toast.success('סטטוס התשלום עודכן בהצלחה');
+      console.log('תשובה מהשרת:', response.data);
+      
+      if (response.data.success) {
+        console.log('עדכון סטטוס תשלום הצליח');
+        
+        // עדכון הרשימה המקומית
+        setBookings(prevBookings => 
+          prevBookings.map(booking => 
+            booking._id === selectedBooking._id 
+              ? { ...booking, paymentStatus: englishPaymentStatus } 
+              : booking
+          )
+        );
+        
+        setSelectedBooking({...selectedBooking, paymentStatus: englishPaymentStatus});
+        toast.success('סטטוס התשלום עודכן בהצלחה');
+        
+        // רענון הנתונים כדי לוודא שכל המערכת מסונכרנת
+        refreshData();
+      } else {
+        console.error('השרת החזיר שגיאה:', response.data.message);
+        toast.error(`שגיאה בעדכון סטטוס התשלום: ${response.data.message}`);
+      }
     } catch (error) {
+      console.error('===== שגיאה בעדכון סטטוס תשלום =====');
       console.error('שגיאה בעדכון סטטוס התשלום:', error);
+      console.error('פרטי השגיאה:', error.response?.data || error.message);
+      
       toast.error('שגיאה בעדכון סטטוס התשלום. אנא נסה שנית.');
     } finally {
+      console.log('===== סיום עדכון סטטוס תשלום בדף BookingsCalendarPage =====');
       setLoading(false);
     }
   };

@@ -26,7 +26,13 @@ router
 // עדכון סטטוס תשלום
 router
   .route('/:id/payment-status')
-  .put(protect, bookingController.updatePaymentStatus);
+  .put(protect, (req, res, next) => {
+    console.log('=== נתיב עדכון סטטוס תשלום נקרא ===');
+    console.log('פרמטרים:', req.params);
+    console.log('גוף הבקשה:', req.body);
+    console.log('כותרות:', req.headers);
+    next();
+  }, bookingController.updatePaymentStatus);
 
 // נקודת קצה ייעודית לביטול הזמנה
 router.post('/:id/cancel', protect, async (req, res) => {

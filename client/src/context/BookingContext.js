@@ -142,12 +142,56 @@ export const BookingProvider = ({ children }) => {
 
   // עדכון סטטוס תשלום ואמצעי תשלום
   const updatePaymentStatus = async (bookingId, status, method) => {
+    console.log('===== תחילת עדכון סטטוס תשלום =====');
+    console.log('מנסה לעדכן סטטוס תשלום:', { bookingId, status, method });
+    
     try {
       setLoading(true);
       
+      // בדיקה שיש לנו את כל הנתונים הדרושים
+      if (!bookingId) {
+        console.error('חסר מזהה הזמנה בעת עדכון סטטוס תשלום');
+        return { success: false, error: 'חסר מזהה הזמנה' };
+      }
+      
+      if (!status) {
+        console.error('חסר סטטוס תשלום בעת עדכון');
+        return { success: false, error: 'חסר סטטוס תשלום' };
+      }
+      
+      // המרה מערכי עברית לאנגלית לפי הצורך
+      let englishStatus = status;
+      if (typeof status === 'string') {
+        switch(status) {
+          case 'שולם':
+            englishStatus = 'paid';
+            break;
+          case 'לא שולם':
+          case 'ממתין לתשלום':
+          case 'ממתין':
+            englishStatus = 'pending';
+            break;
+          case 'שולם חלקית':
+          case 'חלקי':
+            englishStatus = 'partial';
+            break;
+          case 'מבוטל':
+          case 'בוטל':
+            englishStatus = 'canceled';
+            break;
+          // אם כבר באנגלית, להשאיר כפי שהוא
+        }
+      }
+      
+      // שימוש בערך המקורי של אמצעי התשלום
+      const finalMethod = method;
+
+      console.log(`שולח בקשת עדכון לשרת: PUT /bookings/${bookingId}/payment-status`);
+      console.log('נתוני הבקשה:', { paymentStatus: englishStatus, paymentMethod: finalMethod });
+      
       const response = await axios.put(
-        `${process.env.REACT_APP_API_URL}/bookings/${bookingId}/payment`,
-        { paymentStatus: status, paymentMethod: method },
+        `${process.env.REACT_APP_API_URL}/bookings/${bookingId}/payment-status`,
+        { paymentStatus: englishStatus, paymentMethod: finalMethod },
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -155,24 +199,57 @@ export const BookingProvider = ({ children }) => {
         }
       );
       
-      if (response.data.success) {
-        // עדכון המצב המקומי
-        setBookings(prevBookings => 
-          prevBookings.map(booking => 
-            booking._id === bookingId ? 
-              { ...booking, paymentStatus: status, paymentMethod: method } : 
-              booking
-          )
-        );
-        setLastFetchTime(new Date());
-      }
+      console.log('תשובה מהשרת:', response.data);
       
-      return { success: true, data: response.data.data };
+      if (response.data.success) {
+        console.log('עדכון סטטוס תשלום הצליח, מעדכן מצב מקומי');
+        
+        // עדכון המצב המקומי
+        setBookings(prevBookings => {
+          console.log('עדכון מערך ההזמנות המקומי');
+          console.log('מספר הזמנות לפני העדכון:', prevBookings.length);
+          
+          const updatedBookings = prevBookings.map(booking => {
+            if (booking._id === bookingId) {
+              console.log('מצאתי את ההזמנה שצריך לעדכן:', booking._id);
+              console.log('ערכים לפני העדכון:', { 
+                paymentStatus: booking.paymentStatus, 
+                paymentMethod: booking.paymentMethod 
+              });
+              console.log('ערכים חדשים:', { 
+                paymentStatus: englishStatus, 
+                paymentMethod: finalMethod 
+              });
+              return { ...booking, paymentStatus: englishStatus, paymentMethod: finalMethod };
+            }
+            return booking;
+          });
+          
+          console.log('עדכון הזמנות הושלם');
+          return updatedBookings;
+        });
+        
+        // עדכון זמן הטעינה האחרון
+        setLastFetchTime(new Date());
+        
+        // רענון נתוני הזמנות
+        console.log('מרענן נתוני הזמנות מהשרת לאחר עדכון מוצלח');
+        fetchBookings();
+        
+        return { success: true, data: response.data.data };
+      } else {
+        console.error('השרת החזיר סטטוס הצלחה=false:', response.data.message);
+        return { success: false, error: response.data.message };
+      }
     } catch (err) {
+      console.error('===== שגיאה בעדכון סטטוס תשלום =====');
       console.error('שגיאה בעדכון סטטוס תשלום:', err);
+      console.error('פרטי השגיאה:', err.response?.data || err.message);
+      
       setError('שגיאה בעדכון סטטוס התשלום');
-      return { success: false, error: err.response?.data || err.message };
+      return { success: false, error: err.response?.data?.message || err.message };
     } finally {
+      console.log('===== סיום עדכון סטטוס תשלום =====');
       setLoading(false);
     }
   };
