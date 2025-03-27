@@ -771,7 +771,7 @@ const BookingListView = () => {
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     maxWidth: '100%',
-                    fontSize: '0.8rem'
+                    fontSize: '0.8rem' // גופן קטן יותר
                   }}
                 >
                   {booking.guest?.firstName || booking.guest?.name || "אורח"}
@@ -1339,16 +1339,190 @@ const BookingListView = () => {
   
   // עדכון סטטוס תשלום מתוך דיאלוג ההזמנה
   const handleUpdatePaymentStatus = async () => {
-    if (!bookingDialog.bookingData?._id) return;
+    console.log('===== תחילת עדכון סטטוס תשלום מדיאלוג ההזמנה =====');
+    
+    if (!bookingDialog.bookingData?._id) {
+      console.error('אין מזהה הזמנה בעת ניסיון לעדכן סטטוס תשלום');
+      toast.error('שגיאה: חסר מזהה הזמנה');
+      return;
+    }
     
     const bookingId = bookingDialog.bookingData._id;
-    const status = bookingDialog.bookingData.paymentStatus;
+    let status = bookingDialog.bookingData.paymentStatus;
     const method = bookingDialog.bookingData.paymentMethod;
+    
+    // המרה מערכי עברית לאנגלית לפי הצורך
+    if (typeof status === 'string') {
+      switch(status) {
+        case 'שולם':
+          status = 'paid';
+          break;
+        case 'לא שולם':
+        case 'ממתין לתשלום':
+        case 'ממתין':
+          status = 'pending';
+          break;
+        case 'שולם חלקית':
+        case 'חלקי':
+          status = 'partial';
+          break;
+        case 'מבוטל':
+        case 'בוטל':
+          status = 'canceled';
+          break;
+        // אם כבר באנגלית, להשאיר כפי שהוא
+      }
+    }
+    
+    console.log('מנסה לעדכן סטטוס תשלום להזמנה:', {
+      bookingId,
+      status,
+      method,
+      bookingData: {
+        bookingNumber: bookingDialog.bookingData.bookingNumber,
+        guest: bookingDialog.bookingData.guest?.firstName + ' ' + bookingDialog.bookingData.guest?.lastName,
+        room: bookingDialog.bookingData.room?.roomNumber
+      }
+    });
     
     try {
       setLoading(true);
       
-      const result = await updatePaymentStatus(bookingId, status, method);
+      // ודא שיש לנו ערכים תקינים
+      if (!status) {
+        console.error('חסר סטטוס תשלום');
+        toast.error('לא ניתן לעדכן - חסר סטטוס תשלום');
+        return;
+      }
+      
+      // וידוא שיש גם אמצעי תשלום אם הסטטוס הוא 'paid'
+      if (status === 'paid' && !method) {
+        console.warn('מוגדר סטטוס שולם, אבל חסר אמצעי תשלום');
+        toast.warning('אנא בחר אמצעי תשלום כשאתה מסמן שהתשלום הושלם');
+        // עדיין ממשיך לבצע את העדכון
+      }
+      
+      // שמירת ערך מזומן אם המשתמש עדכן לאמצעי תשלום מזומן
+      const finalMethod = method || '';
+      
+      console.log(`שולח עדכון סטטוס תשלום לשרת: updatePaymentStatus(${bookingId}, ${status}, ${finalMethod})`);
+      
+      const result = await updatePaymentStatus(bookingId, status, finalMethod);
+      
+      console.log('תוצאת עדכון סטטוס תשלום:', result);
+      
+      if (result.success) {
+        console.log('עדכון סטטוס תשלום הצליח');
+        
+        setSnackbarState({
+          open: true,
+          message: 'סטטוס תשלום עודכן בהצלחה',
+          severity: 'success'
+        });
+        
+        // איפוס משתני הביניים אם יש צורך
+        setTempPaymentStatus(null);
+        setTempPaymentMethod(null);
+        
+        // רענון הנתונים בדף
+        console.log('מרענן נתוני הזמנות לאחר עדכון סטטוס תשלום מוצלח');
+        fetchBookingsData();
+      } else {
+        console.error('כישלון בעדכון סטטוס תשלום:', result.error);
+        
+        setSnackbarState({
+          open: true,
+          message: `שגיאה בעדכון סטטוס תשלום: ${result.error || 'שגיאה לא ידועה'}`,
+          severity: 'error'
+        });
+      }
+    } catch (error) {
+      console.error('שגיאה בעדכון סטטוס תשלום:', error);
+      
+      setSnackbarState({
+        open: true,
+        message: `שגיאה בעדכון סטטוס תשלום: ${error.message || 'שגיאה לא ידועה'}`,
+        severity: 'error'
+      });
+    } finally {
+      console.log('===== סיום עדכון סטטוס תשלום מדיאלוג ההזמנה =====');
+      setLoading(false);
+    }
+  };
+  
+  // מטפל בשינוי סטטוס תשלום ואמצעי תשלום בדיאלוג
+  const handlePaymentChange = (field, value) => {
+    // עדכון הערך במצב המקומי באופן מיידי
+    handleBookingFormChange(field, value);
+    
+    // יצירת עותק מקומי של הנתונים המעודכנים
+    let updatedData = { ...bookingDialog.bookingData };
+    if (field === 'paymentMethod') {
+      updatedData.paymentMethod = value;
+    } else if (field === 'paymentStatus') {
+      updatedData.paymentStatus = value;
+    }
+    
+    // אם סטטוס התשלום או אמצעי התשלום השתנה, יש לעדכן גם בשרת
+    if (field === 'paymentStatus' || field === 'paymentMethod') {
+      setTimeout(() => {
+        // קוראים לפונקציה עם פרמטרים ישירים במקום להסתמך על מצב
+        handleDirectUpdatePaymentStatus(
+          bookingDialog.bookingData._id,
+          updatedData.paymentStatus,
+          updatedData.paymentMethod
+        );
+      }, 300); // מתן זמן מספיק לעדכון ה-state
+    }
+  };
+  
+  // פונקציה לעדכון ישיר של סטטוס תשלום עם פרמטרים מפורשים
+  const handleDirectUpdatePaymentStatus = async (bookingId, status, method) => {
+    if (!bookingId) {
+      toast.error('שגיאה: חסר מזהה הזמנה');
+      return;
+    }
+    
+    // המרה מערכי עברית לאנגלית לפי הצורך
+    let englishStatus = status;
+    if (typeof status === 'string') {
+      switch(status) {
+        case 'שולם':
+          englishStatus = 'paid';
+          break;
+        case 'לא שולם':
+        case 'ממתין לתשלום':
+        case 'ממתין':
+          englishStatus = 'pending';
+          break;
+        case 'שולם חלקית':
+        case 'חלקי':
+          englishStatus = 'partial';
+          break;
+        case 'מבוטל':
+        case 'בוטל':
+          englishStatus = 'canceled';
+          break;
+        // אם כבר באנגלית, להשאיר כפי שהוא
+      }
+    }
+    
+    try {
+      setLoading(true);
+      
+      // ודא שיש לנו ערכים תקינים
+      if (!englishStatus) {
+        toast.error('לא ניתן לעדכן - חסר סטטוס תשלום');
+        return;
+      }
+      
+      // וידוא שיש גם אמצעי תשלום אם הסטטוס הוא 'paid'
+      if (englishStatus === 'paid' && !method) {
+        toast.warning('אנא בחר אמצעי תשלום כשאתה מסמן שהתשלום הושלם');
+        // עדיין ממשיך לבצע את העדכון
+      }
+      
+      const result = await updatePaymentStatus(bookingId, englishStatus, method);
       
       if (result.success) {
         setSnackbarState({
@@ -1360,18 +1534,20 @@ const BookingListView = () => {
         // איפוס משתני הביניים אם יש צורך
         setTempPaymentStatus(null);
         setTempPaymentMethod(null);
+        
+        // רענון הנתונים בדף
+        fetchBookingsData();
       } else {
         setSnackbarState({
           open: true,
-          message: 'שגיאה בעדכון סטטוס תשלום',
+          message: `שגיאה בעדכון סטטוס תשלום: ${result.error || 'שגיאה לא ידועה'}`,
           severity: 'error'
         });
       }
     } catch (error) {
-      console.error('שגיאה בעדכון סטטוס תשלום:', error);
       setSnackbarState({
         open: true,
-        message: 'שגיאה בעדכון סטטוס תשלום',
+        message: `שגיאה בעדכון סטטוס תשלום: ${error.message || 'שגיאה לא ידועה'}`,
         severity: 'error'
       });
     } finally {
@@ -1379,16 +1555,6 @@ const BookingListView = () => {
     }
   };
   
-  // מטפל בשינוי סטטוס תשלום ואמצעי תשלום בדיאלוג
-  const handlePaymentChange = (field, value) => {
-    handleBookingFormChange(field, value);
-    
-    // אם סטטוס התשלום או אמצעי התשלום השתנה, יש לעדכן גם בשרת
-    if (field === 'paymentStatus' || field === 'paymentMethod') {
-      handleUpdatePaymentStatus();
-    }
-  };
-
   // עדכון פרטי הזמנה
   const handleUpdateBooking = async (updatedData) => {
     try {
@@ -1856,10 +2022,17 @@ const BookingListView = () => {
   
   // פונקציית עזר לפורמט תאריך תוקף כרטיס אשראי
   const formatCreditCardExpiry = (creditCard) => {
-    // לוג מפורט של נתוני כרטיס האשראי לצורך ניפוי שגיאות
-    console.log('מנסה לפרמט תוקף כרטיס אשראי:', creditCard);
-    
+    // בדיקה מוקדמת שהאובייקט קיים ואינו ריק לחלוטין
     if (!creditCard) return '';
+    
+    // בדיקה שהאובייקט אינו ריק (בעל ערכים ממשיים)
+    const hasActualValues = Object.values(creditCard).some(val => val && val.toString().trim() !== '');
+    if (!hasActualValues) {
+      return '';  // אם כל הערכים ריקים, החזר מחרוזת ריקה ללא לוגים מיותרים
+    }
+    
+    // לוג מפורט של נתוני כרטיס האשראי לצורך ניפוי שגיאות - רק אם יש תוכן ממשי
+    console.log('מנסה לפרמט תוקף כרטיס אשראי:', creditCard);
     
     // בדיקה אם יש שדה expiry מוכן
     if (creditCard.expiry) {
@@ -1878,13 +2051,13 @@ const BookingListView = () => {
     }
     
     // בדיקה אם יש שדה expiryDate (השדה שהופיע בלוג)
-    if (creditCard.expiryDate) {
+    if (creditCard.expiryDate && creditCard.expiryDate.trim() !== '') {
       console.log('נמצא שדה expiryDate:', creditCard.expiryDate);
       return creditCard.expiryDate;
     }
     
     // בדיקה אם יש שדה expirationDate
-    if (creditCard.expirationDate) {
+    if (creditCard.expirationDate && creditCard.expirationDate.trim() !== '') {
       console.log('נמצא שדה expirationDate:', creditCard.expirationDate);
       return creditCard.expirationDate;
     }
@@ -1925,10 +2098,14 @@ const BookingListView = () => {
   
   // פונקציית עזר להצגת נתוני כרטיס אשראי מוסתרים
   const formatCreditCardNumber = (cardNumber) => {
-    if (!cardNumber) return '';
+    if (!cardNumber || typeof cardNumber !== 'string' || cardNumber.trim() === '') return '';
     
     // הסרת רווחים קיימים וחלוקה מחדש ל-4 ספרות בכל קבוצה
     const cleaned = cardNumber.replace(/\s+/g, '');
+    
+    // אם אחרי הניקוי נשארנו עם מחרוזת ריקה
+    if (!cleaned) return '';
+    
     let formatted = '';
     
     for (let i = 0; i < cleaned.length; i += 4) {
@@ -3108,7 +3285,7 @@ const BookingListView = () => {
                                 size="small"
                                 fullWidth
                                 placeholder="MM/YY"
-                                defaultValue={formatCreditCardExpiry(bookingDialog.bookingData.creditCard)}
+                                defaultValue={bookingDialog.bookingData.creditCard && Object.values(bookingDialog.bookingData.creditCard).some(val => val) ? formatCreditCardExpiry(bookingDialog.bookingData.creditCard) : ''}
                                 sx={{ 
                                   '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
                                   '& .MuiInputLabel-root': { fontSize: '0.85rem' },
