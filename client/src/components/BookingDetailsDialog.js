@@ -106,10 +106,41 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
         }
       }));
     } else {
-      setEditedBooking(prev => ({
-        ...prev,
-        [name]: processedValue
-      }));
+      setEditedBooking(prev => {
+        const updated = {
+          ...prev,
+          [name]: processedValue
+        };
+
+        // חישוב מחירים מיוחדים
+        if (name === 'totalPrice') {
+          const totalPrice = parseFloat(processedValue) || 0;
+          const nights = updated.nights || 1;
+          
+          // חישוב מחיר לילה כולל מע"מ
+          const pricePerNightWithVat = Math.round((totalPrice / nights) * 100) / 100;
+          
+          // חישוב מחיר לילה ללא מע"מ
+          const vatRate = 0.18; // 18% מע"מ
+          const pricePerNightNoVat = updated.isTourist ? 
+            pricePerNightWithVat : // אם תייר, אין מע"מ
+            Math.round((pricePerNightWithVat / (1 + vatRate)) * 100) / 100; // חישוב מחיר ללא מע"מ
+          
+          // עדכון שדות המחיר
+          updated.pricePerNight = pricePerNightWithVat;
+          updated.basePrice = pricePerNightNoVat;
+          
+          console.log('עדכון מחירים לפי סה"כ:', {
+            totalPrice,
+            nights,
+            pricePerNightWithVat,
+            pricePerNightNoVat,
+            isTourist: updated.isTourist
+          });
+        }
+        
+        return updated;
+      });
     }
   };
 

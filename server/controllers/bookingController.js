@@ -832,29 +832,33 @@ exports.updateBooking = async (req, res) => {
         const totalPriceValue = parseFloat(totalPrice);
         updatedFields.totalPrice = totalPriceValue;
         
-        // חישוב מחיר ללילה (ממוצע)
+        // חישוב מחיר ללילה (כולל מע"מ) - נחלק את הסכום הכולל במספר הלילות
         const pricePerNightWithVat = Math.round((totalPriceValue / currentNights) * 100) / 100;
         
         if (isTourist) {
-          // תייר - אין מע"מ
+          // תייר - אין מע"מ - המחיר ללא מע"מ זהה למחיר כולל מע"מ
           updatedFields.basePrice = pricePerNightWithVat;
           updatedFields.pricePerNight = pricePerNightWithVat;
           updatedFields.vatAmount = 0;
         } else {
-          // אזרח רגיל - צריך לחשב את המחיר ללא מע"מ
-          const basePrice = Math.round((pricePerNightWithVat / 1.18) * 100) / 100;
-          const vatAmount = Math.round((pricePerNightWithVat - basePrice) * 100) / 100;
+          // אזרח רגיל - צריך לחשב את המחיר ללא מע"מ ואת המע"מ
+          // מחיר ללילה ללא מע"מ
+          const basePricePerNight = Math.round((pricePerNightWithVat / 1.18) * 100) / 100;
+          // מע"מ ללילה
+          const vatAmountPerNight = Math.round((pricePerNightWithVat - basePricePerNight) * 100) / 100;
           
-          updatedFields.basePrice = basePrice;
-          updatedFields.pricePerNight = pricePerNightWithVat;
-          updatedFields.vatAmount = vatAmount * currentNights;
+          updatedFields.basePrice = basePricePerNight; // מחיר לילה ללא מע"מ
+          updatedFields.pricePerNight = pricePerNightWithVat; // מחיר לילה כולל מע"מ
+          updatedFields.vatAmount = vatAmountPerNight * currentNights; // סה"כ מע"מ להזמנה
         }
         
-        console.log('עדכון מחיר מתוך סה"כ להזמנה:', {
-          basePrice: updatedFields.basePrice,
-          pricePerNight: updatedFields.pricePerNight,
-          vatAmount: updatedFields.vatAmount,
-          totalPrice: updatedFields.totalPrice,
+        console.log('עדכון מחיר מתוך סה"כ להזמנה (מתוקן):', {
+          totalPrice: totalPriceValue,
+          nights: currentNights,
+          pricePerNightWithVat, // מחיר לילה כולל מע"מ
+          basePrice: updatedFields.basePrice, // מחיר לילה ללא מע"מ
+          vatAmount: updatedFields.vatAmount, // סה"כ מע"מ להזמנה
+          calculatedTotalPrice: updatedFields.basePrice * currentNights * 1.18, // בדיקה - סה"כ מחושב מחדש
           isTourist
         });
       }

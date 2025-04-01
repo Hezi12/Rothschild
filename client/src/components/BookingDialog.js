@@ -209,13 +209,24 @@ const BookingDialog = ({
         updated.totalPrice = Math.round(priceWithVat * updated.nights * 100) / 100;
       } else if (field === 'totalPrice') {
         const total = parseFloat(value) || 0;
-        const perNightWithVat = total / updated.nights;
-        const perNightNoVat = updated.isTourist ? 
-          perNightWithVat : 
-          perNightWithVat / (1 + VAT_RATE);
+        // חישוב מחיר ללילה כולל מע"מ - סה"כ להזמנה מחולק במספר הלילות
+        const pricePerNightWithVat = Math.round((total / updated.nights) * 100) / 100;
+        // חישוב מחיר ללילה ללא מע"מ - תלוי אם תייר או לא
+        const pricePerNightNoVat = updated.isTourist ? 
+          pricePerNightWithVat : // אם תייר, אז אין מע"מ והמחיר זהה
+          Math.round((pricePerNightWithVat / (1 + VAT_RATE)) * 100) / 100; // אם לא תייר, מחשבים ללא מע"מ
         
-        updated.pricePerNightWithVat = Math.round(perNightWithVat * 100) / 100;
-        updated.pricePerNightNoVat = Math.round(perNightNoVat * 100) / 100;
+        // עדכון המחירים בטופס
+        updated.pricePerNightWithVat = pricePerNightWithVat;
+        updated.pricePerNightNoVat = pricePerNightNoVat;
+        
+        console.log('עדכון מחיר בהזמנה לפי סה"כ:', {
+          totalPrice: total,
+          nights: updated.nights,
+          pricePerNightWithVat,
+          pricePerNightNoVat,
+          isTourist: updated.isTourist,
+        });
       }
 
       return updated;

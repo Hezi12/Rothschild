@@ -1368,8 +1368,30 @@ const BookingListView = () => {
       if (field === 'totalPrice' && updatedBookingData.nights && updatedBookingData.nights > 0) {
         // עדכון מחיר לילה אם סה"כ מחיר השתנה
         const totalPrice = parseFloat(value);
+        const nights = updatedBookingData.nights;
+        const isTourist = updatedBookingData.isTourist;
+        
         if (!isNaN(totalPrice)) {
-          updatedBookingData.pricePerNight = Math.round(totalPrice / updatedBookingData.nights * 100) / 100;
+          // חישוב מחיר לילה כולל מע"מ
+          const pricePerNight = Math.round((totalPrice / nights) * 100) / 100;
+          updatedBookingData.pricePerNight = pricePerNight;
+          
+          // חישוב מחיר לילה ללא מע"מ
+          if (isTourist) {
+            // תייר - אין מע"מ
+            updatedBookingData.pricePerNightNoVat = pricePerNight;
+          } else {
+            // ישראלי - צריך להפחית מע"מ
+            updatedBookingData.pricePerNightNoVat = Math.round((pricePerNight / 1.18) * 100) / 100;
+          }
+          
+          console.log('עדכון מחירים לפי סה"כ:', {
+            totalPrice,
+            nights, 
+            pricePerNight,
+            pricePerNightNoVat: updatedBookingData.pricePerNightNoVat,
+            isTourist
+          });
         }
       }
       
@@ -1899,23 +1921,6 @@ const BookingListView = () => {
         updatedFormData.totalPrice = Math.round(priceWithVat * nights * 100) / 100;
       }
       
-      // אם שינו סה"כ מחיר להזמנה
-      if (field === 'totalPrice' && value) {
-        const totalPrice = parseFloat(value);
-        const nights = updatedFormData.nights || 1;
-        const isTourist = updatedFormData.isTourist;
-        
-        // עדכון מחיר ללילה כולל מע"מ
-        updatedFormData.pricePerNight = Math.round((totalPrice / nights) * 100) / 100;
-        
-        // עדכון מחיר ללילה ללא מע"מ - תלוי אם תייר
-        if (isTourist) {
-          updatedFormData.pricePerNightNoVat = updatedFormData.pricePerNight; // תייר - זהה למחיר עם מע"מ
-        } else {
-          updatedFormData.pricePerNightNoVat = Math.round((updatedFormData.pricePerNight / (1 + vatRate / 100)) * 100) / 100;
-        }
-      }
-      
       // אם שינו את השדה isTourist
       if (field === 'isTourist') {
         const isTourist = value === true || value === 'true';
@@ -1934,6 +1939,31 @@ const BookingListView = () => {
         updatedFormData.totalPrice = Math.round(updatedFormData.pricePerNight * nights * 100) / 100;
         
         console.log(`סטטוס תייר עודכן ל-${isTourist ? 'כן' : 'לא'}, מחיר עודכן: ${updatedFormData.pricePerNight} x ${nights} לילות = ${updatedFormData.totalPrice}`);
+      }
+      
+      // אם שינו סה"כ מחיר להזמנה
+      if (field === 'totalPrice' && value) {
+        const totalPrice = parseFloat(value);
+        const nights = updatedFormData.nights || 1;
+        const isTourist = updatedFormData.isTourist;
+        
+        // עדכון מחיר ללילה כולל מע"מ
+        updatedFormData.pricePerNight = Math.round((totalPrice / nights) * 100) / 100;
+        
+        // עדכון מחיר ללילה ללא מע"מ - תלוי אם תייר
+        if (isTourist) {
+          updatedFormData.pricePerNightNoVat = updatedFormData.pricePerNight; // תייר - זהה למחיר עם מע"מ
+        } else {
+          updatedFormData.pricePerNightNoVat = Math.round((updatedFormData.pricePerNight / (1 + vatRate / 100)) * 100) / 100;
+        }
+        
+        console.log('עדכון מחירים לפי סה"כ בהזמנה חדשה:', {
+          totalPrice,
+          nights, 
+          pricePerNight: updatedFormData.pricePerNight,
+          pricePerNightNoVat: updatedFormData.pricePerNightNoVat,
+          isTourist
+        });
       }
       
       return {
