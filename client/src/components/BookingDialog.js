@@ -196,6 +196,29 @@ const BookingDialog = ({
         updated[field] = value;
       }
 
+      // עדכון תאריך צ'ק-אאוט כאשר משנים מספר לילות
+      if (field === 'nights') {
+        const nights = parseInt(value) || 1;
+        // חישוב תאריך צ'ק-אאוט חדש לפי תאריך צ'ק-אין + מספר הלילות
+        const checkIn = new Date(updated.checkIn);
+        const checkOut = new Date(checkIn);
+        checkOut.setDate(checkIn.getDate() + nights);
+        updated.checkOut = checkOut;
+        updated.nights = nights;
+        
+        // עדכון המחירים 
+        if (updated.pricePerNightWithVat) {
+          updated.totalPrice = Math.round(updated.pricePerNightWithVat * nights * 100) / 100;
+        }
+        
+        console.log('עדכון תאריך צ\'ק-אאוט לפי מספר לילות:', {
+          checkIn: checkIn,
+          nights: nights,
+          newCheckOut: checkOut,
+          totalPrice: updated.totalPrice
+        });
+      }
+      
       // טיפול במחירים
       if (field === 'pricePerNightNoVat') {
         const priceNoVat = parseFloat(value) || 0;
@@ -383,8 +406,12 @@ const BookingDialog = ({
                       fullWidth
                       label="מספר לילות"
                       value={formData.nights}
-                      disabled
+                      onChange={(e) => handleFieldChange('nights', e.target.value)}
+                      type="number"
                       size="small"
+                      InputProps={{
+                        inputProps: { min: 1 }
+                      }}
                     />
                   </Grid>
 

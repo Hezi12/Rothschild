@@ -90,6 +90,38 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
   const handleFieldChange = (e) => {
     const { name, value } = e.target;
     
+    // טיפול מיוחד בשדה nights - עדכון תאריך צ'ק-אאוט אוטומטית
+    if (name === 'nights') {
+      const nights = parseInt(value) || 1;
+      
+      setEditedBooking(prev => {
+        // חישוב תאריך צ'ק-אאוט חדש לפי תאריך צ'ק-אין + מספר הלילות
+        const checkIn = new Date(prev.checkIn);
+        const checkOut = new Date(checkIn);
+        checkOut.setDate(checkIn.getDate() + nights);
+        
+        // עדכון מחיר כולל לפי מחיר לילה × מספר לילות
+        const pricePerNight = prev.pricePerNight || (prev.totalPrice / prev.nights);
+        const totalPrice = pricePerNight * nights;
+        
+        console.log('עדכון תאריך צ\'ק-אאוט לפי מספר לילות:', {
+          checkIn: checkIn,
+          nights: nights,
+          newCheckOut: checkOut,
+          totalPrice: totalPrice
+        });
+        
+        return {
+          ...prev,
+          nights: nights,
+          checkOut: format(checkOut, 'yyyy-MM-dd'),
+          totalPrice: Math.round(totalPrice * 100) / 100
+        };
+      });
+      
+      return; // יציאה מהפונקציה אחרי הטיפול המיוחד
+    }
+    
     // טיפול מיוחד בשדה totalPrice - למניעת בעיות המרה
     if (name === 'totalPrice') {
       // טיפול מיוחד בערכי מספר
