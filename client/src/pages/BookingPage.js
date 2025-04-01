@@ -52,6 +52,7 @@ const BookingPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+  const currentPath = location.pathname;
   
   const initialCheckIn = location.state?.checkIn || '';
   const initialCheckOut = location.state?.checkOut || '';
@@ -97,7 +98,7 @@ const BookingPage = () => {
       email: ''
     },
     isTourist: initialIsTourist,
-    paymentMethod: 'credit',
+    paymentMethod: 'creditRothschild',
     creditCardDetails: {
       cardNumber: '',
       expiryDate: '',
@@ -1499,41 +1500,46 @@ const BookingPage = () => {
     <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 } }}>
       {renderStepper()}
       
-      {activeStep === steps.length ? (
-        renderComplete()
-      ) : (
-        <Box>
-          {getStepContent(activeStep)}
-          
-          {activeStep !== 0 && (
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-              <Button onClick={handleBack} disabled={activeStep === 0} size={isMobile ? "small" : "medium"}>
-                חזרה
-              </Button>
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                {activeStep === 2 && !isPaymentDetailsValid() && (
-                  <Typography variant="caption" color="error" sx={{ mb: 1 }}>
-                    יש להזין את כל פרטי האשראי: מספר כרטיס (לפחות 8 ספרות), תאריך תוקף וקוד אבטחה
-                  </Typography>
-                )}
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={activeStep === steps.length - 1 ? handleSubmit : handleNext}
-                  disabled={
-                    (activeStep === 0 && !bookingData.roomId) ||
-                    (activeStep === 1 && !isGuestDetailsValid()) ||
-                    (activeStep === 2 && !isPaymentDetailsValid())
-                  }
-                  size={isMobile ? "small" : "medium"}
-                >
-                  {activeStep === steps.length - 1 ? 'סיים הזמנה' : 'המשך'}
-                </Button>
-              </Box>
-            </Box>
-          )}
-        </Box>
-      )}
+      {activeStep === 0 && renderDateSelection()}
+      {activeStep === 1 && renderGuestDetails()}
+      {activeStep === 2 && renderPaymentDetails()}
+      {activeStep === 3 && renderSummary()}
+      
+      <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2, mt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Button
+          disabled={activeStep === 0 || loading}
+          onClick={handleBack}
+          sx={{ mr: 1 }}
+        >
+          הקודם
+        </Button>
+        <Box sx={{ flex: '1 1 auto' }} />
+        {activeStep === steps.length - 1 ? (
+          <Button 
+            variant="contained" 
+            onClick={handleSubmit}
+            disabled={loading}
+            sx={{ 
+              bgcolor: theme.palette.success.main, 
+              '&:hover': { bgcolor: theme.palette.success.dark }
+            }}
+          >
+            {loading ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : (
+              'סיום והזמנה'
+            )}
+          </Button>
+        ) : (
+          <Button
+            variant="contained"
+            onClick={handleNext}
+            disabled={loading || (activeStep === 0 && !bookingData.checkIn)}
+          >
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'הבא'}
+          </Button>
+        )}
+      </Box>
     </Container>
   );
 };

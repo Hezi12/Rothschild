@@ -31,7 +31,8 @@ import {
   IconButton,
   Tooltip,
   useTheme,
-  alpha
+  alpha,
+  styled
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -62,9 +63,12 @@ import {
   Payments as PaymentsIcon,
   LocalAtm as LocalAtmIcon,
   ImportExport as ImportExportIcon,
-  Smartphone as SmartphoneIcon
+  Smartphone as SmartphoneIcon,
+  Hotel as HotelIcon,
+  Assessment as AssessmentIcon,
+  Language as LanguageIcon
 } from '@mui/icons-material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { format, parseISO, startOfMonth, endOfMonth, getMonth, getYear, subMonths, differenceInMonths } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { AuthContext } from '../context/AuthContext';
@@ -91,6 +95,37 @@ import {
   RadialBarChart,
   RadialBar
 } from 'recharts';
+
+// קומפוננטה של סרגל צדדי
+const MinimalSidebar = styled(Box)(({ theme }) => ({
+  position: 'fixed',
+  left: 0,
+  top: '50%',
+  transform: 'translateY(-50%)',
+  display: 'flex',
+  flexDirection: 'column',
+  padding: '10px 0',
+  backgroundColor: '#ffffff',
+  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+  borderRadius: '0 8px 8px 0',
+  zIndex: 100,
+  gap: '5px',
+  width: '60px'
+}));
+
+const SidebarButton = styled(Tooltip)(({ theme, isActive }) => ({
+  '& .MuiButtonBase-root': {
+    padding: '12px',
+    color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
+    backgroundColor: isActive ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+    '&:hover': {
+      backgroundColor: alpha(theme.palette.primary.main, 0.05)
+    },
+    transition: 'all 0.3s ease',
+    borderLeft: isActive ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
+    borderRight: 'none'
+  }
+}));
 
 // כרטיס נתונים מעוצב
 const StatCard = ({ icon, title, value, subtext, color, trend, trendValue }) => {
@@ -219,6 +254,8 @@ const IncomeReportPage = () => {
   const { isAdmin } = useContext(AuthContext);
   const { bookings, loading, error, fetchBookings } = useContext(BookingContext);
   const theme = useTheme();
+  const location = useLocation();
+  const currentPath = location.pathname;
 
   // מצבים (סטייטים)
   const [tabValue, setTabValue] = useState(0);
@@ -681,15 +718,70 @@ const IncomeReportPage = () => {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ 
-      mt: 4, 
-      mb: 4,
-      animation: 'fadeIn 0.5s ease-in-out',
-      '@keyframes fadeIn': {
-        '0%': { opacity: 0, transform: 'translateY(10px)' },
-        '100%': { opacity: 1, transform: 'translateY(0)' }
-      }
-    }}>
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+      {/* סרגל צדדי */}
+      <MinimalSidebar>
+        <SidebarButton title="לוח מחוונים" placement="right" isActive={currentPath === '/dashboard'}>
+          <IconButton
+            component={RouterLink}
+            to="/dashboard"
+            aria-label="dashboard"
+          >
+            <DashboardIcon sx={{ color: isActive => isActive ? '#3498db' : theme.palette.text.secondary, '&:hover': { color: '#2980b9' } }} />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="יומן הזמנות" placement="right" isActive={currentPath === '/dashboard/bookings-calendar'}>
+          <IconButton
+            component={RouterLink}
+            to="/dashboard/bookings-calendar"
+            aria-label="bookings-calendar"
+          >
+            <CalendarMonthIcon sx={{ color: isActive => isActive ? '#e74c3c' : theme.palette.text.secondary, '&:hover': { color: '#c0392b' } }} />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="106 / Airport" placement="right" isActive={currentPath === '/dashboard/simple-bookings'}>
+          <IconButton
+            component={RouterLink}
+            to="/dashboard/simple-bookings"
+            aria-label="airport"
+          >
+            <HotelIcon sx={{ color: isActive => isActive ? '#f39c12' : theme.palette.text.secondary, '&:hover': { color: '#d35400' } }} />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="דו״ח הכנסות" placement="right" isActive={currentPath === '/dashboard/income-report'}>
+          <IconButton
+            component={RouterLink}
+            to="/dashboard/income-report"
+            aria-label="income-report"
+          >
+            <AssessmentIcon sx={{ color: isActive => isActive ? '#9b59b6' : theme.palette.text.secondary, '&:hover': { color: '#8e44ad' } }} />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="אתר הבית" placement="right" isActive={currentPath === '/'}>
+          <IconButton
+            component={RouterLink}
+            to="/"
+            aria-label="home"
+          >
+            <LanguageIcon sx={{ color: isActive => isActive ? '#2ecc71' : theme.palette.text.secondary, '&:hover': { color: '#27ae60' } }} />
+          </IconButton>
+        </SidebarButton>
+      </MinimalSidebar>
+
+      <Container maxWidth="xl" sx={{ 
+        mt: 4, 
+        mb: 4,
+        paddingLeft: '65px',
+        animation: 'fadeIn 0.5s ease-in-out',
+        '@keyframes fadeIn': {
+          '0%': { opacity: 0, transform: 'translateY(10px)' },
+          '100%': { opacity: 1, transform: 'translateY(0)' }
+        }
+      }}>
       {/* כותרת ופירורי לחם */}
       <Paper 
         elevation={0} 
@@ -1610,6 +1702,7 @@ const IncomeReportPage = () => {
         </Alert>
       )}
     </Container>
+    </LocalizationProvider>
   );
 };
 

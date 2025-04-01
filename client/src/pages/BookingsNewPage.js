@@ -54,7 +54,8 @@ import {
   CalendarMonth as CalendarMonthIcon,
   Dashboard as DashboardIcon,
   Hotel as HotelIcon,
-  Language as LanguageIcon
+  Language as LanguageIcon,
+  Assessment as AssessmentIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -751,16 +752,24 @@ const BookingsNewPage = () => {
     switch (method) {
       case 'cash':
         return 'מזומן';
-      case 'credit':
-        return 'כרטיס אשראי';
+      // case 'credit':
+      //   return 'כרטיס אשראי';
       case 'creditOr':
         return 'אשראי אור יהודה';
       case 'creditRothschild':
         return 'אשראי רוטשילד';
       case 'mizrahi':
         return 'העברה מזרחי';
+      case 'bitMizrahi':
+        return 'ביט מזרחי';
+      case 'payboxMizrahi':
+        return 'פייבוקס מזרחי';
       case 'poalim':
         return 'העברה פועלים';
+      case 'bitPoalim':
+        return 'ביט פועלים';
+      case 'payboxPoalim':
+        return 'פייבוקס פועלים';
       case 'other':
         return 'אחר';
       default:
@@ -823,56 +832,54 @@ const BookingsNewPage = () => {
       {/* סרגל צדדי מינימליסטי */}
       <MinimalSidebar>
         <SidebarButton title="לוח מחוונים" placement="right" isActive={currentPath === '/dashboard'}>
-          <IconButton 
-            component={RouterLink} 
+          <IconButton
+            component={RouterLink}
             to="/dashboard"
-            sx={{ 
-              color: isActive => isActive ? '#3498db' : '#666',
-              '&:hover': { color: '#2980b9' }
-            }}
+            aria-label="dashboard"
           >
-            <DashboardIcon fontSize="medium" />
+            <DashboardIcon sx={{ color: isActive => isActive ? '#3498db' : theme.palette.text.secondary, '&:hover': { color: '#2980b9' } }} />
           </IconButton>
         </SidebarButton>
         
         <SidebarButton title="יומן הזמנות" placement="right" isActive={currentPath === '/dashboard/bookings-calendar'}>
-          <IconButton 
-            component={RouterLink} 
+          <IconButton
+            component={RouterLink}
             to="/dashboard/bookings-calendar"
-            sx={{ 
-              color: isActive => isActive ? '#e74c3c' : '#666',
-              '&:hover': { color: '#c0392b' }
-            }}
+            aria-label="bookings-calendar"
           >
-            <EventIcon fontSize="medium" />
+            <CalendarMonthIcon sx={{ color: isActive => isActive ? '#e74c3c' : theme.palette.text.secondary, '&:hover': { color: '#c0392b' } }} />
           </IconButton>
         </SidebarButton>
         
         <SidebarButton title="106 / Airport" placement="right" isActive={currentPath === '/dashboard/simple-bookings'}>
-          <IconButton 
-            component={RouterLink} 
+          <IconButton
+            component={RouterLink}
             to="/dashboard/simple-bookings"
-            sx={{ 
-              color: isActive => isActive ? '#f39c12' : '#666',
-              '&:hover': { color: '#d35400' }
-            }}
+            aria-label="airport"
           >
-            <HotelIcon fontSize="medium" />
+            <HotelIcon sx={{ color: isActive => isActive ? '#f39c12' : theme.palette.text.secondary, '&:hover': { color: '#d35400' } }} />
+          </IconButton>
+        </SidebarButton>
+
+        <SidebarButton title="דו״ח הכנסות" placement="right" isActive={currentPath === '/dashboard/income-report'}>
+          <IconButton
+            component={RouterLink}
+            to="/dashboard/income-report"
+            aria-label="income-report"
+          >
+            <AssessmentIcon sx={{ color: isActive => isActive ? '#9b59b6' : theme.palette.text.secondary, '&:hover': { color: '#8e44ad' } }} />
           </IconButton>
         </SidebarButton>
 
         <Box sx={{ flexGrow: 1 }} /> {/* מרווח גמיש שידחוף את האייקון הבא לתחתית */}
         
         <SidebarButton title="אתר הבית" placement="right" isActive={currentPath === '/'}>
-          <IconButton 
-            component={RouterLink} 
+          <IconButton
+            component={RouterLink}
             to="/"
-            sx={{ 
-              color: isActive => isActive ? '#2ecc71' : '#666',
-              '&:hover': { color: '#27ae60' }
-            }}
+            aria-label="home"
           >
-            <LanguageIcon fontSize="medium" />
+            <LanguageIcon sx={{ color: isActive => isActive ? '#2ecc71' : theme.palette.text.secondary, '&:hover': { color: '#27ae60' } }} />
           </IconButton>
         </SidebarButton>
       </MinimalSidebar>
