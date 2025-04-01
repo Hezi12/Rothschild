@@ -1346,7 +1346,7 @@ const BookingListView = () => {
         if (updatedBookingData.checkIn && updatedBookingData.checkOut) {
           const checkIn = new Date(updatedBookingData.checkIn);
           const checkOut = new Date(updatedBookingData.checkOut);
-          const nights = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)));
+          const nights = differenceInDays(checkOut, checkIn);
           
           updatedBookingData.nights = nights;
           
@@ -1929,7 +1929,7 @@ const BookingListView = () => {
           // חישוב לילות
           const checkIn = new Date(updatedFormData.checkIn);
           const checkOut = new Date(updatedFormData.checkOut);
-          const nights = Math.max(1, Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24)));
+          const nights = differenceInDays(checkOut, checkIn);
           
           updatedFormData.nights = nights;
           
