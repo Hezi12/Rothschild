@@ -2014,7 +2014,27 @@ const BookingListView = () => {
       
       // אם שינו סה"כ מחיר להזמנה
       if (field === 'totalPrice' && value) {
-        const totalPrice = parseFloat(value);
+        // טיפול מיוחד בערכי מספר - הסרת מספרים עשרוניים
+        // קודם נוודא שאנחנו מקבלים מחרוזת
+        const valueStr = value.toString();
+        
+        // בודקים אם זו מחרוזת שמכילה נקודה עשרונית במקום הלא נכון
+        // למשל: "7.00" במקום "700" 
+        let fixedValue = valueStr;
+        
+        // אם מתחיל בספרה יחידה ואחריה נקודה, ואחרי הנקודה יש רק אפסים - כנראה שזו שגיאת המרה
+        if (/^[0-9]\.0+$/.test(valueStr)) {
+          // הסר את הנקודה והאפסים, כנראה שהמשתמש התכוון למספר שלם
+          fixedValue = valueStr.charAt(0) + '0'.repeat(valueStr.length - 2);
+          console.log(`תיקון ערך מ-${valueStr} ל-${fixedValue}`);
+        } else if (/^[0-9]\.[0-9]+$/.test(valueStr) && !valueStr.includes(',')) {
+          // אם זה בפורמט X.YY וללא פסיקים, ייתכן שהמשתמש התכוון ל-XYY
+          // נסיר את הנקודה ונשמור את כל הספרות
+          fixedValue = valueStr.replace('.', '');
+          console.log(`תיקון ערך מ-${valueStr} ל-${fixedValue}`);
+        }
+        
+        const totalPrice = parseFloat(fixedValue) || 0;
         const nights = updatedFormData.nights || 1;
         const isTourist = updatedFormData.isTourist;
         
@@ -2028,7 +2048,12 @@ const BookingListView = () => {
           updatedFormData.pricePerNightNoVat = Math.round((updatedFormData.pricePerNight / (1 + vatRate / 100)) * 100) / 100;
         }
         
+        // שמירת הערך המתוקן בשדה הסכום
+        updatedFormData.totalPrice = totalPrice;
+        
         console.log('עדכון מחירים לפי סה"כ בהזמנה חדשה:', {
+          originalValue: value,
+          fixedValue,
           totalPrice,
           nights, 
           pricePerNight: updatedFormData.pricePerNight,

@@ -208,7 +208,26 @@ const BookingDialog = ({
         updated.pricePerNightNoVat = Math.round(noVat * 100) / 100;
         updated.totalPrice = Math.round(priceWithVat * updated.nights * 100) / 100;
       } else if (field === 'totalPrice') {
-        const total = parseFloat(value) || 0;
+        // טיפול מיוחד בערכי מספר - למניעת בעיות המרה
+        const valueStr = value.toString();
+        
+        // בודקים אם זו מחרוזת שמכילה נקודה עשרונית במקום הלא נכון
+        // למשל: "7.00" במקום "700" 
+        let fixedValue = valueStr;
+        
+        // אם מתחיל בספרה יחידה ואחריה נקודה, ואחרי הנקודה יש רק אפסים - כנראה שזו שגיאת המרה
+        if (/^[0-9]\.0+$/.test(valueStr)) {
+          // הסר את הנקודה והאפסים, כנראה שהמשתמש התכוון למספר שלם
+          fixedValue = valueStr.charAt(0) + '0'.repeat(valueStr.length - 2);
+          console.log(`תיקון ערך מ-${valueStr} ל-${fixedValue}`);
+        } else if (/^[0-9]\.[0-9]+$/.test(valueStr) && !valueStr.includes(',')) {
+          // אם זה בפורמט X.YY וללא פסיקים, ייתכן שהמשתמש התכוון ל-XYY
+          // נסיר את הנקודה ונשמור את כל הספרות
+          fixedValue = valueStr.replace('.', '');
+          console.log(`תיקון ערך מ-${valueStr} ל-${fixedValue}`);
+        }
+        
+        const total = parseFloat(fixedValue) || 0;
         // חישוב מחיר ללילה כולל מע"מ - סה"כ להזמנה מחולק במספר הלילות
         const pricePerNightWithVat = Math.round((total / updated.nights) * 100) / 100;
         // חישוב מחיר ללילה ללא מע"מ - תלוי אם תייר או לא
@@ -219,8 +238,11 @@ const BookingDialog = ({
         // עדכון המחירים בטופס
         updated.pricePerNightWithVat = pricePerNightWithVat;
         updated.pricePerNightNoVat = pricePerNightNoVat;
+        updated.totalPrice = total; // שמירת הערך המתוקן
         
         console.log('עדכון מחיר בהזמנה לפי סה"כ:', {
+          originalValue: value,
+          fixedValue,
           totalPrice: total,
           nights: updated.nights,
           pricePerNightWithVat,

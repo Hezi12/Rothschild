@@ -90,6 +90,59 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
   const handleFieldChange = (e) => {
     const { name, value } = e.target;
     
+    // טיפול מיוחד בשדה totalPrice - למניעת בעיות המרה
+    if (name === 'totalPrice') {
+      // טיפול מיוחד בערכי מספר
+      const valueStr = value.toString();
+      
+      // בודקים אם זו מחרוזת שמכילה נקודה עשרונית במקום הלא נכון
+      let fixedValue = valueStr;
+      
+      // אם מתחיל בספרה יחידה ואחריה נקודה, ואחרי הנקודה יש רק אפסים
+      if (/^[0-9]\.0+$/.test(valueStr)) {
+        // כנראה שהמשתמש התכוון למספר שלם, הסר את הנקודה והאפסים
+        fixedValue = valueStr.charAt(0) + '0'.repeat(valueStr.length - 2);
+        console.log(`תיקון ערך מ-${valueStr} ל-${fixedValue}`);
+      } else if (/^[0-9]\.[0-9]+$/.test(valueStr) && !valueStr.includes(',')) {
+        // אם זה בפורמט X.YY וללא פסיקים, ייתכן שהמשתמש התכוון ל-XYY
+        fixedValue = valueStr.replace('.', '');
+        console.log(`תיקון ערך מ-${valueStr} ל-${fixedValue}`);
+      }
+      
+      setEditedBooking(prev => {
+        const totalPrice = parseFloat(fixedValue) || 0;
+        const nights = prev.nights || 1;
+        
+        // חישוב מחיר לילה כולל מע"מ
+        const pricePerNightWithVat = Math.round((totalPrice / nights) * 100) / 100;
+        
+        // חישוב מחיר לילה ללא מע"מ
+        const vatRate = 0.18; // 18% מע"מ
+        const pricePerNightNoVat = prev.isTourist ? 
+          pricePerNightWithVat : // אם תייר, אין מע"מ
+          Math.round((pricePerNightWithVat / (1 + vatRate)) * 100) / 100; // חישוב מחיר ללא מע"מ
+        
+        console.log('עדכון מחירים לפי סה"כ:', {
+          originalValue: value,
+          fixedValue,
+          totalPrice,
+          nights,
+          pricePerNightWithVat,
+          pricePerNightNoVat,
+          isTourist: prev.isTourist
+        });
+        
+        return {
+          ...prev,
+          totalPrice,
+          pricePerNight: pricePerNightWithVat,
+          basePrice: pricePerNightNoVat
+        };
+      });
+      
+      return; // סיים את הפונקציה כאן, מכיוון שכבר עדכנו את הסטייט
+    }
+    
     // ניקוי רווחים ממספר כרטיס אשראי
     let processedValue = value;
     if (name === 'creditCard.cardNumber') {
@@ -106,41 +159,10 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
         }
       }));
     } else {
-      setEditedBooking(prev => {
-        const updated = {
-          ...prev,
-          [name]: processedValue
-        };
-
-        // חישוב מחירים מיוחדים
-        if (name === 'totalPrice') {
-          const totalPrice = parseFloat(processedValue) || 0;
-          const nights = updated.nights || 1;
-          
-          // חישוב מחיר לילה כולל מע"מ
-          const pricePerNightWithVat = Math.round((totalPrice / nights) * 100) / 100;
-          
-          // חישוב מחיר לילה ללא מע"מ
-          const vatRate = 0.18; // 18% מע"מ
-          const pricePerNightNoVat = updated.isTourist ? 
-            pricePerNightWithVat : // אם תייר, אין מע"מ
-            Math.round((pricePerNightWithVat / (1 + vatRate)) * 100) / 100; // חישוב מחיר ללא מע"מ
-          
-          // עדכון שדות המחיר
-          updated.pricePerNight = pricePerNightWithVat;
-          updated.basePrice = pricePerNightNoVat;
-          
-          console.log('עדכון מחירים לפי סה"כ:', {
-            totalPrice,
-            nights,
-            pricePerNightWithVat,
-            pricePerNightNoVat,
-            isTourist: updated.isTourist
-          });
-        }
-        
-        return updated;
-      });
+      setEditedBooking(prev => ({
+        ...prev,
+        [name]: processedValue
+      }));
     }
   };
 
