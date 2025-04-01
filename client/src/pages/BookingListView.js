@@ -1350,65 +1350,119 @@ const BookingListView = () => {
           
           updatedBookingData.nights = nights;
           
-          // עדכון מחיר כולל
+          // עדכון מחיר כולל אם יש מחיר לילה
           if (updatedBookingData.pricePerNight) {
             updatedBookingData.totalPrice = Math.round(nights * updatedBookingData.pricePerNight * 100) / 100;
           }
         }
       }
       
-      if (field === 'pricePerNight' && updatedBookingData.nights) {
-        // עדכון סה"כ מחיר אם מחיר לילה השתנה
-        const pricePerNight = parseFloat(value);
-        if (!isNaN(pricePerNight)) {
-          updatedBookingData.totalPrice = Math.round(pricePerNight * updatedBookingData.nights * 100) / 100;
-        }
-      }
-      
-      if (field === 'totalPrice' && updatedBookingData.nights && updatedBookingData.nights > 0) {
-        // עדכון מחיר לילה אם סה"כ מחיר השתנה
-        const totalPrice = parseFloat(value);
-        const nights = updatedBookingData.nights;
-        const isTourist = updatedBookingData.isTourist;
-        
-        if (!isNaN(totalPrice)) {
-          // חישוב מחיר לילה כולל מע"מ
-          const pricePerNight = Math.round((totalPrice / nights) * 100) / 100;
-          updatedBookingData.pricePerNight = pricePerNight;
+      if (field === 'pricePerNightNoVat') {
+        // עדכון מחיר לילה כולל מע"מ ומחיר כולל אם שונה מחיר ללא מע"מ
+        const priceNoVat = parseFloat(value) || 0;
+        if (!isNaN(priceNoVat)) {
+          // עדכון מחיר כולל מע"מ לפי סטטוס תייר
+          const withVat = updatedBookingData.isTourist ? 
+            priceNoVat : 
+            Math.round((priceNoVat * 1.18) * 100) / 100;
           
-          // חישוב מחיר לילה ללא מע"מ
-          if (isTourist) {
-            // תייר - אין מע"מ
-            updatedBookingData.pricePerNightNoVat = pricePerNight;
-          } else {
-            // ישראלי - צריך להפחית מע"מ
-            updatedBookingData.pricePerNightNoVat = Math.round((pricePerNight / 1.18) * 100) / 100;
-          }
+          updatedBookingData.pricePerNight = withVat;
+          updatedBookingData.basePrice = priceNoVat; // שמירת basePrice לתאימות
+          
+          // עדכון מחיר כולל להזמנה
+          const nights = updatedBookingData.nights || 1;
+          updatedBookingData.totalPrice = Math.round(withVat * nights * 100) / 100;
+          
+          console.log('עדכון מחירים לפי מחיר ללא מע"מ:', {
+            priceNoVat,
+            withVat,
+            nights, 
+            totalPrice: updatedBookingData.totalPrice,
+            isTourist: updatedBookingData.isTourist
+          });
+        }
+      } else if (field === 'pricePerNight') {
+        // עדכון מחיר ללא מע"מ ומחיר כולל אם שונה מחיר כולל מע"מ
+        const priceWithVat = parseFloat(value) || 0;
+        if (!isNaN(priceWithVat)) {
+          // עדכון מחיר ללא מע"מ לפי סטטוס תייר
+          const priceNoVat = updatedBookingData.isTourist ? 
+            priceWithVat : 
+            Math.round((priceWithVat / 1.18) * 100) / 100;
+          
+          updatedBookingData.pricePerNightNoVat = priceNoVat;
+          updatedBookingData.basePrice = priceNoVat; // שמירת basePrice לתאימות
+          
+          // עדכון מחיר כולל להזמנה
+          const nights = updatedBookingData.nights || 1;
+          updatedBookingData.totalPrice = Math.round(priceWithVat * nights * 100) / 100;
+          
+          console.log('עדכון מחירים לפי מחיר כולל מע"מ:', {
+            priceWithVat,
+            priceNoVat,
+            nights, 
+            totalPrice: updatedBookingData.totalPrice,
+            isTourist: updatedBookingData.isTourist
+          });
+        }
+      } else if (field === 'totalPrice') {
+        // עדכון מחירים לפי סה"כ מחיר להזמנה
+        const totalPrice = parseFloat(value) || 0;
+        const nights = updatedBookingData.nights || 1;
+        
+        if (!isNaN(totalPrice) && nights > 0) {
+          // חישוב מחיר לילה כולל מע"מ
+          const priceWithVat = Math.round((totalPrice / nights) * 100) / 100;
+          updatedBookingData.pricePerNight = priceWithVat;
+          
+          // חישוב מחיר לילה ללא מע"מ לפי סטטוס תייר
+          const priceNoVat = updatedBookingData.isTourist ? 
+            priceWithVat : // תייר - אין מע"מ
+            Math.round((priceWithVat / 1.18) * 100) / 100; // אזרח ישראלי - יש מע"מ
+          
+          updatedBookingData.pricePerNightNoVat = priceNoVat;
+          updatedBookingData.basePrice = priceNoVat; // שמירת basePrice לתאימות
           
           console.log('עדכון מחירים לפי סה"כ:', {
             totalPrice,
             nights, 
-            pricePerNight,
-            pricePerNightNoVat: updatedBookingData.pricePerNightNoVat,
-            isTourist
+            priceWithVat,
+            priceNoVat,
+            isTourist: updatedBookingData.isTourist
           });
         }
-      }
-      
-      if (field === 'isTourist') {
-        // עדכון מחירים אם סטטוס תייר השתנה
-        if (updatedBookingData.pricePerNight) {
-          const pricePerNight = updatedBookingData.pricePerNight;
-          const nights = updatedBookingData.nights || 1;
-          
-          if (value) {
-            // תייר - ללא מע"מ
-            updatedBookingData.totalPrice = Math.round(pricePerNight * nights * 100) / 100;
-          } else {
-            // לא תייר - כולל מע"מ
-            updatedBookingData.totalPrice = Math.round(pricePerNight * nights * 100) / 100;
+      } else if (field === 'isTourist') {
+        // עדכון מחירים אם השתנה סטטוס תייר
+        const isTourist = value === true || value === 'true';
+        
+        // מעדכנים את השדה
+        updatedBookingData.isTourist = isTourist;
+        
+        if (isTourist) {
+          // תייר - אין מע"מ
+          // המחיר ללא מע"מ שווה למחיר כולל מע"מ
+          if (updatedBookingData.pricePerNight) {
+            updatedBookingData.pricePerNightNoVat = updatedBookingData.pricePerNight;
+            updatedBookingData.basePrice = updatedBookingData.pricePerNight;
+          }
+        } else {
+          // אזרח ישראלי - יש מע"מ
+          // מחשבים מחדש את המחיר ללא מע"מ
+          if (updatedBookingData.pricePerNight) {
+            const priceNoVat = Math.round((updatedBookingData.pricePerNight / 1.18) * 100) / 100;
+            updatedBookingData.pricePerNightNoVat = priceNoVat;
+            updatedBookingData.basePrice = priceNoVat;
           }
         }
+        
+        // לא משנים את המחיר הכולל, רק את החלוקה בין המע"מ והבסיס
+        
+        console.log('עדכון מחירים בעקבות שינוי סטטוס תייר:', {
+          isTourist,
+          pricePerNight: updatedBookingData.pricePerNight,
+          pricePerNightNoVat: updatedBookingData.pricePerNightNoVat,
+          totalPrice: updatedBookingData.totalPrice
+        });
       }
       
       return {
@@ -1651,21 +1705,33 @@ const BookingListView = () => {
       // לוודא שיש לנו את כל שדות המחיר שצריך
       const bookingToUpdate = {
         ...updatedData,
-        // וידוא קיום שדות המחיר
-        pricePerNight: updatedData.pricePerNight || updatedData.totalPrice / (updatedData.nights || 1),
-        pricePerNightNoVat: updatedData.pricePerNightNoVat || Math.round((updatedData.pricePerNight / (1 + vatRate / 100)) * 100) / 100,
-        totalPrice: updatedData.totalPrice || 0,
-        // לשמירה על תאימות עם מבנה קיים
-        basePrice: updatedData.pricePerNightNoVat || Math.round((updatedData.pricePerNight / (1 + vatRate / 100)) * 100) / 100
+        // הוספת roomId במפורש כפי שהשרת מצפה
+        roomId: updatedData.room?._id || updatedData.roomId || updatedData.room,
+        // עדכון שדות מחיר חיוניים
+        totalPrice: parseFloat(updatedData.totalPrice) || 0,
+        pricePerNight: parseFloat(updatedData.pricePerNight) || parseFloat(updatedData.totalPrice) / (updatedData.nights || 1),
+        pricePerNightNoVat: parseFloat(updatedData.pricePerNightNoVat) || Math.round((parseFloat(updatedData.pricePerNight) / 1.18) * 100) / 100,
+        // וידוא שיש basePrice לתאימות עם המודל בשרת
+        basePrice: parseFloat(updatedData.pricePerNightNoVat) || Math.round((parseFloat(updatedData.pricePerNight) / 1.18) * 100) / 100
       };
+      
+      // המרת תאריכים לפורמט שהשרת מצפה לו
+      if (bookingToUpdate.checkIn && !(bookingToUpdate.checkIn instanceof Date)) {
+        bookingToUpdate.checkIn = new Date(bookingToUpdate.checkIn);
+      }
+      if (bookingToUpdate.checkOut && !(bookingToUpdate.checkOut instanceof Date)) {
+        bookingToUpdate.checkOut = new Date(bookingToUpdate.checkOut);
+      }
       
       console.log('שולח עדכון הזמנה עם נתוני מחיר:', {
         totalPrice: bookingToUpdate.totalPrice,
         pricePerNight: bookingToUpdate.pricePerNight,
-        pricePerNightNoVat: bookingToUpdate.pricePerNightNoVat
+        pricePerNightNoVat: bookingToUpdate.pricePerNightNoVat,
+        basePrice: bookingToUpdate.basePrice,
+        nights: bookingToUpdate.nights
       });
       
-      // וידוא שדות חובה נוספים
+      // בדיקות תקינות נוספות
       if (!bookingToUpdate.checkIn || !bookingToUpdate.checkOut) {
         console.error('שדות תאריכים חסרים בעת ניסיון לעדכן הזמנה', {
           checkIn: bookingToUpdate.checkIn,
@@ -1681,23 +1747,28 @@ const BookingListView = () => {
       
       if (response.data.success) {
         toast.success('ההזמנה עודכנה בהצלחה');
-        
-        // ב-BookingListView אין לנו דיאלוג תשלום נפרד, אז אין צורך לסגור אותו
+        console.log('עדכון הזמנה הושלם בהצלחה. נתונים שהתקבלו מהשרת:', response.data.data);
         
         closeBookingDialog();
-        fetchBookingsData(); // רענון הנתונים
+        // רענון כל הנתונים מהשרת
+        fetchBookingsData();
       } else {
         console.error('תשובת שרת לא תקינה:', response.data);
         toast.error(response.data.message || 'אירעה שגיאה בעדכון ההזמנה');
       }
     } catch (error) {
       console.error('שגיאה בעדכון ההזמנה:', error);
-      if (error.response) {
-        console.error('תשובת שרת:', error.response.data);
-        toast.error(`אירעה שגיאה בעדכון ההזמנה: ${error.response.data.message || error.message}`);
-      } else {
-        toast.error(`אירעה שגיאה בעדכון ההזמנה: ${error.message}`);
+      console.error('פרטי השגיאה:', error.response?.data || error.message);
+      
+      // הודעת שגיאה ממוקדת יותר
+      let errorMessage = 'אירעה שגיאה בעדכון ההזמנה';
+      if (error.response?.data?.message) {
+        errorMessage += `: ${error.response.data.message}`;
+      } else if (error.message) {
+        errorMessage += `: ${error.message}`;
       }
+      
+      toast.error(errorMessage);
     }
   };
   
