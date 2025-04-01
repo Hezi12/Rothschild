@@ -62,7 +62,9 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { AuthContext } from '../context/AuthContext';
 import { BookingContext } from '../context/BookingContext';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
-import { alpha } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
+import BookingDialog from '../components/BookingDialog';
+import { toast } from 'react-hot-toast';
 
 // קומפוננטה חדשה - סרגל צדדי מינימליסטי
 const MinimalSidebar = (props) => (
@@ -123,6 +125,7 @@ const BookingsNewPage = () => {
   // ניתוב ומיקום נוכחי
   const location = useLocation();
   const currentPath = location.pathname;
+  const theme = useTheme();
   
   // סטייטים
   const [bookings, setBookings] = useState([]);
@@ -139,8 +142,8 @@ const BookingsNewPage = () => {
   const [selectedBookingIds, setSelectedBookingIds] = useState([]);
   const [formData, setFormData] = useState({
     roomId: '',
-    checkIn: null,
-    checkOut: null,
+    checkIn: new Date(),
+    checkOut: new Date(new Date().setDate(new Date().getDate() + 1)),
     guest: {
       firstName: '',
       lastName: '',
@@ -164,8 +167,8 @@ const BookingsNewPage = () => {
   
   // סטייטים לסינון וחיפוש
   const [filters, setFilters] = useState({
-    startDate: null,
-    endDate: null,
+    startDate: new Date(),
+    endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
     roomId: '',
     guestName: '',
     status: ''
@@ -263,8 +266,8 @@ const BookingsNewPage = () => {
       // איפוס הטופס להזמנה חדשה
       setFormData({
         roomId: '',
-        checkIn: today.toISOString().split('T')[0],
-        checkOut: tomorrow.toISOString().split('T')[0],
+        checkIn: today, // שינוי מ-toISOString().split('T')[0] ל-Date
+        checkOut: tomorrow, // שינוי מ-toISOString().split('T')[0] ל-Date
         nights: 1,
         basePrice: 0,
         totalPrice: 0,
@@ -299,16 +302,17 @@ const BookingsNewPage = () => {
   const handleFormChange = (name, value) => {
     setFormData(prev => {
       const updatedData = { ...prev, [name]: value };
+      const VAT_RATE = 0.18; // שיעור המע"מ - 18%
       
       // עדכון אוטומטי של המחיר לפי מספר הלילות כאשר משנים מחיר לילה
       if (name === 'pricePerNight' && value && prev.nights) {
         const pricePerNight = parseFloat(value);
         if (!isNaN(pricePerNight)) {
-          const totalPrice = pricePerNight * prev.nights;
-          const basePrice = Math.round((totalPrice / 1.17) * 100) / 100;
+          const totalBeforeVAT = pricePerNight * prev.nights;
+          const totalPrice = prev.isTourist ? totalBeforeVAT : totalBeforeVAT * (1 + VAT_RATE);
           
-          updatedData.totalPrice = totalPrice;
-          updatedData.basePrice = basePrice;
+          updatedData.totalPrice = Math.round(totalPrice * 100) / 100;
+          updatedData.basePrice = Math.round(totalBeforeVAT * 100) / 100;
         }
       }
       
@@ -316,11 +320,11 @@ const BookingsNewPage = () => {
       if (name === 'totalPrice' && value && prev.nights && prev.nights > 0) {
         const totalPrice = parseFloat(value);
         if (!isNaN(totalPrice)) {
-          const pricePerNight = totalPrice / prev.nights;
-          const basePrice = Math.round((totalPrice / 1.17) * 100) / 100;
+          const totalBeforeVAT = prev.isTourist ? totalPrice : totalPrice / (1 + VAT_RATE);
+          const pricePerNight = totalBeforeVAT / prev.nights;
           
           updatedData.pricePerNight = Math.round(pricePerNight * 100) / 100;
-          updatedData.basePrice = basePrice;
+          updatedData.basePrice = Math.round(totalBeforeVAT * 100) / 100;
         }
       }
       
@@ -328,10 +332,10 @@ const BookingsNewPage = () => {
       if (name === 'basePrice' && value && prev.nights && prev.nights > 0) {
         const basePrice = parseFloat(value);
         if (!isNaN(basePrice)) {
-          const totalPrice = Math.round((basePrice * 1.17) * 100) / 100;
-          const pricePerNight = totalPrice / prev.nights;
+          const totalPrice = prev.isTourist ? basePrice : basePrice * (1 + VAT_RATE);
+          const pricePerNight = basePrice / prev.nights;
           
-          updatedData.totalPrice = totalPrice;
+          updatedData.totalPrice = Math.round(totalPrice * 100) / 100;
           updatedData.pricePerNight = Math.round(pricePerNight * 100) / 100;
         }
       }
@@ -345,48 +349,22 @@ const BookingsNewPage = () => {
           if (prev.pricePerNight) {
             const pricePerNight = parseFloat(prev.pricePerNight);
             if (!isNaN(pricePerNight)) {
-              updatedData.totalPrice = pricePerNight * nights;
-              updatedData.basePrice = Math.round((updatedData.totalPrice / 1.17) * 100) / 100;
-            }
-          }
-          // אם אין מחיר לילה אבל יש מחיר בסיס, נחשב לפיו
-          else if (prev.basePrice) {
-            const basePrice = parseFloat(prev.basePrice);
-            const totalPrice = Math.round((basePrice * 1.17) * 100) / 100;
-            if (!isNaN(basePrice)) {
-              updatedData.totalPrice = totalPrice * nights;
-              updatedData.basePrice = basePrice * nights;
-              updatedData.pricePerNight = Math.round((totalPrice) * 100) / 100;
+              const totalBeforeVAT = pricePerNight * nights;
+              const totalPrice = prev.isTourist ? totalBeforeVAT : totalBeforeVAT * (1 + VAT_RATE);
+              
+              updatedData.totalPrice = Math.round(totalPrice * 100) / 100;
+              updatedData.basePrice = Math.round(totalBeforeVAT * 100) / 100;
             }
           }
         }
       }
-      
-      // עדכון לילות אם שינו את תאריך הצ'ק-אין או אאוט
-      if ((name === 'checkIn' || name === 'checkOut') && prev.checkIn && prev.checkOut) {
-        try {
-          const checkIn = name === 'checkIn' ? new Date(value) : new Date(prev.checkIn);
-          const checkOut = name === 'checkOut' ? new Date(value) : new Date(prev.checkOut);
-          
-          if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
-            const diffTime = checkOut.getTime() - checkIn.getTime();
-            const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            if (nights > 0) {
-              updatedData.nights = nights;
-              
-              // עדכון מחירים אם יש מחיר לילה
-              if (prev.pricePerNight) {
-                const pricePerNight = parseFloat(prev.pricePerNight);
-                if (!isNaN(pricePerNight)) {
-                  updatedData.totalPrice = pricePerNight * nights;
-                  updatedData.basePrice = Math.round((updatedData.totalPrice / 1.17) * 100) / 100;
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.error('שגיאה בחישוב לילות:', e);
+
+      // עדכון מחירים אם שינו את סטטוס תייר
+      if (name === 'isTourist') {
+        const basePrice = parseFloat(prev.basePrice);
+        if (!isNaN(basePrice)) {
+          const totalPrice = value ? basePrice : basePrice * (1 + VAT_RATE);
+          updatedData.totalPrice = Math.round(totalPrice * 100) / 100;
         }
       }
       
@@ -403,8 +381,15 @@ const BookingsNewPage = () => {
     });
   };
   
-  const handleDateChange = (field, newDate) => {
-    handleFormChange(field, newDate);
+  // פונקציה לטיפול בשינוי תאריכים
+  const handleDateChange = (date, field) => {
+    if (!date) return;
+    
+    const newDate = date instanceof Date ? date : new Date(date);
+    setFormData(prev => ({
+      ...prev,
+      [field]: newDate
+    }));
   };
   
   const handleCheckboxChange = (event) => {
@@ -418,10 +403,21 @@ const BookingsNewPage = () => {
     }));
   };
   
+  // פונקציה לטיפול בשינוי תאריכי סינון
+  const handleFilterDateChange = (date, field) => {
+    if (!date) return;
+    
+    const newDate = date instanceof Date ? date : new Date(date);
+    setFilters(prev => ({
+      ...prev,
+      [field]: newDate
+    }));
+  };
+  
   const resetFilters = () => {
     setFilters({
-      startDate: null,
-      endDate: null,
+      startDate: new Date(),
+      endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
       roomId: '',
       guestName: '',
       status: ''
@@ -429,112 +425,109 @@ const BookingsNewPage = () => {
   };
   
   // פונקציות לשמירה, עדכון ומחיקה
-  const handleSaveBooking = async () => {
+  const handleSaveBooking = async (formData) => {
     try {
-      // חישוב מספר לילות
-      const checkIn = new Date(formData.checkIn);
-      const checkOut = new Date(formData.checkOut);
-      const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+      console.log("נתוני הזמנה לשמירה:", formData);
       
-      // בדיקת תקינות בסיסית
-      if (!formData.roomId) {
-        alert('נא לבחור חדר');
-        return;
-      }
-      
-      if (!formData.checkIn || !formData.checkOut) {
-        alert('נא למלא תאריכי הגעה ועזיבה');
-        return;
-      }
-
-      if (!formData.guest || !formData.guest.firstName) {
-        alert('נא למלא שם פרטי');
-        return;
-      }
-      
-      // וידוא שיש אובייקט כרטיס אשראי
-      if (!formData.creditCard) {
-        formData.creditCard = {
-          cardNumber: '',
-          expiryDate: '',
-          cvv: '',
-          cardholderName: ''
-        };
-      }
-      
-      // וידוא כי אובייקט כרטיס האשראי מלא ותקין
-      const creditCardDetails = {
-        cardNumber: formData.creditCard.cardNumber || '',
-        expiryDate: formData.creditCard.expiryDate || '',
-        cvv: formData.creditCard.cvv || '',
-        cardholderName: formData.creditCard.cardholderName || ''
-      };
-      
-      console.log('פרטי כרטיס אשראי לשמירה:', creditCardDetails);
-      
-      // וידוא שיש אובייקט אורח תקין
-      const guestDetails = {
-        firstName: formData.guest.firstName || '',
-        lastName: formData.guest.lastName || '',
-        email: formData.guest.email || '',
-        phone: formData.guest.phone || '',
-        idNumber: formData.guest.idNumber || '',
-        isTourist: formData.isTourist || false
-      };
-      
-      // בניית אובייקט ההזמנה
-      const bookingData = {
-        roomId: formData.roomId,
-        nights,
-        checkIn: format(checkIn, 'yyyy-MM-dd'),
-        checkOut: format(checkOut, 'yyyy-MM-dd'),
-        guest: guestDetails,
-        creditCard: creditCardDetails,
-        isTourist: formData.isTourist || false,
-        notes: formData.notes || '',
-        status: formData.status || 'confirmed',
-        basePrice: formData.basePrice || 0,
-        totalPrice: formData.totalPrice || 0,
-        paymentStatus: 'pending'
-      };
-      
-      console.log("אובייקט הזמנה לשרת:", JSON.stringify(bookingData));
-      
-      let response;
+      // בדיקה אם זו הזמנה חדשה או עריכה
       if (selectedBooking) {
-        // עדכון הזמנה קיימת
-        response = await contextUpdateBooking(selectedBooking._id, bookingData);
-        console.log("תגובת השרת לעדכון הזמנה:", response.data);
-        setError('');
-        alert('ההזמנה עודכנה בהצלחה');
+        // עריכת הזמנה קיימת
+        const bookingDataToUpdate = {
+          roomId: formData.roomId,
+          checkIn: formData.checkIn,
+          checkOut: formData.checkOut,
+          nights: formData.nights,
+          totalPrice: formData.totalPrice,
+          basePrice: formData.pricePerNightNoVat,
+          pricePerNight: formData.pricePerNightWithVat,
+          isTourist: formData.isTourist,
+          guest: {
+            firstName: formData.guest.firstName,
+            lastName: formData.guest.lastName,
+            phone: formData.guest.phone,
+            email: formData.guest.email
+          },
+          notes: formData.notes,
+          creditCard: formData.creditCard
+        };
+
+        // האם יש שינוי בסטטוס תשלום או באמצעי תשלום
+        const isPaidChanged = (selectedBooking.paymentStatus === 'paid') !== formData.isPaid;
+        const paymentMethodChanged = selectedBooking.paymentMethod !== formData.paymentMethod;
+        
+        console.log("שולח עדכון הזמנה:", {
+          ...bookingDataToUpdate,
+          isPaid: formData.isPaid,
+          paymentMethod: formData.paymentMethod,
+          isPaidChanged,
+          paymentMethodChanged,
+          creditCard: bookingDataToUpdate.creditCard ? "קיים" : "לא קיים"
+        });
+        
+        let updateSuccess = true;
+        let paymentUpdateSuccess = true;
+        
+        // עדכון פרטי ההזמנה הבסיסיים
+        const response = await contextUpdateBooking(selectedBooking._id, bookingDataToUpdate);
+        updateSuccess = response.success;
+        
+        // אם יש שינוי בסטטוס תשלום או באמצעי תשלום, נעדכן בנפרד
+        if (isPaidChanged || paymentMethodChanged) {
+          console.log("מעדכן סטטוס תשלום ואמצעי תשלום בנפרד:", {
+            paymentStatus: formData.isPaid ? 'paid' : 'pending',
+            paymentMethod: formData.paymentMethod || ''
+          });
+          
+          const paymentResponse = await updatePaymentStatus(
+            selectedBooking._id,
+            formData.isPaid ? 'paid' : 'pending',
+            formData.paymentMethod || ''
+          );
+          
+          paymentUpdateSuccess = paymentResponse.success;
+        }
+
+        if (updateSuccess && paymentUpdateSuccess) {
+          toast.success('ההזמנה עודכנה בהצלחה');
+          setOpenDialog(false);
+          contextFetchBookings(); // רענון רשימת ההזמנות
+      } else {
+          toast.error('שגיאה בעדכון ההזמנה');
+        }
       } else {
         // יצירת הזמנה חדשה
-        response = await contextCreateBooking(bookingData);
-        console.log("תגובת השרת ליצירת הזמנה:", response.data);
-        setError('');
-        alert('ההזמנה נוצרה בהצלחה');
-      }
-      
-      // בדיקה אם הכרטיס אשראי חזר בתשובה מהשרת
-      if (response.data.data.creditCard) {
-        console.log('כרטיס אשראי בתשובה:', response.data.data.creditCard);
+        const response = await contextCreateBooking({
+          roomId: formData.roomId,
+          checkIn: formData.checkIn,
+          checkOut: formData.checkOut,
+          nights: formData.nights,
+          totalPrice: formData.totalPrice,
+          basePrice: formData.pricePerNightNoVat,
+          pricePerNight: formData.pricePerNightWithVat,
+          isTourist: formData.isTourist,
+          guest: {
+            firstName: formData.guest.firstName,
+            lastName: formData.guest.lastName,
+            phone: formData.guest.phone,
+            email: formData.guest.email
+          },
+          paymentStatus: formData.isPaid ? 'paid' : 'pending',
+          paymentMethod: formData.paymentMethod || '',
+          creditCard: formData.creditCard,
+          notes: formData.notes
+        });
+
+        if (response.success) {
+          toast.success('ההזמנה נוצרה בהצלחה');
+          setOpenDialog(false);
+          contextFetchBookings(); // רענון רשימת ההזמנות
       } else {
-        console.error('חסר מידע כרטיס אשראי בתשובה מהשרת');
+          toast.error('שגיאה ביצירת ההזמנה');
       }
-      
-      handleCloseDialog();
-      fetchBookings(); // רענון הזמנות
+      }
     } catch (error) {
       console.error('שגיאה בשמירת ההזמנה:', error);
-      
-      // הצגת פרטי שגיאה נוספים בקונסול
-      if (error.response) {
-        console.error('תגובת השרת:', error.response.status);
-        console.error('פרטי שגיאה:', error.response.data);
-      }
-      
-      setError(error.response?.data?.message || 'שגיאה בשמירת ההזמנה');
-      alert(`שגיאה: ${error.response?.data?.message || 'שגיאה בשמירת ההזמנה'}`);
+      toast.error(error.response?.data?.message || 'שגיאה בשמירת ההזמנה');
     }
   };
   
@@ -644,20 +637,10 @@ const BookingsNewPage = () => {
         return;
       }
       
-      // וידוא שיש גם אמצעי תשלום אם הסטטוס הוא 'paid'
-      if (status === 'paid' && !method) {
-        console.warn('מוגדר סטטוס שולם, אבל חסר אמצעי תשלום');
-        // אנחנו ממשיכים למרות האזהרה, אבל מציגים התראה
-        setSnackbar({
-          open: true,
-          message: 'לתשלומים שהושלמו מומלץ לציין גם את אמצעי התשלום',
-          severity: 'warning'
-        });
-      }
+      const paymentMethod = method || '';
+      console.log(`שולח עדכון לשרת: updatePaymentStatus(${bookingId}, ${status}, ${paymentMethod})`);
       
-      console.log(`שולח עדכון לשרת: updatePaymentStatus(${bookingId}, ${status}, ${method})`);
-      
-      const result = await updatePaymentStatus(bookingId, status, method);
+      const result = await updatePaymentStatus(bookingId, status, paymentMethod);
       
       console.log('תוצאת עדכון סטטוס תשלום:', result);
       
@@ -734,21 +717,54 @@ const BookingsNewPage = () => {
   
   const getPaymentStatusLabel = (status) => {
     switch (status) {
-      case 'paid': return 'שולם';
-      case 'partial': return 'שולם חלקית';
-      case 'pending': return 'לא שולם';
-      case 'canceled': return 'בוטל';
-      default: return status || 'לא ידוע';
+      case 'paid':
+        return 'שולם';
+      case 'pending':
+        return 'לא שולם';
+      case 'partial':
+        return 'שולם חלקית';
+      case 'canceled':
+        return 'בוטל';
+      default:
+        return status;
     }
   };
   
   const getPaymentStatusColor = (status) => {
     switch (status) {
-      case 'paid': return 'success';
-      case 'partial': return 'warning';
-      case 'pending': return 'error';
-      case 'canceled': return 'error';
-      default: return 'default';
+      case 'paid':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'partial':
+        return 'info';
+      case 'canceled':
+        return 'error';
+      default:
+        return 'default';
+    }
+  };
+  
+  const getPaymentMethodLabel = (method) => {
+    if (!method) return '';
+    
+    switch (method) {
+      case 'cash':
+        return 'מזומן';
+      case 'credit':
+        return 'כרטיס אשראי';
+      case 'creditOr':
+        return 'אשראי אור יהודה';
+      case 'creditRothschild':
+        return 'אשראי רוטשילד';
+      case 'mizrahi':
+        return 'העברה מזרחי';
+      case 'poalim':
+        return 'העברה פועלים';
+      case 'other':
+        return 'אחר';
+      default:
+        return method;
     }
   };
   
@@ -771,108 +787,33 @@ const BookingsNewPage = () => {
   
   // פונקציה לטעינת פרטי הזמנה מהשרת
   const fetchBookingDetails = async (bookingId) => {
-    setOpenDialog(true);
-    
     try {
-      setSelectedBooking({ loading: true });
+      setLoading(true);
       
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings/${bookingId}`, {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/bookings/${bookingId}`,
+        {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
-      });
+        }
+      );
       
-      console.log('פרטי הזמנה מהשרת:', response);
-      
-      if (response.data.success) {
+      if (response.data && response.data.success) {
         const bookingData = response.data.data;
-        
-        // בדיקה אם יש פרטי כרטיס אשראי
-        console.log('פרטי כרטיס אשראי:', bookingData.creditCard);
-        
-        // המרת מחרוזות תאריך לאובייקטי Date
-        if (bookingData.checkIn && typeof bookingData.checkIn === 'string') {
-          bookingData.checkIn = parseISO(bookingData.checkIn);
-        }
-        
-        if (bookingData.checkOut && typeof bookingData.checkOut === 'string') {
-          bookingData.checkOut = parseISO(bookingData.checkOut);
-        }
-        
-        // חישוב מחדש של מספר הלילות
-        if (bookingData.checkIn && bookingData.checkOut) {
-          const nights = Math.ceil(
-            (new Date(bookingData.checkOut) - new Date(bookingData.checkIn)) / 
-            (1000 * 60 * 60 * 24)
-          );
-          bookingData.nights = nights;
-        }
-        
-        // וידוא שפרטי האורח קיימים ומלאים
-        if (!bookingData.guest) {
-          bookingData.guest = {
-            firstName: 'אורח',
-            lastName: 'ללא שם',
-            phone: '',
-            email: ''
-          };
-        } else {
-          // בדיקה ומילוי שדות חסרים של האורח
-          if ((!bookingData.guest.firstName || bookingData.guest.firstName === '') && 
-              (!bookingData.guest.lastName || bookingData.guest.lastName === '')) {
-            
-            // אם יש שדה name, נשתמש בו לחילוץ שם פרטי ומשפחה
-            if (bookingData.guest.name) {
-              const nameParts = bookingData.guest.name.split(' ');
-              bookingData.guest.firstName = nameParts[0] || 'אורח';
-              bookingData.guest.lastName = nameParts.slice(1).join(' ') || 'ללא שם';
-            } else {
-              // אם אין שום שדה שם, נשתמש בערכי ברירת מחדל
-              bookingData.guest.firstName = 'אורח';
-              bookingData.guest.lastName = 'ללא שם';
-            }
-          } else {
-            // ודא שהשדות לא יהיו undefined
-            bookingData.guest.firstName = bookingData.guest.firstName || 'אורח';
-            bookingData.guest.lastName = bookingData.guest.lastName || 'ללא שם';
-          }
-          
-          // ודא שיש שדות טלפון ואימייל, אפילו ריקים
-          bookingData.guest.phone = bookingData.guest.phone || '';
-          bookingData.guest.email = bookingData.guest.email || '';
-        }
+        console.log("נטענו פרטי הזמנה:", bookingData);
+        console.log("סטטוס תשלום:", bookingData.paymentStatus);
+        console.log("אמצעי תשלום:", bookingData.paymentMethod);
         
         // עדכון הטופס עם נתוני ההזמנה
-        setFormData({
-          roomId: bookingData.room?._id || bookingData.roomId || '',
-          checkIn: bookingData.checkIn || null,
-          checkOut: bookingData.checkOut || null,
-          guest: {
-            firstName: bookingData.guest.firstName || 'אורח',
-            lastName: bookingData.guest.lastName || 'ללא שם',
-            phone: bookingData.guest.phone || '',
-            email: bookingData.guest.email || ''
-          },
-          creditCard: bookingData.creditCard || {
-            cardNumber: '',
-            expiryDate: '',
-            cvv: '',
-            cardholderName: ''
-          },
-          isTourist: bookingData.isTourist || false,
-          notes: bookingData.notes || '',
-          status: bookingData.status || 'confirmed',
-          basePrice: bookingData.basePrice || 0,
-          totalPrice: bookingData.totalPrice || 0,
-          nights: bookingData.nights || 0,
-          pricePerNight: bookingData.pricePerNight || 0
-        });
-        
         setSelectedBooking(bookingData);
+        setOpenDialog(true);
       }
     } catch (error) {
       console.error('שגיאה בטעינת פרטי הזמנה:', error);
       setError('שגיאה בטעינת פרטי ההזמנה');
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -970,7 +911,7 @@ const BookingsNewPage = () => {
                 <DatePicker
                   label="מתאריך"
                   value={filters.startDate}
-                  onChange={(date) => handleFilterChange('startDate', date)}
+                  onChange={(date) => handleFilterDateChange(date, 'startDate')}
                   renderInput={(params) => <TextField {...params} fullWidth size="small" />}
                 />
               </Grid>
@@ -979,7 +920,7 @@ const BookingsNewPage = () => {
                 <DatePicker
                   label="עד תאריך"
                   value={filters.endDate}
-                  onChange={(date) => handleFilterChange('endDate', date)}
+                  onChange={(date) => handleFilterDateChange(date, 'endDate')}
                   renderInput={(params) => <TextField {...params} fullWidth size="small" />}
                 />
               </Grid>
@@ -1111,69 +1052,53 @@ const BookingsNewPage = () => {
                       bookings.map((booking) => (
                         <TableRow 
                           key={booking._id}
-                          sx={{ 
-                            backgroundColor: booking.status === 'canceled' ? '#f5f5f5' : 'inherit',
-                            opacity: booking.status === 'canceled' ? 0.7 : 1
-                          }}
+                          hover
+                          selected={selectedBookingIds.includes(booking._id)}
+                          onClick={() => handleOpenDialog(booking)}
+                          sx={{ cursor: 'pointer' }}
                         >
                           <TableCell padding="checkbox">
                             <Checkbox
                               checked={selectedBookingIds.includes(booking._id)}
-                              onChange={(event) => handleSelectBooking(event, booking._id)}
+                              onChange={(e) => handleSelectBooking(e, booking._id)}
+                              onClick={(e) => e.stopPropagation()}
                             />
                           </TableCell>
-                          <TableCell>{booking.bookingNumber}</TableCell>
                           <TableCell>
-                            {booking.room?.internalName || `חדר ${booking.room?.roomNumber}`}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography variant="body2" fontWeight={500}>
+                                #{booking.bookingNumber}
+                              </Typography>
+                            </Box>
                           </TableCell>
                           <TableCell>
-                            <Tooltip title={`טלפון: ${booking.guest?.phone || 'לא צוין'}\nאימייל: ${booking.guest?.email || 'לא צוין'}`}>
-                              <Box component="span" sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                                {/* בדיקה מורחבת למיקום שם האורח */}
-                                {booking.guest ? (
-                                  <>
-                                    {/* אפשרות 1: שמות בנפרד בתוך guest */}
-                                    {booking.guest.firstName || booking.guest.firstName === '' ? booking.guest.firstName : ''}
-                                    {' '}
-                                    {booking.guest.lastName || booking.guest.lastName === '' ? booking.guest.lastName : ''}
-                                    
-                                    {/* אפשרות 2: שם בשדה name בתוך guest */}
-                                    {!booking.guest.firstName && !booking.guest.lastName && booking.guest.name ? booking.guest.name : ''}
-                                    
-                                    {/* אפשרות 3: כשאין כלום בכלל */}
-                                    {!booking.guest.firstName && !booking.guest.lastName && !booking.guest.name ? 'אורח ללא שם' : ''}
-                                  </>
-                                ) : 'אורח ללא שם'}
-                                
+                            <Typography variant="body2">
+                              {booking.room?.roomNumber || 'לא ידוע'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Box>
+                              <Typography variant="body2" fontWeight={500}>
+                                {booking.guest?.firstName} {booking.guest?.lastName}
+                              </Typography>
                                 {booking.guest?.phone && (
-                                  <IconButton 
-                                    size="small" 
-                                    color="primary" 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openWhatsApp(booking.guest.phone);
-                                    }}
-                                    title="פתח בווטסאפ"
-                                    sx={{ ml: 1 }}
-                                  >
-                                    <WhatsAppIcon style={{ color: '#25D366' }} fontSize="small" />
-                                  </IconButton>
+                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                  {booking.guest.phone}
+                                </Typography>
                                 )}
                               </Box>
-                            </Tooltip>
                           </TableCell>
                           <TableCell>
-                            {format(new Date(booking.checkIn), 'dd/MM/yyyy')}
+                            {new Date(booking.checkIn).toLocaleDateString('he-IL')}
                           </TableCell>
                           <TableCell>
-                            {format(new Date(booking.checkOut), 'dd/MM/yyyy')}
+                            {new Date(booking.checkOut).toLocaleDateString('he-IL')}
                           </TableCell>
-                          <TableCell>{booking.nights}</TableCell>
-                          <TableCell>
-                            {booking.totalPrice.toLocaleString()} ₪
-                            {booking.isTourist && (
-                              <Chip size="small" label="תייר" color="info" sx={{ ml: 1 }} />
-                            )}
+                          <TableCell align="center">
+                            {booking.nights}
+                          </TableCell>
+                          <TableCell align="right">
+                            {booking.totalPrice ? `${booking.totalPrice} ₪` : '--'}
                           </TableCell>
                           <TableCell>
                             <Chip
@@ -1183,16 +1108,37 @@ const BookingsNewPage = () => {
                             />
                           </TableCell>
                           <TableCell>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                             <Chip
                               label={getPaymentStatusLabel(booking.paymentStatus)}
                               color={getPaymentStatusColor(booking.paymentStatus)}
                               size="small"
-                              onClick={() => {
-                                setSelectedBooking(booking);
-                                setOpenPaymentDialog(true);
-                              }}
-                              clickable
-                            />
+                                sx={{ minWidth: 80 }}
+                              />
+                              {booking.paymentStatus === 'paid' && booking.paymentMethod && (
+                                <Box sx={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  gap: 0.5, 
+                                  mt: 0.5,
+                                  color: 'success.main',
+                                  bgcolor: alpha(theme.palette.success.main, 0.1),
+                                  p: '2px 8px',
+                                  borderRadius: 1,
+                                  fontSize: '0.75rem'
+                                }}>
+                                  <Box 
+                                    sx={{ 
+                                      width: 6, 
+                                      height: 6, 
+                                      borderRadius: '50%', 
+                                      bgcolor: 'success.main'
+                                    }} 
+                                  />
+                                  {getPaymentMethodLabel(booking.paymentMethod)}
+                                </Box>
+                              )}
+                            </Box>
                           </TableCell>
                           <TableCell>
                             <Stack direction="row" spacing={1}>
@@ -1248,383 +1194,15 @@ const BookingsNewPage = () => {
           )}
         </Paper>
         
-        {/* דיאלוג הזמנה חדשה / עריכה */}
-        <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-          <DialogTitle sx={{ pb: 1 }}>
-            {selectedBooking ? 'עריכת הזמנה' : 'הזמנה חדשה'}
-          </DialogTitle>
-          <DialogContent dividers sx={{ pt: 2 }}>
-            <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
-              <Link component={RouterLink} to="/dashboard">
-                ראשי
-              </Link>
-              <Link component={RouterLink} to="/dashboard/bookings">
-                הזמנות
-              </Link>
-              <Typography color="textPrimary">
-                {selectedBooking ? `עריכת הזמנה #${selectedBooking?.bookingNumber}` : 'הזמנה חדשה'}
-              </Typography>
-            </Breadcrumbs>
-            <Grid container spacing={1}>
-              {/* חלק 1: פרטי הזמנה - סידור קומפקטי יותר */}
-              <Grid item xs={12} sm={3}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>חדר</InputLabel>
-                  <Select
-                    name="roomId"
-                    value={formData.roomId}
-                    onChange={(e) => handleFormChange('roomId', e.target.value)}
-                    label="חדר"
-                    size="small"
-                  >
-                    <MenuItem value="">בחר חדר</MenuItem>
-                    {rooms.map((room) => (
-                      <MenuItem key={room._id} value={room._id}>
-                        {room.internalName || `חדר ${room.roomNumber}`}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12} sm={3}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>סטטוס</InputLabel>
-                  <Select
-                    name="status"
-                    value={formData.status}
-                    onChange={(e) => handleFormChange('status', e.target.value)}
-                    label="סטטוס"
-                    size="small"
-                  >
-                    <MenuItem value="confirmed">מאושר</MenuItem>
-                    <MenuItem value="pending">ממתין</MenuItem>
-                    <MenuItem value="canceled">מבוטל</MenuItem>
-                    <MenuItem value="completed">הסתיים</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="מחיר בסיס ללילה"
-                  name="basePrice"
-                  type="number"
-                  value={formData.basePrice}
-                  onChange={(e) => handleFormChange('basePrice', e.target.value)}
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">₪</InputAdornment>,
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={3}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={formData.isTourist}
-                      onChange={(e) => handleFormChange('isTourist', e.target.checked)}
-                      name="isTourist"
-                      color="primary"
-                      size="small"
-                    />
-                  }
-                  label={
-                    <Box sx={{ display: 'flex', alignItems: 'center', fontSize: '0.875rem' }}>
-                      <Typography variant="body2">תייר (פטור ממע"מ)</Typography>
-                    </Box>
-                  }
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={4}>
-                <DatePicker
-                  label="תאריך צ'ק אין"
-                  value={formData.checkIn}
-                  onChange={(date) => handleFormChange('checkIn', date)}
-                  slotProps={{ 
-                    textField: { 
-                      fullWidth: true, 
-                      size: "small",
-                      margin: "dense"
-                    } 
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={4}>
-                <DatePicker
-                  label="תאריך צ'ק אאוט"
-                  value={formData.checkOut}
-                  onChange={(date) => handleFormChange('checkOut', date)}
-                  slotProps={{ 
-                    textField: { 
-                      fullWidth: true, 
-                      size: "small",
-                      margin: "dense"
-                    } 
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={2}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="לילות"
-                  name="nights"
-                  type="number"
-                  value={formData.nights}
-                  onChange={(e) => handleFormChange('nights', e.target.value)}
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">לילות</InputAdornment>,
-                  }}
-                  sx={{ mt: 1 }}
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={2}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="מחיר ללילה"
-                  name="pricePerNight"
-                  type="number"
-                  value={formData.pricePerNight}
-                  onChange={(e) => handleFormChange('pricePerNight', e.target.value)}
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">₪</InputAdornment>,
-                  }}
-                  sx={{ mt: 1 }}
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={2}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="מחיר כולל מע״מ"
-                  name="totalPrice"
-                  type="number"
-                  value={formData.totalPrice}
-                  onChange={(e) => handleFormChange('totalPrice', e.target.value)}
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">₪</InputAdornment>,
-                  }}
-                  sx={{ mt: 1 }}
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={2}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="מחיר ללא מע״מ"
-                  name="basePrice"
-                  type="number"
-                  value={formData.basePrice}
-                  onChange={(e) => handleFormChange('basePrice', e.target.value)}
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">₪</InputAdornment>,
-                  }}
-                  sx={{ mt: 1 }}
-                />
-              </Grid>
-              
-              {/* חלק 2: פרטי אורח */}
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5, fontWeight: 'bold' }}>
-                  פרטי אורח
-                </Typography>
-                <Divider sx={{ mb: 1 }} />
-              </Grid>
-              
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="שם פרטי"
-                  name="guest.firstName"
-                  value={formData.guest.firstName}
-                  onChange={(e) => handleFormChange('guest.firstName', e.target.value)}
-                  required
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="שם משפחה"
-                  name="guest.lastName"
-                  value={formData.guest.lastName}
-                  onChange={(e) => handleFormChange('guest.lastName', e.target.value)}
-                  required
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="טלפון"
-                  name="guest.phone"
-                  value={formData.guest.phone}
-                  onChange={(e) => handleFormChange('guest.phone', e.target.value)}
-                  InputProps={{
-                    endAdornment: formData.guest.phone ? (
-                      <InputAdornment position="end">
-                        <IconButton 
-                          size="small" 
-                          color="primary" 
-                          onClick={(e) => openWhatsApp(formData.guest.phone)}
-                          title="פתח בווטסאפ"
-                        >
-                          <WhatsAppIcon style={{ color: '#25D366' }} />
-                        </IconButton>
-                      </InputAdornment>
-                    ) : null
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="אימייל"
-                  name="guest.email"
-                  value={formData.guest.email}
-                  onChange={(e) => handleFormChange('guest.email', e.target.value)}
-                />
-              </Grid>
-              
-              {/* חלק 3: פרטי כרטיס אשראי */}
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5, fontWeight: 'bold' }}>
-                    פרטי כרטיס אשראי
-                  </Typography>
-                  <Tooltip title="מערכת ניהול כרטיסי אשראי CreditGuard">
-                    <IconButton 
-                      color="primary" 
-                      size="small" 
-                      component={Link} 
-                      href="https://console.creditguard.co.il/html/mainFrames.html" 
-                      target="_blank"
-                      sx={{ ml: 1, mt: 0.5 }}
-                    >
-                      <LaunchIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-                <Divider sx={{ mb: 1 }} />
-              </Grid>
-              
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="מספר כרטיס"
-                  name="creditCard.cardNumber"
-                  value={formData.creditCard?.cardNumber || ''}
-                  onChange={(e) => handleFormChange('creditCard.cardNumber', e.target.value)}
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="תוקף (MM/YY)"
-                  name="creditCard.expiryDate"
-                  value={formData.creditCard?.expiryDate || ''}
-                  onChange={(e) => handleFormChange('creditCard.expiryDate', e.target.value)}
-                  placeholder="MM/YY"
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="שם בעל הכרטיס"
-                  name="creditCard.cardholderName"
-                  value={formData.creditCard?.cardholderName || ''}
-                  onChange={(e) => handleFormChange('creditCard.cardholderName', e.target.value)}
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="CVV"
-                  name="creditCard.cvv"
-                  value={formData.creditCard?.cvv || ''}
-                  onChange={(e) => handleFormChange('creditCard.cvv', e.target.value)}
-                />
-              </Grid>
-              
-              {/* חלק 4: הערות */}
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="הערות"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={(e) => handleFormChange('notes', e.target.value)}
-                  multiline
-                  rows={2}
-                  sx={{ mt: 1 }}
-                />
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog} color="inherit" size="small">
-              ביטול
-            </Button>
-            <Button
-              onClick={handleSaveBooking}
-              variant="contained"
-              color="primary"
-              size="small"
-              disabled={!formData.roomId || !formData.checkIn || !formData.checkOut || !formData.guest?.firstName || !formData.guest?.lastName}
-            >
-              שמירה
-            </Button>
-          </DialogActions>
-        </Dialog>
-        
-        {/* דיאלוג ביטול הזמנה */}
-        <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
-          <DialogTitle>
-            ביטול הזמנה
-          </DialogTitle>
-          <DialogContent>
-            <Typography>
-              האם אתה בטוח שברצונך לבטל את ההזמנה {selectedBooking?.bookingNumber}?
-              <br />
-              פעולה זו אינה הפיכה.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenDeleteDialog(false)} color="inherit">
-              ביטול
-            </Button>
-            <Button
-              onClick={handleDeleteBooking}
-              variant="contained"
-              color="error"
-            >
-              בטל הזמנה
-            </Button>
-          </DialogActions>
-        </Dialog>
+        {/* דיאלוג הזמנה חדשה או עריכת הזמנה */}
+        <BookingDialog
+          open={openDialog}
+          onClose={handleCloseDialog}
+          onSave={handleSaveBooking}
+          rooms={rooms}
+          booking={selectedBooking}
+          isEdit={!!selectedBooking}
+        />
         
         {/* דיאלוג עדכון סטטוס תשלום */}
         <Dialog open={openPaymentDialog} onClose={() => setOpenPaymentDialog(false)}>

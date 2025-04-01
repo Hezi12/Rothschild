@@ -13,8 +13,8 @@ const { sendCancellationAlert } = require('../utils/emailService');
 // ניתובים רגילים - דורשים הרשאת משתמש רגיל
 router
   .route('/')
-  .get(protect, bookingController.getBookings)
-  .post(protect, bookingController.createBooking);
+  .get(bookingController.getBookings)
+  .post(bookingController.createBooking);
 
 // ניתובים ספציפיים להזמנה - מזהה מסוים
 router

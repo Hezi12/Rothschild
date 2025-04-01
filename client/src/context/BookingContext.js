@@ -54,13 +54,8 @@ export const BookingProvider = ({ children }) => {
       const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
       
       console.log(`בקשה ל-API: ${process.env.REACT_APP_API_URL}/bookings${queryString}`);
-      console.log(`טוקן: ${localStorage.getItem('token') ? 'קיים' : 'חסר'}`);
       
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings${queryString}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/bookings${queryString}`);
       
       if (response.data.success) {
         setBookings(response.data.data);
@@ -87,11 +82,7 @@ export const BookingProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingData, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/bookings`, bookingData);
       
       if (response.data.success) {
         // עדכון הרשימה עם ההזמנה החדשה
@@ -114,13 +105,33 @@ export const BookingProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      const response = await axios.put(`${process.env.REACT_APP_API_URL}/bookings/${bookingId}`, updateData, {
+      // וידוא שיש את כל השדות הנדרשים לשרת
+      const dataToSend = { ...updateData };
+      
+      // וידוא שדה paymentMethod
+      if (dataToSend.paymentStatus === 'paid' && !dataToSend.paymentMethod) {
+        console.warn('סטטוס תשלום הוא "שולם" אבל לא נשלח אמצעי תשלום, משתמש בברירת מחדל: cash');
+        dataToSend.paymentMethod = 'cash';
+      }
+      
+      console.log('נתוני עדכון הזמנה לשרת:', {
+        bookingId,
+        paymentStatus: dataToSend.paymentStatus,
+        paymentMethod: dataToSend.paymentMethod
+      });
+      
+      const response = await axios.put(`${process.env.REACT_APP_API_URL}/bookings/${bookingId}`, dataToSend, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
       
       if (response.data.success) {
+        console.log('תשובה מהשרת לאחר עדכון הזמנה:', {
+          success: response.data.success,
+          paymentMethod: response.data.data?.paymentMethod
+        });
+        
         // עדכון המצב המקומי
         setBookings(prevBookings => 
           prevBookings.map(booking => 
@@ -183,8 +194,8 @@ export const BookingProvider = ({ children }) => {
         }
       }
       
-      // שימוש בערך המקורי של אמצעי התשלום
-      const finalMethod = method;
+      // וידוא שיש אמצעי תשלום אם הסטטוס הוא 'paid'
+      const finalMethod = method || '';
 
       console.log(`שולח בקשת עדכון לשרת: PUT /bookings/${bookingId}/payment-status`);
       console.log('נתוני הבקשה:', { paymentStatus: englishStatus, paymentMethod: finalMethod });
@@ -308,105 +319,46 @@ export const BookingProvider = ({ children }) => {
     }
   };
 
-  // פונקציית עזר לעדכון שדות בטופס ההזמנה (לשימוש בקומפוננטים השונים)
-  const handleBookingFormChange = (bookingData, field, value, vatRate = 17) => {
-    const updatedBookingData = { ...bookingData };
+  // המרת קוד אמצעי תשלום לתווית
+  const getPaymentMethodLabel = (method) => {
+    if (!method) return '';
     
-    if (field.includes('.')) { 
-      const [parent, child] = field.split('.'); 
-      updatedBookingData[parent] = { 
-        ...updatedBookingData[parent], 
-        [child]: value 
-      }; 
-    } else { 
-      updatedBookingData[field] = value; 
+    switch (method) {
+      case 'cash':
+        return 'מזומן';
+      case 'credit':
+        return 'כרטיס אשראי';
+      case 'creditOr':
+        return 'אשראי אור יהודה';
+      case 'creditRothschild':
+        return 'אשראי רוטשילד';
+      case 'mizrahi':
+        return 'העברה מזרחי';
+      case 'poalim':
+        return 'העברה פועלים';
+      case 'other':
+        return 'אחר';
+      default:
+        return method;
     }
-    
-    // טיפול בשדות מחיר
-    const nights = updatedBookingData.nights || 1;
+  };
 
-    // אם שינו מחיר ללילה ללא מע"מ
-    if (field === 'pricePerNightNoVat' && value) {
-      const priceNoVat = parseFloat(value);
-      const isTourist = updatedBookingData.isTourist;
-      
-      // חישוב מחיר עם מע"מ תלוי אם תייר
-      if (isTourist) {
-        updatedBookingData.pricePerNight = priceNoVat; // תייר - אין מע"מ
-      } else {
-        updatedBookingData.pricePerNight = Math.round((priceNoVat * (1 + vatRate / 100)) * 100) / 100;
-      }
-      
-      // עדכון סה"כ מחיר
-      updatedBookingData.totalPrice = Math.round(updatedBookingData.pricePerNight * nights * 100) / 100;
-    }
-    
-    // אם שינו מחיר ללילה כולל מע"מ
-    if (field === 'pricePerNight' && value) {
-      const priceWithVat = parseFloat(value);
-      const isTourist = updatedBookingData.isTourist;
-      
-      // חישוב מחיר ללא מע"מ תלוי אם תייר
-      if (isTourist) {
-        updatedBookingData.pricePerNightNoVat = priceWithVat; // תייר - זהה למחיר עם מע"מ
-      } else {
-        updatedBookingData.pricePerNightNoVat = Math.round((priceWithVat / (1 + vatRate / 100)) * 100) / 100;
-      }
-      
-      // עדכון סה"כ מחיר
-      updatedBookingData.totalPrice = Math.round(priceWithVat * nights * 100) / 100;
-    }
-    
-    // אם שינו סה"כ מחיר
-    if (field === 'totalPrice' && value) {
-      const totalPrice = parseFloat(value);
-      const isTourist = updatedBookingData.isTourist;
-      
-      // עדכון מחיר ללילה כולל מע"מ
-      updatedBookingData.pricePerNight = Math.round((totalPrice / nights) * 100) / 100;
-      
-      // עדכון מחיר ללילה ללא מע"מ תלוי אם תייר
-      if (isTourist) {
-        updatedBookingData.pricePerNightNoVat = updatedBookingData.pricePerNight; // תייר - זהה למחיר עם מע"מ
-      } else {
-        updatedBookingData.pricePerNightNoVat = Math.round((updatedBookingData.pricePerNight / (1 + vatRate / 100)) * 100) / 100;
-      }
-    }
-    
-    // אם שינו את השדה isTourist
-    if (field === 'isTourist') {
-      const isTourist = value === true || value === 'true';
-      
-      if (isTourist) {
-        // תייר: מחיר ללילה כולל מע"מ = מחיר ללא מע"מ (אין מע"מ)
-        updatedBookingData.pricePerNight = updatedBookingData.pricePerNightNoVat;
-      } else {
-        // לא תייר: חישוב מחיר כולל מע"מ
-        updatedBookingData.pricePerNight = Math.round((updatedBookingData.pricePerNightNoVat * (1 + vatRate / 100)) * 100) / 100;
-      }
-      
-      // עדכון סה"כ מחיר
-      updatedBookingData.totalPrice = Math.round(updatedBookingData.pricePerNight * nights * 100) / 100;
-    }
-    
-    return updatedBookingData;
+  const contextValue = {
+    bookings,
+    setBookings,
+    fetchBookings,
+    createBooking,
+    updateBooking,
+    deleteBooking,
+    loading,
+    error,
+    setError,
+    updatePaymentStatus,
+    getPaymentMethodLabel
   };
 
   return (
-    <BookingContext.Provider
-      value={{
-        bookings,
-        loading,
-        error,
-        lastFetchTime,
-        fetchBookings,
-        createBooking,
-        updateBooking,
-        updatePaymentStatus,
-        deleteBooking,
-        handleBookingFormChange
-      }}
-    >
+    <BookingContext.Provider value={contextValue}>
       {children}
     </BookingContext.Provider>
   );

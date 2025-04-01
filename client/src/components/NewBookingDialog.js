@@ -101,19 +101,25 @@ const NewBookingDialog = ({ open, onClose, onBookingCreated, selectedRoom, selec
   const handleFieldChange = (e) => {
     const { name, value } = e.target;
     
+    // ניקוי רווחים ממספר כרטיס אשראי
+    let processedValue = value;
+    if (name === 'creditCard.cardNumber') {
+      processedValue = value.replace(/\s+/g, ''); // הסרת כל הרווחים
+    }
+    
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setBooking(prev => ({
         ...prev,
         [parent]: {
           ...prev[parent],
-          [child]: value
+          [child]: processedValue
         }
       }));
     } else {
       setBooking(prev => ({
         ...prev,
-        [name]: value
+        [name]: processedValue
       }));
 
       // עדכון מספר לילות ומחיר כולל כאשר משתנים תאריכים
@@ -178,6 +184,10 @@ const NewBookingDialog = ({ open, onClose, onBookingCreated, selectedRoom, selec
           lastName: booking.guest.lastName || '',
           phone: booking.guest.phone || '',
           email: booking.guest.email || ''
+        },
+        creditCard: {
+          ...booking.creditCard,
+          cardNumber: (booking.creditCard?.cardNumber || '').replace(/\s+/g, ''), // ניקוי רווחים 
         }
       };
 

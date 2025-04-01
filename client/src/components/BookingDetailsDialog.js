@@ -90,19 +90,25 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
   const handleFieldChange = (e) => {
     const { name, value } = e.target;
     
+    // ניקוי רווחים ממספר כרטיס אשראי
+    let processedValue = value;
+    if (name === 'creditCard.cardNumber') {
+      processedValue = value.replace(/\s+/g, ''); // הסרת כל הרווחים
+    }
+    
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setEditedBooking(prev => ({
         ...prev,
         [parent]: {
           ...prev[parent],
-          [child]: value
+          [child]: processedValue
         }
       }));
     } else {
       setEditedBooking(prev => ({
         ...prev,
-        [name]: value
+        [name]: processedValue
       }));
     }
   };
@@ -132,7 +138,7 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
         },
         creditCard: {
           ...editedBooking.creditCard,
-          cardNumber: editedBooking.creditCard?.cardNumber || '',
+          cardNumber: (editedBooking.creditCard?.cardNumber || '').replace(/\s+/g, ''),  // ניקוי רווחים
           expiryDate: editedBooking.creditCard?.expiryDate || '',
           cvv: editedBooking.creditCard?.cvv || '',
           cardholderName: editedBooking.creditCard?.cardholderName || ''

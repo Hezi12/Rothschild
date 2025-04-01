@@ -199,7 +199,7 @@ const calculateVatAndTotalPrice = (basePrice, isTourist = false, vatRate = 18) =
 
 // @desc    יצירת הזמנה חדשה
 // @route   POST /api/bookings
-// @access  Private
+// @access  Public
 exports.createBooking = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -467,7 +467,9 @@ exports.createBooking = async (req, res) => {
   }
 };
 
-// קבלת כל ההזמנות
+// @desc    קבלת כל ההזמנות
+// @route   GET /api/bookings
+// @access  Public
 exports.getBookings = async (req, res) => {
   try {
     // פרמטרים לסינון וחיפוש
