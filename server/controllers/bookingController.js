@@ -192,7 +192,7 @@ const calculateVatAndTotalPrice = (basePrice, isTourist = false, vatRate = 18) =
   return {
     basePrice,
     vatAmount: Math.round(vatAmount * 100) / 100, // עיגול לשתי ספרות אחרי הנקודה
-    totalPrice: Math.round(totalPrice * 100) / 100, // עיגול לשתי ספרות אחרי הנקודה
+    totalPrice, // מחזירים את המחיר הכולל ללא עיגול
     priceWithoutVat: basePrice
   };
 };
@@ -326,13 +326,14 @@ exports.createBooking = async (req, res) => {
     if (pricePerNightNoVat) {
       // אם קיבלנו מחיר ללא מע"מ, נחשב את המחיר הסופי
       basePrice = parseFloat(pricePerNightNoVat);
-    const basePriceTotal = basePrice * calculatedNights;
+      const basePriceTotal = basePrice * calculatedNights;
       vatAmount = isTourist ? 0 : Math.round((basePriceTotal * 18 / 100) * 100) / 100;
-      finalTotalPrice = Math.round((basePriceTotal + vatAmount) * 100) / 100;
+      // שמירה של המחיר הכולל ללא עיגול נוסף
+      finalTotalPrice = basePriceTotal + vatAmount;
       
       console.log('חישוב מחיר מתוך מחיר ללא מע"מ:', {
         basePrice, 
-      basePriceTotal, 
+        basePriceTotal, 
         vatAmount, 
         finalTotalPrice
       });
@@ -349,7 +350,8 @@ exports.createBooking = async (req, res) => {
         basePrice = Math.round((priceWithVat / 1.18) * 100) / 100;
         vatAmount = Math.round((priceWithVat - basePrice) * 100) / 100;
       }
-      finalTotalPrice = Math.round(priceWithVat * calculatedNights * 100) / 100;
+      // שמירת המחיר הכולל ללא עיגול נוסף
+      finalTotalPrice = priceWithVat * calculatedNights;
       
       console.log('חישוב מחיר מתוך מחיר כולל מע"מ:', {
         priceWithVat, 
@@ -361,6 +363,9 @@ exports.createBooking = async (req, res) => {
     else if (totalPrice) {
       // אם קיבלנו סה"כ מחיר להזמנה, נחשב את מחיר הלילה
       const totalPriceValue = parseFloat(totalPrice);
+      // שומרים על המחיר המדויק שהתקבל מהמשתמש
+      finalTotalPrice = totalPriceValue;
+      
       const pricePerNightWithVat = totalPriceValue / calculatedNights;
       
       if (isTourist) {
@@ -372,7 +377,6 @@ exports.createBooking = async (req, res) => {
         basePrice = Math.round((pricePerNightWithVat / 1.18) * 100) / 100;
         vatAmount = Math.round((totalPriceValue - (basePrice * calculatedNights)) * 100) / 100;
       }
-      finalTotalPrice = totalPriceValue;
       
       console.log('חישוב מחיר מתוך סך המחיר להזמנה:', {
         totalPriceValue, 
@@ -414,6 +418,7 @@ exports.createBooking = async (req, res) => {
       vatRate: 18,
       vatAmount: vatAmount,
       totalPrice: finalTotalPrice,
+      originalTotalPrice: req.body.originalTotalPrice || String(finalTotalPrice),
       isTourist: isTourist,
       guest: guestData,
       status,
@@ -630,41 +635,49 @@ exports.getBookingById = async (req, res) => {
   }
 };
 
-// @desc    עדכון הזמנה
+// @desc    עדכון הזמנה קיימת
 // @route   PUT /api/bookings/:id
-// @access  Private
+// @access  Public
 exports.updateBooking = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ 
-      success: false, 
-      errors: errors.array() 
-    });
-  }
-
   try {
-    const { 
-      roomId, 
-      checkIn, 
-      checkOut, 
-      nights, 
-      totalPrice, 
+    const bookingId = req.params.id;
+    
+    // בדיקה אם ההזמנה קיימת
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'ההזמנה לא נמצאה'
+      });
+    }
+    
+    // קבלת הנתונים לעדכון
+    const {
+      checkIn,
+      checkOut,
+      nights,
+      totalPrice,
       pricePerNight,
       pricePerNightNoVat,
-      guest, 
+      guest,
       creditCard,
-      status, 
+      status,
       paymentStatus,
-      notes 
+      notes
     } = req.body;
-
-    console.log('נתונים לעדכון הזמנה - כרטיס אשראי:', creditCard);
-    console.log('סוג נתוני כרטיס אשראי:', typeof creditCard);
-    console.log('שדות כרטיס אשראי:', creditCard ? Object.keys(creditCard) : []);
-    console.log('מחירים שהתקבלו לעדכון:', { 
-      totalPrice, 
-      pricePerNight, 
-      pricePerNightNoVat 
+    
+    console.log('נתוני עדכון הזמנה:', {
+      bookingId,
+      checkIn,
+      checkOut,
+      nights,
+      totalPrice,
+      pricePerNight,
+      pricePerNightNoVat,
+      guest: guest ? 'קיים' : 'חסר',
+      creditCard: creditCard ? 'קיים' : 'חסר',
+      status,
+      paymentStatus
     });
     
     // וידוא שיש אובייקט כרטיס אשראי תקין
@@ -674,98 +687,17 @@ exports.updateBooking = async (req, res) => {
       cvv: '',
       cardholderName: ''
     };
-
-    console.log('כרטיס אשראי מעובד:', processedCreditCard);
-
-    const booking = await Booking.findById(req.params.id);
     
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'ההזמנה לא נמצאה'
-      });
-    }
-
-    // מירה על הרשאות - רק מנהל יכול לעדכן כל הזמנה
-    if (!req.user.isAdmin && booking.user && booking.user.toString() !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: 'אין לך הרשאה לעדכן הזמנה זו'
-      });
-    }
-
-    // עדכון שדות
-    let updatedFields = {};
-
-    // אם משנים חדר או תאריכים, בודקים זמינות
-    if ((roomId && roomId !== booking.room.toString()) || 
-        (checkIn && new Date(checkIn).getTime() !== booking.checkIn.getTime()) || 
-        (checkOut && new Date(checkOut).getTime() !== booking.checkOut.getTime())) {
-      
-      const newRoomId = roomId || booking.room;
-      
-      // המרת התאריכים לאובייקטי Date ואיפוס השעות לחצות
-      const checkInDate = checkIn ? new Date(checkIn) : booking.checkIn;
-      checkInDate.setHours(0, 0, 0, 0);
-      
-      const checkOutDate = checkOut ? new Date(checkOut) : booking.checkOut;
-      checkOutDate.setHours(0, 0, 0, 0);
-      
-      // בדיקת זמינות החדר בתאריכים החדשים
-      const isAvailable = await checkRoomAvailability(
-        newRoomId, 
-        checkInDate, 
-        checkOutDate, 
-        booking._id
-      );
-      
-      if (!isAvailable) {
-        return res.status(400).json({
-          success: false,
-          message: 'החדר אינו זמין בתאריכים המבוקשים'
-        });
-      }
-      
-      // אם הכל בסדר, נוסיף לשדות לעדכון
-      if (roomId) updatedFields.room = roomId;
-      if (checkIn) updatedFields.checkIn = checkInDate;
-      if (checkOut) updatedFields.checkOut = checkOutDate;
-      
-      // אם השתנו תאריכים, נעדכן מספר לילות
-      if (checkIn || checkOut) {
-        const startDate = checkIn ? checkInDate : booking.checkIn;
-        const endDate = checkOut ? checkOutDate : booking.checkOut;
-        
-        const diffTime = Math.abs(endDate - startDate);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        updatedFields.nights = diffDays;
-      } else if (nights) {
-        updatedFields.nights = nights;
-      }
-      
-      // אם חדר או מספר לילות השתנו, נחשב מחיר מחדש
-      if (roomId || updatedFields.nights) {
-        const roomToUse = roomId ? await Room.findById(roomId) : await Room.findById(booking.room);
-        if (!totalPrice) {
-          updatedFields.totalPrice = await calculateRoomPrice(
-            roomToUse._id, 
-            updatedFields.checkIn || booking.checkIn, 
-            updatedFields.checkOut || booking.checkOut
-          );
-        }
-      }
-    } else {
-      // אם לא משנים תאריכים/חדר, אבל יש מספר לילות חדש
-      if (nights && nights !== booking.nights) {
-        updatedFields.nights = nights;
-      }
-    }
+    // חישוב השדות לעדכון
+    const updatedFields = {};
     
-    // עדכון שאר השדות אם הם קיימים
-    // טיפול במחירים - נכנס לפני שאר השדות
-    if (pricePerNightNoVat || pricePerNight || totalPrice) {
-      // קבלת מידע על האורח (האם הוא תייר)
+    // עדכון תאריכים אם הוזנו
+    if (checkIn) updatedFields.checkIn = new Date(checkIn);
+    if (checkOut) updatedFields.checkOut = new Date(checkOut);
+    if (nights) updatedFields.nights = nights;
+    
+    // עדכון מחירים אם הוזנו
+    if (pricePerNight || pricePerNightNoVat || totalPrice) {
       const isTourist = req.body.isTourist || (guest && guest.isTourist) || booking.isTourist || false;
       const currentNights = nights || booking.nights || 1;
       
@@ -780,14 +712,16 @@ exports.updateBooking = async (req, res) => {
           // תייר - אין מע"מ
           updatedFields.vatAmount = 0;
           updatedFields.pricePerNight = basePrice;
-          updatedFields.totalPrice = Math.round((basePrice * currentNights) * 100) / 100;
+          // שמירת המחיר הכולל ללא עיגול
+          updatedFields.totalPrice = basePrice * currentNights;
         } else {
           // אזרח רגיל - עם מע"מ
           const vatAmount = Math.round((basePrice * 18 / 100) * 100) / 100;
           const priceWithVat = Math.round((basePrice + vatAmount) * 100) / 100;
           updatedFields.vatAmount = vatAmount * currentNights;
           updatedFields.pricePerNight = priceWithVat;
-          updatedFields.totalPrice = Math.round((priceWithVat * currentNights) * 100) / 100;
+          // שמירת המחיר הכולל ללא עיגול
+          updatedFields.totalPrice = priceWithVat * currentNights;
         }
         
         console.log('עדכון מחיר מתוך מחיר ללא מע"מ:', {
@@ -830,35 +764,43 @@ exports.updateBooking = async (req, res) => {
       else if (totalPrice) {
         // אם התקבל סה"כ מחיר להזמנה
         const totalPriceValue = parseFloat(totalPrice);
+        // שומרים על הערך המדויק שהתקבל מהמשתמש ללא שינוי
         updatedFields.totalPrice = totalPriceValue;
         
-        // חישוב מחיר ללילה (כולל מע"מ) - נחלק את הסכום הכולל במספר הלילות
-        const pricePerNightWithVat = Math.round((totalPriceValue / currentNights) * 100) / 100;
+        // שמירה של המחיר המקורי אם הוא קיים בבקשה
+        if (req.body.originalTotalPrice) {
+          updatedFields.originalTotalPrice = req.body.originalTotalPrice;
+        } else {
+          updatedFields.originalTotalPrice = String(totalPriceValue);
+        }
+        
+        // חישוב מחיר ללילה (כולל מע"מ) רק לצורך תצוגה
+        const pricePerNightWithVat = totalPriceValue / currentNights;
         
         if (isTourist) {
           // תייר - אין מע"מ - המחיר ללא מע"מ זהה למחיר כולל מע"מ
-          updatedFields.basePrice = pricePerNightWithVat;
-          updatedFields.pricePerNight = pricePerNightWithVat;
+          updatedFields.basePrice = Math.round(pricePerNightWithVat * 100) / 100;
+          updatedFields.pricePerNight = Math.round(pricePerNightWithVat * 100) / 100;
           updatedFields.vatAmount = 0;
         } else {
           // אזרח רגיל - צריך לחשב את המחיר ללא מע"מ ואת המע"מ
           // מחיר ללילה ללא מע"מ
-          const basePricePerNight = Math.round((pricePerNightWithVat / 1.18) * 100) / 100;
+          const basePricePerNight = pricePerNightWithVat / 1.18;
           // מע"מ ללילה
-          const vatAmountPerNight = Math.round((pricePerNightWithVat - basePricePerNight) * 100) / 100;
+          const vatAmountPerNight = pricePerNightWithVat - basePricePerNight;
           
-          updatedFields.basePrice = basePricePerNight; // מחיר לילה ללא מע"מ
-          updatedFields.pricePerNight = pricePerNightWithVat; // מחיר לילה כולל מע"מ
-          updatedFields.vatAmount = vatAmountPerNight * currentNights; // סה"כ מע"מ להזמנה
+          updatedFields.basePrice = Math.round(basePricePerNight * 100) / 100; // מחיר לילה ללא מע"מ
+          updatedFields.pricePerNight = Math.round(pricePerNightWithVat * 100) / 100; // מחיר לילה כולל מע"מ
+          updatedFields.vatAmount = Math.round(vatAmountPerNight * currentNights * 100) / 100; // סה"כ מע"מ להזמנה
         }
         
-        console.log('עדכון מחיר מתוך סה"כ להזמנה (מתוקן):', {
-          totalPrice: totalPriceValue,
+        console.log('עדכון מחיר מתוך סה"כ להזמנה (ערך מדויק):', {
+          totalPriceInput: totalPrice,
+          savedTotalPrice: totalPriceValue,
           nights: currentNights,
-          pricePerNightWithVat, // מחיר לילה כולל מע"מ
+          pricePerNightWithVat: updatedFields.pricePerNight, // מחיר לילה כולל מע"מ
           basePrice: updatedFields.basePrice, // מחיר לילה ללא מע"מ
           vatAmount: updatedFields.vatAmount, // סה"כ מע"מ להזמנה
-          calculatedTotalPrice: updatedFields.basePrice * currentNights * 1.18, // בדיקה - סה"כ מחושב מחדש
           isTourist
         });
       }

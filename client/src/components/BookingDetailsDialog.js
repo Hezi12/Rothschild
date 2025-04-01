@@ -72,6 +72,7 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
           cardholderName: creditCard.cardholderName || ''
         },
         totalPrice: booking.totalPrice || 0,
+        originalTotalPrice: booking.originalTotalPrice || String(booking.totalPrice || 0),
         notes: booking.notes || '',
         paymentStatus: booking.paymentStatus || 'pending',
         paymentMethod: booking.paymentMethod || ''
@@ -122,28 +123,17 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
       return; // יציאה מהפונקציה אחרי הטיפול המיוחד
     }
     
-    // טיפול מיוחד בשדה totalPrice - למניעת בעיות המרה
+    // טיפול מיוחד בשדה totalPrice - שינוי פורמט והגדרת מחיר
     if (name === 'totalPrice') {
-      // טיפול מיוחד בערכי מספר
-      const valueStr = value.toString();
-      
-      // בודקים אם זו מחרוזת שמכילה נקודה עשרונית במקום הלא נכון
-      let fixedValue = valueStr;
-      
-      // אם מתחיל בספרה יחידה ואחריה נקודה, ואחרי הנקודה יש רק אפסים
-      if (/^[0-9]\.0+$/.test(valueStr)) {
-        // כנראה שהמשתמש התכוון למספר שלם, הסר את הנקודה והאפסים
-        fixedValue = valueStr.charAt(0) + '0'.repeat(valueStr.length - 2);
-        console.log(`תיקון ערך מ-${valueStr} ל-${fixedValue}`);
-      } else if (/^[0-9]\.[0-9]+$/.test(valueStr) && !valueStr.includes(',')) {
-        // אם זה בפורמט X.YY וללא פסיקים, ייתכן שהמשתמש התכוון ל-XYY
-        fixedValue = valueStr.replace('.', '');
-        console.log(`תיקון ערך מ-${valueStr} ל-${fixedValue}`);
-      }
+      // תיקון המחיר בפורמט נכון
+      const fixedValue = value.replace(/,/g, '.');
       
       setEditedBooking(prev => {
         const totalPrice = parseFloat(fixedValue) || 0;
         const nights = prev.nights || 1;
+        
+        // שמירת המחיר המקורי כמחרוזת
+        const originalTotalPrice = fixedValue || String(totalPrice);
         
         // חישוב מחיר לילה כולל מע"מ
         const pricePerNightWithVat = Math.round((totalPrice / nights) * 100) / 100;
@@ -158,6 +148,7 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
           originalValue: value,
           fixedValue,
           totalPrice,
+          originalTotalPrice,
           nights,
           pricePerNightWithVat,
           pricePerNightNoVat,
@@ -167,6 +158,7 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
         return {
           ...prev,
           totalPrice,
+          originalTotalPrice,
           pricePerNight: pricePerNightWithVat,
           basePrice: pricePerNightNoVat
         };
@@ -212,6 +204,8 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
       const bookingData = {
         ...editedBooking,
         roomId: editedBooking.room._id || editedBooking.room,
+        totalPrice: parseFloat(editedBooking.totalPrice) || 0,
+        originalTotalPrice: editedBooking.originalTotalPrice || String(editedBooking.totalPrice || 0),
         guest: {
           ...editedBooking.guest,
           name: `${editedBooking.guest.firstName || ''} ${editedBooking.guest.lastName || ''}`.trim(),
@@ -464,7 +458,9 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
 
           <Grid item xs={12} sm={6}>
             <Typography variant="subtitle2">סה"כ לתשלום:</Typography>
-            <Typography variant="body1">{booking.totalPrice} ₪</Typography>
+            <Typography variant="body1">
+              {booking.originalTotalPrice || booking.totalPrice} ₪
+            </Typography>
           </Grid>
 
           <Grid item xs={12}>
@@ -671,7 +667,7 @@ const BookingDetailsDialog = ({ open, booking, onClose, onBookingChange }) => {
               label="סה&quot;כ לתשלום"
               type="number"
               name="totalPrice"
-              value={editedBooking.totalPrice}
+              value={editedBooking.originalTotalPrice || editedBooking.totalPrice}
               onChange={handleFieldChange}
             />
           </Grid>

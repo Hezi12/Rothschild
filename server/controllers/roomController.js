@@ -66,7 +66,7 @@ const calculateVatAndTotalPrice = (basePrice, isTourist = false, vatRate = 18) =
     basePrice,
     vatRate,
     vatAmount: Math.round(vatAmount * 100) / 100, // עיגול לשתי ספרות אחרי הנקודה
-    totalPrice: Math.round(totalPrice * 100) / 100, // עיגול לשתי ספרות אחרי הנקודה
+    totalPrice, // מחזירים את המחיר הכולל ללא עיגול
   };
 };
 

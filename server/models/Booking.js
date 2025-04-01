@@ -107,8 +107,14 @@ const BookingSchema = new Schema({
     default: 0
   },
   totalPrice: {
-    type: Number,
-    required: true
+    type: Schema.Types.Decimal128,
+    required: true,
+    get: (v) => v ? parseFloat(v.toString()) : 0
+  },
+  originalTotalPrice: {
+    type: String,
+    default: '',
+    get: (v) => v || '', 
   },
   paidAmount: {
     type: Number,
@@ -199,8 +205,8 @@ const BookingSchema = new Schema({
     default: false
   }
 }, {
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  toJSON: { virtuals: true, getters: true },
+  toObject: { virtuals: true, getters: true }
 });
 
 // וידוא שתאריך צ'ק-אאוט מאוחר מתאריך צ'ק-אין

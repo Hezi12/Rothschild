@@ -61,7 +61,8 @@ import {
   Close as CloseIcon,
   Event as EventIcon,
   Hotel as HotelIcon,
-  Language as LanguageIcon
+  Language as LanguageIcon,
+  Assessment as AssessmentIcon
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -874,6 +875,19 @@ const SimpleBookingList = () => {
             }}
           >
             <CalendarMonthIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+        
+        <SidebarButton title="דו״ח הכנסות" placement="right" isActive={currentPath === '/dashboard/income-report'}>
+          <IconButton 
+            component={Link} 
+            to="/dashboard/income-report"
+            sx={{ 
+              color: isActive => isActive ? '#e74c3c' : '#666',
+              '&:hover': { color: '#c0392b' }
+            }}
+          >
+            <AssessmentIcon fontSize="medium" />
           </IconButton>
         </SidebarButton>
         

@@ -326,16 +326,24 @@ export const BookingProvider = ({ children }) => {
     switch (method) {
       case 'cash':
         return 'מזומן';
-      case 'credit':
-        return 'כרטיס אשראי';
+      // case 'credit':
+      //   return 'כרטיס אשראי';
       case 'creditOr':
         return 'אשראי אור יהודה';
       case 'creditRothschild':
         return 'אשראי רוטשילד';
       case 'mizrahi':
         return 'העברה מזרחי';
+      case 'bitMizrahi':
+        return 'ביט מזרחי';
+      case 'payboxMizrahi':
+        return 'פייבוקס מזרחי';
       case 'poalim':
         return 'העברה פועלים';
+      case 'bitPoalim':
+        return 'ביט פועלים';
+      case 'payboxPoalim':
+        return 'פייבוקס פועלים';
       case 'other':
         return 'אחר';
       default:
