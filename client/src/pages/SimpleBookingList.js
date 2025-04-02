@@ -12,6 +12,7 @@ import {
   Grid,
   Card,
   CardHeader,
+  CardContent,
   Divider,
   List,
   ListItem,
@@ -32,7 +33,9 @@ import {
   DialogActions,
   CircularProgress,
   styled,
-  Container
+  Container,
+  Breadcrumbs,
+  Avatar
 } from '@mui/material';
 import {
   ArrowForward as ArrowForwardIcon,
@@ -83,7 +86,42 @@ const LOCATIONS = {
   }
 };
 
-// קומפוננטה עבור תא של חדר - זה הפתרון לבעיית ה-hooks
+// קומפוננטות מותאמות אישית עם עיצוב משופר
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  borderRadius: 16,
+  boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)',
+  border: '1px solid',
+  borderColor: alpha(theme.palette.divider, 0.1),
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    boxShadow: '0 8px 25px 0 rgba(0,0,0,0.08)'
+  },
+  background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(theme.palette.background.paper, 0.92)} 100%)`
+}));
+
+// קומפוננטה עבור כותרת מתחם מודרנית
+const LocationHeader = styled(Box)(({ theme }) => ({
+  padding: '16px 20px',
+  borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  position: 'relative',
+  backgroundColor: 'white',
+  '&:after': {
+    content: '""',
+    position: 'absolute',
+    left: 0,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: 4,
+    height: '60%',
+    backgroundColor: theme.palette.primary.main,
+    borderRadius: '0 2px 2px 0'
+  }
+}));
+
+// קומפוננטה עבור תא של חדר - משופר
 const RoomBookingCell = ({ 
   locationId, 
   roomId, 
@@ -142,284 +180,327 @@ const RoomBookingCell = ({
   };
   
   return (
-    <React.Fragment>
-      <ListItem
-        sx={{
-          py: 1.5,
-          backgroundColor: 'white',
-          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
-          '&:hover': {
-            backgroundColor: alpha(theme.palette.primary.light, 0.05)
-          },
-          transition: 'all 0.2s ease'
-        }}
-        secondaryAction={
-          isMultiNightDisplay ? (
-            <Tooltip title={`הזמנה מקורית מתאריך ${format(parseISO(originalBookingDate), 'dd/MM/yyyy')}`}>
-              <Chip 
-                icon={<EventAvailableIcon />} 
-                label="המשך הזמנה" 
-                size="small"
-                color="info"
+    <Paper
+      elevation={0}
+      sx={{
+        py: 1.2,
+        px: 2,
+        backgroundColor: 'white',
+        borderRadius: 3,
+        mb: 1,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+        border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+        transition: 'all 0.2s ease-in-out',
+        '&:hover': {
+          boxShadow: '0 4px 12px rgba(0,0,0,0.07)',
+          transform: 'translateY(-2px)',
+          borderColor: alpha(theme.palette.primary.main, 0.1)
+        },
+        position: 'relative',
+        overflow: 'hidden'
+      }}
+    >
+      {isMultiNightDisplay && (
+        <Chip 
+          icon={<EventAvailableIcon fontSize="small" />} 
+          label="המשך הזמנה" 
+          size="small"
+          color="info"
+          variant="outlined"
+          sx={{ 
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            fontSize: '0.75rem',
+            height: '24px',
+            borderRadius: '12px',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
+            zIndex: 2
+          }}
+        />
+      )}
+      
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center',
+        gap: 2,
+        width: '100%',
+        position: 'relative'
+      }}>
+        {/* מספר החדר */}
+        <Box 
+          sx={{ 
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: localBooking.guestName ? 
+              (localBooking.isPaid ? 
+                alpha('#4caf50', 0.08) : 
+                alpha('#ff9800', 0.08)) : 
+              alpha(theme.palette.grey[100], 0.7),
+            color: localBooking.guestName ? 
+              (localBooking.isPaid ? 
+                '#2e7d32' : 
+                '#e65100') : 
+              alpha(theme.palette.text.secondary, 0.8),
+            width: 48,
+            height: 48,
+            borderRadius: '14px',
+            fontWeight: 'bold',
+            fontSize: '1.2rem',
+            flexShrink: 0,
+            border: '1px solid',
+            borderColor: localBooking.guestName ? 
+              (localBooking.isPaid ? 
+                alpha('#4caf50', 0.2) : 
+                alpha('#ff9800', 0.2)) : 
+              alpha(theme.palette.grey[200], 0.8),
+            boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+          }}
+        >
+          {roomId}
+        </Box>
+        
+        {isMultiNightDisplay ? (
+          // תצוגת מידע של המשך הזמנה
+          <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.95rem', mb: 0.5 }}>
+              {localBooking.guestName}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, color: alpha(theme.palette.text.primary, 0.7) }}>
+              {localBooking.phone && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <PhoneIcon fontSize="small" sx={{ color: alpha(theme.palette.primary.main, 0.7) }} />
+                  <Typography variant="body2">{localBooking.phone}</Typography>
+                </Box>
+              )}
+              {localBooking.nights > 1 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <NightsStayIcon fontSize="small" sx={{ color: alpha(theme.palette.info.main, 0.7) }} />
+                  <Typography variant="body2">המשך הזמנה ({localBooking.nights} לילות)</Typography>
+                </Box>
+              )}
+            </Box>
+          </Box>
+        ) : (
+          // טופס עריכה - תמיד מוצג
+          <Grid container spacing={2} sx={{ ml: 0 }}>
+            {/* שם אורח */}
+            <Grid item xs={12} sm={3}>
+              <TextField
+                fullWidth
+                placeholder="שם האורח"
                 variant="outlined"
-                sx={{ 
-                  fontSize: '0.75rem',
-                  height: '24px' 
+                size="small"
+                value={localBooking.guestName}
+                onChange={(e) => handleChange('guestName', e.target.value)}
+                onBlur={handleBlur}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PersonIcon fontSize="small" sx={{ color: alpha(theme.palette.primary.main, 0.6) }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2.5,
+                    '& fieldset': {
+                      borderColor: alpha(theme.palette.divider, 0.5)
+                    },
+                    '&:hover fieldset': {
+                      borderColor: alpha(theme.palette.primary.main, 0.5)
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderWidth: 1,
+                      borderColor: theme.palette.primary.main
+                    }
+                  }
                 }}
               />
-            </Tooltip>
-          ) : (
-            <Tooltip title="מחק">
-              <IconButton 
-                edge="end" 
-                onClick={() => onDelete(locationId, roomId)}
-                color="error"
-                size="small"
-                sx={{ 
-                  opacity: 0.7,
-                  '&:hover': { opacity: 1 }
-                }}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )
-        }
-      >
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center',
-          gap: 2,
-          width: '100%'
-        }}>
-          {/* מספר החדר */}
-          <Box 
-            sx={{ 
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: localBooking.guestName ? 
-                (localBooking.isPaid ? 
-                  alpha(theme.palette.success.main || '#4caf50', 0.15) : 
-                  alpha(theme.palette.warning.main || '#ff9800', 0.15)) : 
-                alpha(theme.palette.grey[200], 0.7),
-              color: localBooking.guestName ? 
-                (localBooking.isPaid ? 
-                  theme.palette.success.dark || '#1b5e20' : 
-                  theme.palette.warning.dark || '#e65100') : 
-                theme.palette.text.secondary,
-              width: 36,
-              height: 36,
-              borderRadius: '8px',
-              fontWeight: 'bold',
-              fontSize: '1.1rem',
-              flexShrink: 0,
-              border: '1px solid',
-              borderColor: localBooking.guestName ? 
-                (localBooking.isPaid ? 
-                  alpha(theme.palette.success.main || '#4caf50', 0.3) : 
-                  alpha(theme.palette.warning.main || '#ff9800', 0.3)) : 
-                alpha(theme.palette.grey[300], 0.5)
-            }}
-          >
-            {roomId}
-          </Box>
-          
-          {isMultiNightDisplay ? (
-            // תצוגת מידע של המשך הזמנה
-            <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                {localBooking.guestName}
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 2, color: alpha(theme.palette.text.primary, 0.7) }}>
-                {localBooking.phone && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <PhoneIcon fontSize="small" />
-                    <Typography variant="body2">{localBooking.phone}</Typography>
-                  </Box>
-                )}
-                {localBooking.nights > 1 && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <NightsStayIcon fontSize="small" />
-                    <Typography variant="body2">המשך הזמנה ({localBooking.nights} לילות)</Typography>
-                  </Box>
-                )}
-              </Box>
-            </Box>
-          ) : (
-            // טופס עריכה - תמיד מוצג
-            <Grid container spacing={1} sx={{ ml: 0 }}>
-              {/* שם אורח */}
-              <Grid item xs={12} sm={2.5}>
-                <TextField
-                  fullWidth
-                  placeholder="שם האורח"
-                  variant="outlined"
-                  size="small"
-                  value={localBooking.guestName}
-                  onChange={(e) => handleChange('guestName', e.target.value)}
-                  onBlur={handleBlur}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PersonIcon fontSize="small" sx={{ color: alpha(theme.palette.text.primary, 0.5) }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 1.5,
-                      '& fieldset': {
-                        borderColor: alpha(theme.palette.divider, 0.8)
-                      },
-                      '&:hover fieldset': {
-                        borderColor: theme.palette.primary.main
-                      }
-                    }
-                  }}
-                />
-              </Grid>
-              
-              {/* טלפון עם אייקון וואטסאפ */}
-              <Grid item xs={12} sm={2.5}>
-                <TextField
-                  fullWidth
-                  placeholder="טלפון"
-                  variant="outlined"
-                  size="small"
-                  value={localBooking.phone}
-                  onChange={(e) => handleChange('phone', e.target.value)}
-                  onBlur={handleBlur}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PhoneIcon fontSize="small" sx={{ color: alpha(theme.palette.text.primary, 0.5) }} />
-                      </InputAdornment>
-                    ),
-                    endAdornment: localBooking.phone && (
-                      <InputAdornment position="end">
-                        <Tooltip title="שלח הודעת וואטסאפ">
-                          <IconButton
-                            edge="end"
-                            onClick={() => handleWhatsAppClick(localBooking.phone)}
-                            size="small"
-                            sx={{ 
-                              color: '#25D366',
-                              '&:hover': { 
-                                bgcolor: alpha('#25D366', 0.1)
-                              }
-                            }}
-                          >
-                            <WhatsAppIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </InputAdornment>
-                    )
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 1.5,
-                      '& fieldset': {
-                        borderColor: alpha(theme.palette.divider, 0.8)
-                      },
-                      '&:hover fieldset': {
-                        borderColor: theme.palette.primary.main
-                      }
-                    }
-                  }}
-                />
-              </Grid>
-              
-              {/* מספר לילות - מוקטן */}
-              <Grid item xs={6} sm={1}>
-                <TextField
-                  fullWidth
-                  placeholder="לילות"
-                  variant="outlined"
-                  size="small"
-                  type="number"
-                  inputProps={{ min: 1, max: 30 }}
-                  value={localBooking.nights || 1}
-                  onChange={(e) => handleChange('nights', parseInt(e.target.value) || 1)}
-                  onBlur={handleBlur}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <NightsStayIcon fontSize="small" sx={{ color: alpha(theme.palette.text.primary, 0.5) }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 1.5,
-                      '& fieldset': {
-                        borderColor: alpha(theme.palette.divider, 0.8)
-                      },
-                      '&:hover fieldset': {
-                        borderColor: theme.palette.primary.main
-                      }
-                    }
-                  }}
-                />
-              </Grid>
-              
-              {/* הערות - מוגדל */}
-              <Grid item xs={12} sm={5}>
-                <TextField
-                  fullWidth
-                  placeholder="הערות"
-                  variant="outlined"
-                  size="small"
-                  value={localBooking.notes}
-                  onChange={(e) => handleChange('notes', e.target.value)}
-                  onBlur={handleBlur}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <CommentIcon fontSize="small" sx={{ color: alpha(theme.palette.text.primary, 0.5) }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 1.5,
-                      '& fieldset': {
-                        borderColor: alpha(theme.palette.divider, 0.8)
-                      },
-                      '&:hover fieldset': {
-                        borderColor: theme.palette.primary.main
-                      }
-                    }
-                  }}
-                />
-              </Grid>
-              
-              {/* סטטוס תשלום - אייקון בלבד */}
-              <Grid item xs={6} sm={1} sx={{ display: 'flex', justifyContent: 'center' }}>
-                <Tooltip title={localBooking.isPaid ? "סמן כלא שולם" : "סמן כשולם"}>
-                  <IconButton
-                    onClick={togglePaymentStatus}
-                    size="small"
-                    sx={{
-                      color: localBooking.isPaid ? 
-                        (theme.palette.success.main || '#4caf50') : 
-                        alpha(theme.palette.text.secondary, 0.6),
-                      '&:hover': {
-                        bgcolor: localBooking.isPaid ? 
-                          alpha(theme.palette.success.main || '#4caf50', 0.1) : 
-                          alpha(theme.palette.error.main || '#f44336', 0.05)
-                      }
-                    }}
-                  >
-                    {localBooking.isPaid ? <CheckCircleIcon /> : <PaymentIcon />}
-                  </IconButton>
-                </Tooltip>
-              </Grid>
             </Grid>
-          )}
-        </Box>
-      </ListItem>
-    </React.Fragment>
+            
+            {/* טלפון עם אייקון וואטסאפ */}
+            <Grid item xs={12} sm={3}>
+              <TextField
+                fullWidth
+                placeholder="טלפון"
+                variant="outlined"
+                size="small"
+                value={localBooking.phone}
+                onChange={(e) => handleChange('phone', e.target.value)}
+                onBlur={handleBlur}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PhoneIcon fontSize="small" sx={{ color: alpha(theme.palette.primary.main, 0.6) }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: localBooking.phone && (
+                    <InputAdornment position="end">
+                      <Tooltip title="שלח הודעת וואטסאפ">
+                        <IconButton
+                          edge="end"
+                          onClick={() => handleWhatsAppClick(localBooking.phone)}
+                          size="small"
+                          sx={{ 
+                            color: '#25D366',
+                            '&:hover': { 
+                              bgcolor: alpha('#25D366', 0.1),
+                              transform: 'scale(1.05)'
+                            },
+                            transition: 'all 0.2s',
+                            borderRadius: '10px'
+                          }}
+                        >
+                          <WhatsAppIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </InputAdornment>
+                  )
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2.5,
+                    '& fieldset': {
+                      borderColor: alpha(theme.palette.divider, 0.5)
+                    },
+                    '&:hover fieldset': {
+                      borderColor: alpha(theme.palette.primary.main, 0.5)
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderWidth: 1,
+                      borderColor: theme.palette.primary.main
+                    }
+                  }
+                }}
+              />
+            </Grid>
+            
+            {/* מספר לילות - מוקטן */}
+            <Grid item xs={6} sm={1}>
+              <TextField
+                fullWidth
+                placeholder="לילות"
+                variant="outlined"
+                size="small"
+                type="number"
+                inputProps={{ min: 1, max: 30 }}
+                value={localBooking.nights || 1}
+                onChange={(e) => handleChange('nights', parseInt(e.target.value) || 1)}
+                onBlur={handleBlur}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <NightsStayIcon fontSize="small" sx={{ color: alpha(theme.palette.primary.main, 0.6) }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2.5,
+                    '& fieldset': {
+                      borderColor: alpha(theme.palette.divider, 0.5)
+                    },
+                    '&:hover fieldset': {
+                      borderColor: alpha(theme.palette.primary.main, 0.5)
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderWidth: 1,
+                      borderColor: theme.palette.primary.main
+                    }
+                  }
+                }}
+              />
+            </Grid>
+            
+            {/* הערות - מוגדל */}
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                placeholder="הערות"
+                variant="outlined"
+                size="small"
+                value={localBooking.notes}
+                onChange={(e) => handleChange('notes', e.target.value)}
+                onBlur={handleBlur}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <CommentIcon fontSize="small" sx={{ color: alpha(theme.palette.primary.main, 0.6) }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2.5,
+                    '& fieldset': {
+                      borderColor: alpha(theme.palette.divider, 0.5)
+                    },
+                    '&:hover fieldset': {
+                      borderColor: alpha(theme.palette.primary.main, 0.5)
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderWidth: 1,
+                      borderColor: theme.palette.primary.main
+                    }
+                  }
+                }}
+              />
+            </Grid>
+            
+            {/* סטטוס תשלום וכפתור מחיקה */}
+            <Grid item xs={6} sm={1} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Tooltip title={localBooking.isPaid ? "סמן כלא שולם" : "סמן כשולם"}>
+                <IconButton
+                  onClick={togglePaymentStatus}
+                  size="small"
+                  sx={{
+                    color: localBooking.isPaid ? 
+                      '#4caf50' : 
+                      alpha(theme.palette.text.secondary, 0.7),
+                    '&:hover': {
+                      bgcolor: localBooking.isPaid ? 
+                        alpha('#4caf50', 0.1) : 
+                        alpha('#f44336', 0.05),
+                      transform: 'scale(1.05)'
+                    },
+                    transition: 'all 0.2s',
+                    borderRadius: '10px',
+                    width: 32,
+                    height: 32
+                  }}
+                >
+                  {localBooking.isPaid ? <CheckCircleIcon /> : <PaymentIcon />}
+                </IconButton>
+              </Tooltip>
+
+              <Tooltip title="מחק">
+                <IconButton 
+                  onClick={() => onDelete(locationId, roomId)}
+                  color="error"
+                  size="small"
+                  sx={{ 
+                    opacity: 0.6,
+                    '&:hover': { 
+                      opacity: 1,
+                      backgroundColor: alpha('#f44336', 0.1),
+                      transform: 'scale(1.05)'
+                    },
+                    transition: 'all 0.2s',
+                    borderRadius: '10px',
+                    width: 32,
+                    height: 32
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Grid>
+          </Grid>
+        )}
+      </Box>
+    </Paper>
   );
 };
 
@@ -433,8 +514,8 @@ const MinimalSidebar = styled(Box)(({ theme }) => ({
   flexDirection: 'column',
   padding: '10px 0',
   backgroundColor: '#ffffff',
-  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
-  borderRadius: '0 8px 8px 0',
+  boxShadow: '0 3px 15px rgba(0,0,0,0.1)',
+  borderRadius: '0 12px 12px 0',
   zIndex: 100,
   gap: '5px',
   width: '60px'
@@ -453,6 +534,51 @@ const SidebarButton = styled(Tooltip)(({ theme, isActive }) => ({
     borderRight: 'none'
   }
 }));
+
+// קומפוננטה של הסטטיסטיקה
+const StatCard = ({ icon, title, value, color }) => {
+  const theme = useTheme();
+  
+  return (
+    <StyledPaper>
+      <Box 
+        sx={{
+          position: 'absolute',
+          top: -30,
+          right: -10,
+          borderRadius: '50%',
+          width: 130,
+          height: 130,
+          background: `linear-gradient(145deg, ${alpha(color, 0.12)} 20%, ${alpha(color, 0.04)} 80%)`,
+          zIndex: 0
+        }}
+      />
+      <CardContent sx={{ position: 'relative', zIndex: 1, height: '100%' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+          <Box
+            sx={{
+              p: 1,
+              borderRadius: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: alpha(color, 0.15),
+              color: color
+            }}
+          >
+            {icon}
+          </Box>
+        </Box>
+        <Typography variant="h4" component="div" sx={{ fontWeight: 600, mb: 0.5 }}>
+          {value}
+        </Typography>
+        <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
+          {title}
+        </Typography>
+      </CardContent>
+    </StyledPaper>
+  );
+};
 
 const SimpleBookingList = () => {
   const theme = useTheme();
@@ -836,6 +962,51 @@ const SimpleBookingList = () => {
     return multiNightBookings[currentDateKey]?.[locationId]?.[roomId] || null;
   };
 
+  // חישובים לסטטיסטיקה
+  const getTotalBookingsCount = () => {
+    let count = 0;
+    
+    // הזמנות רגילות
+    const dateBookings = bookings[currentDateKey] || {};
+    for (const locationId in dateBookings) {
+      count += Object.keys(dateBookings[locationId] || {}).length;
+    }
+    
+    // הזמנות רב-לילות
+    const multiDateBookings = multiNightBookings[currentDateKey] || {};
+    for (const locationId in multiDateBookings) {
+      count += Object.keys(multiDateBookings[locationId] || {}).length;
+    }
+    
+    return count;
+  };
+  
+  const getTotalPaidBookingsCount = () => {
+    let count = 0;
+    
+    // הזמנות רגילות
+    const dateBookings = bookings[currentDateKey] || {};
+    for (const locationId in dateBookings) {
+      for (const roomId in dateBookings[locationId] || {}) {
+        if (dateBookings[locationId][roomId].isPaid) {
+          count++;
+        }
+      }
+    }
+    
+    // הזמנות רב-לילות
+    const multiDateBookings = multiNightBookings[currentDateKey] || {};
+    for (const locationId in multiDateBookings) {
+      for (const roomId in multiDateBookings[locationId] || {}) {
+        if (multiDateBookings[locationId][roomId].isPaid) {
+          count++;
+        }
+      }
+    }
+    
+    return count;
+  };
+
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
       {/* סרגל צדדי מינימליסטי */}
@@ -922,63 +1093,38 @@ const SimpleBookingList = () => {
       </MinimalSidebar>
       
       {/* תוכן העמוד בסגנון dashboard */}
-      <Container maxWidth="xl" sx={{ mt: 4, mb: 4, paddingLeft: '55px' }}>
-        <Paper 
+      <Container maxWidth="xl" sx={{ mt: 3, mb: 4, paddingLeft: '55px' }}>
+        <StyledPaper 
           elevation={0} 
           sx={{ 
-            p: 3, 
+            p: 2,
             mb: 3, 
-            borderRadius: 2,
-            boxShadow: '0 2px 10px rgba(0,0,0,0.08)'
+            borderRadius: 3,
+            boxShadow: '0 3px 15px rgba(0,0,0,0.08)'
           }}
         >
-          {/* כותרת הדף בסגנון dashboard */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                <HotelIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                106 / Airport Guest House
-              </Typography>
-            </Box>
-            
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<RefreshIcon />}
-              onClick={fetchBookings}
-              sx={{ 
-                borderRadius: 1.5,
-                boxShadow: 2
-              }}
-            >
-              רענון
-            </Button>
-          </Box>
-          
-          <Divider sx={{ mb: 3 }} />
-          
-          {/* סרגל ניווט תאריכים בסגנון dashboard */}
+          {/* סרגל ניווט תאריכים עם כפתור רענון */}
           <Paper 
             elevation={1}
             sx={{ 
               p: 1.5, 
-              mb: 3, 
+              mb: 3,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              borderRadius: 2,
+              borderRadius: 3,
               background: isWeekend ? 
-                `linear-gradient(to right, ${alpha(theme.palette.primary.main, 0.05)}, ${alpha(theme.palette.primary.light, 0.08)})` : 
-                'white',
+                `linear-gradient(to right, ${alpha(theme.palette.warning.light, 0.05)}, ${alpha(theme.palette.warning.light, 0.08)})` : 
+                `linear-gradient(to right, ${alpha(theme.palette.primary.light, 0.02)}, ${alpha(theme.palette.primary.light, 0.05)})`,
               border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-              boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.06)}`
+              boxShadow: `0 3px 12px ${alpha(theme.palette.primary.main, 0.06)}`
             }}
           >
             <IconButton 
               onClick={handlePrevDay}
               size="small"
               sx={{ 
-                borderRadius: 1.5,
+                borderRadius: 2,
                 color: theme.palette.primary.main,
                 '&:hover': { 
                   backgroundColor: alpha(theme.palette.primary.main, 0.1) 
@@ -1002,10 +1148,10 @@ const SimpleBookingList = () => {
                 size="small"
                 color="primary"
                 sx={{ 
-                  borderRadius: 1.5,
+                  borderRadius: 2,
                   px: 1.5,
                   '&:hover': {
-                    boxShadow: `0 1px 5px ${alpha(theme.palette.primary.main, 0.2)}`
+                    boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.2)}`
                   }
                 }}
               >
@@ -1015,11 +1161,16 @@ const SimpleBookingList = () => {
               <Button
                 onClick={handleOpenDatePicker}
                 variant="text"
-                color="primary"
+                color={isWeekend ? "warning" : "primary"}
                 sx={{ 
-                  borderRadius: 1.5,
+                  borderRadius: 2,
                   fontWeight: 500,
-                  minWidth: 250
+                  minWidth: 250,
+                  py: 0.5,
+                  px: 1.5,
+                  '&:hover': { 
+                    backgroundColor: alpha(isWeekend ? theme.palette.warning.main : theme.palette.primary.main, 0.05) 
+                  }
                 }}
                 startIcon={<DateRangeIcon />}
               >
@@ -1028,11 +1179,30 @@ const SimpleBookingList = () => {
                   sx={{ 
                     fontWeight: 500,
                     textAlign: 'center',
-                    color: isWeekend ? theme.palette.primary.dark : theme.palette.primary.main,
+                    color: isWeekend ? 
+                      alpha(theme.palette.warning.dark, 0.9) : 
+                      alpha(theme.palette.primary.main, 0.9),
+                    fontSize: '1rem'
                   }}
                 >
                   {formattedDate}
                 </Typography>
+              </Button>
+              
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<RefreshIcon />}
+                onClick={fetchBookings}
+                size="small"
+                sx={{ 
+                  borderRadius: 2,
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                  minWidth: 'unset',
+                  px: 2
+                }}
+              >
+                רענון
               </Button>
             </Box>
             
@@ -1040,7 +1210,7 @@ const SimpleBookingList = () => {
               onClick={handleNextDay}
               size="small"
               sx={{ 
-                borderRadius: 1.5,
+                borderRadius: 2,
                 color: theme.palette.primary.main,
                 '&:hover': { 
                   backgroundColor: alpha(theme.palette.primary.main, 0.1) 
@@ -1053,7 +1223,7 @@ const SimpleBookingList = () => {
           
           {/* חיווי טעינה */}
           {isLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
               <CircularProgress thickness={3} sx={{ color: theme.palette.primary.main }} />
             </Box>
           )}
@@ -1062,35 +1232,29 @@ const SimpleBookingList = () => {
           <Grid container spacing={2}>
             {Object.entries(LOCATIONS).map(([locationId, location]) => (
               <Grid item xs={12} key={locationId}>
-                <Card 
+                <Paper 
                   elevation={0}
                   sx={{
-                    borderRadius: 2,
+                    borderRadius: 3,
                     overflow: 'hidden',
                     border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                    mb: 1,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    mb: 1.5,
+                    boxShadow: '0 3px 10px rgba(0,0,0,0.03)',
                     '&:hover': {
-                      boxShadow: `0 5px 15px ${alpha(theme.palette.primary.main, 0.08)}`
+                      boxShadow: '0 5px 15px rgba(0,0,0,0.06)'
                     },
-                    transition: 'box-shadow 0.3s ease'
+                    transition: 'box-shadow 0.3s ease, transform 0.2s ease',
+                    backgroundColor: 'white'
                   }}
                 >
-                  <CardHeader
-                    title={location.name}
-                    sx={{
-                      background: `linear-gradient(to right, ${alpha(theme.palette.primary.main, 0.7)}, ${alpha(theme.palette.primary.dark, 0.85)})`,
-                      color: 'white',
-                      py: 1,
-                      px: 2,
-                      '& .MuiCardHeader-title': {
-                        fontSize: '1rem',
-                        fontWeight: '600'
-                      }
-                    }}
-                  />
+                  <LocationHeader theme={theme}>
+                    <HotelIcon sx={{ color: alpha(theme.palette.primary.main, 0.8) }} />
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: alpha(theme.palette.text.primary, 0.85) }}>
+                      {location.name}
+                    </Typography>
+                  </LocationHeader>
                   
-                  <List disablePadding>
+                  <Box sx={{ p: 1.5 }}>
                     {location.rooms.map(roomId => {
                       // בדיקה אם החדר מאוכלס כחלק מהזמנה רב-לילות
                       const multiNightBooking = isPartOfMultiNightBooking(locationId, roomId);
@@ -1135,12 +1299,12 @@ const SimpleBookingList = () => {
                         );
                       }
                     })}
-                  </List>
-                </Card>
+                  </Box>
+                </Paper>
               </Grid>
             ))}
           </Grid>
-        </Paper>
+        </StyledPaper>
 
         {/* בוחר תאריך - דיאלוג */}
         <Dialog
@@ -1148,21 +1312,27 @@ const SimpleBookingList = () => {
           onClose={() => setIsDatePickerOpen(false)}
           maxWidth="xs"
           fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              boxShadow: '0 5px 20px rgba(0,0,0,0.15)'
+            }
+          }}
         >
-          <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>
+          <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', py: 2 }}>
             בחר תאריך
           </DialogTitle>
           <DialogContent>
             <DatePicker
               value={currentDate}
               onChange={handleDateChange}
-              renderInput={(params) => <TextField {...params} fullWidth />}
+              renderInput={(params) => <TextField {...params} fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />}
               sx={{ width: '100%' }}
             />
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setIsDatePickerOpen(false)}>ביטול</Button>
-            <Button onClick={() => handleDateChange(currentDate)} color="primary" variant="contained">
+          <DialogActions sx={{ px: 3, pb: 3 }}>
+            <Button onClick={() => setIsDatePickerOpen(false)} sx={{ borderRadius: 2 }}>ביטול</Button>
+            <Button onClick={() => handleDateChange(currentDate)} color="primary" variant="contained" sx={{ borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
               אישור
             </Button>
           </DialogActions>

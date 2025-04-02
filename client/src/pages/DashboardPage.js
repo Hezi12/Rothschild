@@ -186,6 +186,9 @@ const DashboardPage = () => {
           // ודא שיש תאריך תקין בהזמנה
           if (!booking.checkIn) return false;
           
+          // אם ההזמנה במצב 'canceled', לא להציג אותה
+          if (booking.status === 'canceled') return false;
+          
           const checkIn = new Date(booking.checkIn);
           checkIn.setHours(0, 0, 0, 0);
           
@@ -208,6 +211,11 @@ const DashboardPage = () => {
               return false;
             }
             
+            // אם ההזמנה במצב 'canceled' או שדה הביטול מסומן כאמת, לא להציג אותה
+            if (booking.status === 'canceled' || booking.isCanceled === true) {
+              return false;
+            }
+            
             // ודא שהתאריך חוקי
             const bookingDate = new Date(booking.date);
             if (isNaN(bookingDate.getTime())) {
@@ -223,7 +231,7 @@ const DashboardPage = () => {
             
             // בדוק אם התאריך הנבחר בטווח השהייה
             return bookingDate <= targetDate && targetDate < checkOutDate;
-      } catch (error) {
+          } catch (error) {
             console.error('שגיאה בחישוב תאריכים:', error);
             return false;
           }
