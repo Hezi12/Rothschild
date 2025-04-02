@@ -648,73 +648,88 @@ const FinancialManagementPage = () => {
     }
   };
 
-  // טעינת נתונים פיננסיים מהשרת
+  // טעינת נתונים פיננסיים לחודש מסוים
   const fetchFinancialData = useCallback(async () => {
-    setLoading(true);
     try {
-      console.log(`טוען נתונים פיננסיים לחודש: ${format(selectedDate, 'yyyy-MM')}`);
+      const currentMonth = format(selectedDate, 'yyyy-MM');
+      console.log(`טוען נתונים פיננסיים לחודש: ${currentMonth}`);
       
-      // טעינת יתרות פתיחה
+      setLoading(true);
+      setError(null);
+      
+      console.log('טוען יתרות פתיחה...');
       await fetchInitialBalances();
       
-      // טעינת עסקאות לחודש הנוכחי
       const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/financial/transactions?month=${format(selectedDate, 'yyyy-MM')}`,
+        `${process.env.REACT_APP_API_URL}/financial/transactions?month=${currentMonth}`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
         }
       );
-      
+
       if (response.data.success) {
-        const fetchedTransactions = response.data.data;
-        console.log(`נטענו ${fetchedTransactions.length} עסקאות לחודש ${format(selectedDate, 'yyyy-MM')}:`, fetchedTransactions);
-        setTransactions(fetchedTransactions);
+        const transactions = response.data.data;
+        console.log(`נטענו ${transactions.length} עסקאות לחודש ${currentMonth}:`, transactions);
         
-        // בדיקה וטיפול בהוצאות מרוכזות כפולות
-        await cleanupDuplicateSummaryExpenses(fetchedTransactions);
+        // ניקוי הוצאות מרוכזות כפולות
+        console.log('בודק ומטפל בהוצאות מרוכזות כפולות...');
         
-        // הנתונים החודשיים מחושבים אוטומטית באמצעות useMemo כאשר transactions משתנה
-      } else {
-        console.error('שגיאה בתשובת השרת:', response.data);
-        setError('שגיאה בטעינת הנתונים הפיננסיים');
+        // נמצא שיטות תשלום מסוג "פועלים" בעסקאות הנוכחיות
+        const poalimMethods = transactions
+          .filter(t => isPoalimPaymentMethod(t.paymentMethod))
+          .map(t => t.paymentMethod)
+          .filter((v, i, a) => a.indexOf(v) === i); // הסרת כפילויות
+        
+        if (poalimMethods.length > 0) {
+          console.log(`נמצאו ${poalimMethods.length} שיטות תשלום מסוג "פועלים":`, poalimMethods);
+          
+          // טיפול בהוצאות מרוכזות כפולות ועדכון הנתונים
+          const cleanedTransactions = await cleanupDuplicateSummaryExpenses(transactions);
+          if (cleanedTransactions) {
+            setTransactions(cleanedTransactions);
+          } else {
+            setTransactions(transactions);
+          }
+        } else {
+          setTransactions(transactions);
+        }
       }
     } catch (err) {
       console.error('שגיאה בטעינת נתונים פיננסיים:', err);
-      setError('שגיאה בטעינת הנתונים הפיננסיים');
+      setError('שגיאה בטעינת נתונים פיננסיים');
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, fetchInitialBalances]);
 
-  // ניקוי הוצאות מרוכזות כפולות
+  // פונקציה לזיהוי וטיפול בהוצאות מרוכזות כפולות
   const cleanupDuplicateSummaryExpenses = async (transactions) => {
     try {
       console.log('בודק ומטפל בהוצאות מרוכזות כפולות...');
       
-      // קבלת כל שיטות התשלום מסוג "פועלים"
-      const poalimMethods = [...new Set(
-        transactions
-          .filter(t => isPoalimPaymentMethod(t.paymentMethod))
-          .map(t => t.paymentMethod)
-      )];
+      // קבלת רשימת שיטות תשלום מסוג "פועלים"
+      const poalimPaymentMethods = transactions
+        .map(t => t.paymentMethod)
+        .filter(method => isPoalimPaymentMethod(method))
+        .filter((v, i, a) => a.indexOf(v) === i); // הסרת כפילויות
       
-      console.log(`נמצאו ${poalimMethods.length} שיטות תשלום מסוג "פועלים":`, poalimMethods);
+      console.log(`נמצאו ${poalimPaymentMethods.length} שיטות תשלום מסוג "פועלים":`, poalimPaymentMethods);
       
-      // עבור כל שיטת תשלום, בדוק אם יש הוצאות מרוכזות כפולות
-      for (const method of poalimMethods) {
-        // חלוקה לפי חודשים
-        const monthsWithTransactions = [...new Set(
-          transactions
-            .filter(t => t.paymentMethod === method)
-            .map(t => format(parseISO(t.date), 'yyyy-MM'))
-        )];
+      // עבור כל שיטת תשלום, מצא את החודשים בהם יש עסקאות
+      for (const method of poalimPaymentMethods) {
+        // זיהוי החודשים בהם יש עסקאות לשיטת תשלום זו
+        const monthsWithTransactions = transactions
+          .filter(t => t.paymentMethod === method)
+          .map(t => format(parseISO(t.date), 'yyyy-MM'))
+          .filter((v, i, a) => a.indexOf(v) === i); // הסרת כפילויות
         
         console.log(`שיטת תשלום ${method} יש עסקאות ב-${monthsWithTransactions.length} חודשים:`, monthsWithTransactions);
         
-        // לכל חודש, בדוק אם יש הוצאות מרוכזות כפולות
+        // עבור כל חודש, בדוק אם יש הוצאות מרוכזות כפולות
         for (const month of monthsWithTransactions) {
+          // מצא את כל ההוצאות המרוכזות לחודש זה
           const summaryExpenses = transactions.filter(t => 
             t.type === 'expense' && 
             t.paymentMethod === method &&
@@ -725,21 +740,34 @@ const FinancialManagementPage = () => {
           if (summaryExpenses.length > 1) {
             console.log(`נמצאו ${summaryExpenses.length} הוצאות מרוכזות כפולות עבור ${method} בחודש ${month}`);
             
-            // חישוב הסכום הכולל של הכנסות פועלים
-            const totalIncome = transactions
-              .filter(t => 
-                t.type === 'income' && 
-                t.paymentMethod === method &&
-                format(parseISO(t.date), 'yyyy-MM') === month
-              )
-              .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+            // חישוב סך ההכנסות עבור שיטת תשלום זו בחודש זה
+            const relevantIncomes = transactions.filter(t => 
+              t.type === 'income' && 
+              t.paymentMethod === method &&
+              format(parseISO(t.date), 'yyyy-MM') === month
+            );
             
-            console.log(`סך הכנסות ${method} בחודש ${month}: ${totalIncome}`);
+            // חישוב הכנסות מהזמנות
+            const startDate = startOfMonth(parseISO(`${month}-01`));
+            const endDate = endOfMonth(parseISO(`${month}-01`));
             
-            // השאר את ההוצאה הראשונה ועדכן את הסכום שלה
-            const keepExpense = summaryExpenses[0];
+            // מצא הכנסות רלוונטיות מהזמנות
+            const bookingIncomes = bookings
+              .filter(booking => {
+                const bookingDate = parseISO(booking.createdAt);
+                return bookingDate >= startDate && 
+                      bookingDate <= endDate &&
+                      booking.paymentStatus === 'paid' &&
+                      getPaymentMethodLabel(booking.paymentMethod) === method;
+              })
+              .reduce((sum, booking) => sum + (parseFloat(booking.totalPrice) || 0), 0);
             
-            if (totalIncome <= 0) {
+            // סך כל ההכנסות (ידניות + מהזמנות)
+            const totalIncomes = relevantIncomes.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0) + bookingIncomes;
+            
+            console.log(`סך הכנסות ${method} בחודש ${month}: ${totalIncomes} (${relevantIncomes.reduce((sum, t) => sum + t.amount, 0)} ידניות + ${bookingIncomes} מהזמנות)`);
+            
+            if (totalIncomes <= 0) {
               // אם אין הכנסות, מחק את כל ההוצאות המרוכזות
               for (const expense of summaryExpenses) {
                 console.log(`מוחק הוצאה מרוכזת מיותרת עם מזהה ${expense._id} כי אין הכנסות`);
@@ -752,42 +780,40 @@ const FinancialManagementPage = () => {
                       }
                     }
                   );
-                  console.log(`הוצאה מיותרת נמחקה בהצלחה`);
+                  console.log('הוצאה מיותרת נמחקה בהצלחה');
                 } catch (err) {
-                  console.error(`שגיאה במחיקת הוצאה מרוכזת:`, err);
+                  console.error('שגיאה במחיקת הוצאה מיותרת:', err);
                 }
               }
             } else {
-              // עדכן את ההוצאה הראשונה
-              console.log(`מעדכן הוצאה מרוכזת ראשונה עם מזהה ${keepExpense._id} לסכום: ${totalIncome}`);
-              
-              const updatedExpenseData = {
+              // יש הכנסות - השאר אחת ועדכן את סכומה לסכום הכולל של ההכנסות
+              const keepExpense = summaryExpenses[0];
+              const updatedExpense = {
                 ...keepExpense,
-                amount: totalIncome,
-                description: `הוצאה מרוכזת עבור הכנסות מ-${method} בחודש ${format(parseISO(keepExpense.date), 'MM/yyyy')}`,
-                isPoalimSummaryExpense: true
+                amount: totalIncomes,
+                description: `הוצאה מרוכזת עבור הכנסות מ-${method} בחודש ${format(parseISO(keepExpense.date), 'MM/yyyy')}`
               };
               
+              // עדכון ההוצאה הראשונה
               try {
                 await axios.put(
                   `${process.env.REACT_APP_API_URL}/financial/transactions/${keepExpense._id}`,
-                  updatedExpenseData,
+                  updatedExpense,
                   {
                     headers: {
                       'Authorization': `Bearer ${localStorage.getItem('token')}`
                     }
                   }
                 );
-                console.log(`הוצאה מרוכזת ראשונה עודכנה בהצלחה`);
+                console.log(`הוצאה מרוכזת עודכנה לסכום: ${totalIncomes}`);
               } catch (err) {
-                console.error(`שגיאה בעדכון הוצאה מרוכזת:`, err);
+                console.error('שגיאה בעדכון הוצאה מרוכזת:', err);
               }
               
-              // מחק את שאר ההוצאות המרוכזות
+              // מחיקת שאר ההוצאות המרוכזות
               for (let i = 1; i < summaryExpenses.length; i++) {
                 const expense = summaryExpenses[i];
-                console.log(`מוחק הוצאה מרוכזת כפולה ${i} עם מזהה ${expense._id}`);
-                
+                console.log(`מוחק הוצאה מרוכזת כפולה עם מזהה ${expense._id}`);
                 try {
                   await axios.delete(
                     `${process.env.REACT_APP_API_URL}/financial/transactions/${expense._id}`,
@@ -807,27 +833,24 @@ const FinancialManagementPage = () => {
         }
       }
       
-      // לאחר ניקוי הכפילויות, טען מחדש את העסקאות
-      if (poalimMethods.length > 0) {
-        console.log('טוען מחדש את העסקאות לאחר טיפול בכפילויות...');
-        const response = await axios.get(
-          `${process.env.REACT_APP_API_URL}/financial/transactions?month=${format(selectedDate, 'yyyy-MM')}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
+      console.log('טוען מחדש את העסקאות לאחר טיפול בכפילויות...');
+      
+      // טעינה מחדש של העסקאות לאחר הטיפול בכפילויות
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/financial/transactions`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
-        );
-        
-        if (response.data.success) {
-          const refreshedTransactions = response.data.data;
-          console.log(`נטענו ${refreshedTransactions.length} עסקאות מחדש לאחר ניקוי כפילויות`);
-          setTransactions(refreshedTransactions);
-          
-          // הנתונים החודשיים מחושבים אוטומטית באמצעות useMemo כאשר transactions משתנה
         }
+      );
+      
+      if (response.data.success) {
+        console.log(`נטענו ${response.data.data.length} עסקאות מחדש לאחר ניקוי כפילויות`);
+        return response.data.data;
       }
       
+      return transactions;
     } catch (err) {
       console.error('שגיאה בטיפול בהוצאות מרוכזות כפולות:', err);
     }
