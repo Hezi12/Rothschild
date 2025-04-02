@@ -62,7 +62,8 @@ import {
   Event as EventIcon,
   Hotel as HotelIcon,
   Language as LanguageIcon,
-  Assessment as AssessmentIcon
+  Assessment as AssessmentIcon,
+  AccountBalance as AccountBalanceIcon
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -888,6 +889,19 @@ const SimpleBookingList = () => {
             }}
           >
             <AssessmentIcon fontSize="medium" />
+          </IconButton>
+        </SidebarButton>
+
+        <SidebarButton title="ניהול פיננסי" placement="right" isActive={currentPath === '/dashboard/financial-management'}>
+          <IconButton 
+            component={Link} 
+            to="/dashboard/financial-management"
+            sx={{ 
+              color: isActive => isActive ? '#16a085' : '#666',
+              '&:hover': { color: '#1abc9c' }
+            }}
+          >
+            <AccountBalanceIcon fontSize="medium" />
           </IconButton>
         </SidebarButton>
         

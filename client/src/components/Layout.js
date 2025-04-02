@@ -25,7 +25,8 @@ import {
   Hotel as HotelIcon,
   WhatsApp as WhatsAppIcon,
   Call as CallIcon,
-  Construction as ConstructionIcon
+  Construction as ConstructionIcon,
+  AccountBalance as AccountBalanceIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 
@@ -400,10 +401,16 @@ const Layout = () => {
         </MenuItem>
         <Divider />
         {isAdmin() && (
-          <MenuItem component={RouterLink} to="/dashboard" onClick={handleClose}>
-            <DashboardIcon fontSize="small" sx={{ ml: 1 }} />
-            ניהול
-          </MenuItem>
+          <>
+            <MenuItem component={RouterLink} to="/dashboard" onClick={handleClose}>
+              <DashboardIcon fontSize="small" sx={{ ml: 1 }} />
+              ניהול
+            </MenuItem>
+            <MenuItem component={RouterLink} to="/dashboard/financial-management" onClick={handleClose}>
+              <AccountBalanceIcon fontSize="small" sx={{ ml: 1 }} />
+              ניהול כספים
+            </MenuItem>
+          </>
         )}
         <MenuItem onClick={handleLogout}>
           <LogoutIcon fontSize="small" sx={{ ml: 1 }} />
@@ -429,10 +436,16 @@ const Layout = () => {
         {isAuthenticated() ? (
           <>
             {isAdmin() && (
-              <MenuItem component={RouterLink} to="/dashboard" onClick={handleMobileClose}>
-                <DashboardIcon fontSize="small" sx={{ ml: 1 }} />
-                ניהול
-              </MenuItem>
+              <>
+                <MenuItem component={RouterLink} to="/dashboard" onClick={handleMobileClose}>
+                  <DashboardIcon fontSize="small" sx={{ ml: 1 }} />
+                  ניהול
+                </MenuItem>
+                <MenuItem component={RouterLink} to="/dashboard/financial-management" onClick={handleMobileClose}>
+                  <AccountBalanceIcon fontSize="small" sx={{ ml: 1 }} />
+                  ניהול כספים
+                </MenuItem>
+              </>
             )}
             <MenuItem onClick={() => { handleMobileClose(); handleLogout(); }}>
               <LogoutIcon fontSize="small" sx={{ ml: 1 }} />

@@ -1104,6 +1104,18 @@ const IncomeReportPage = () => {
           </IconButton>
         </SidebarButton>
         
+        <SidebarButton title="ניהול פיננסי" placement="right" isActive={currentPath === '/dashboard/financial-management'}>
+          <IconButton
+            component={RouterLink}
+            to="/dashboard/financial-management"
+            aria-label="financial"
+          >
+            <AccountBalanceIcon sx={{ color: isActive => isActive ? '#16a085' : theme.palette.text.secondary, '&:hover': { color: '#1abc9c' } }} />
+          </IconButton>
+        </SidebarButton>
+        
+        <Box sx={{ flexGrow: 1 }} /> {/* מרווח גמיש שידחוף את האייקון הבא לתחתית */}
+        
         <SidebarButton title="אתר הבית" placement="right" isActive={currentPath === '/'}>
           <IconButton
             component={RouterLink}

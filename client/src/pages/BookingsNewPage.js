@@ -55,7 +55,8 @@ import {
   Dashboard as DashboardIcon,
   Hotel as HotelIcon,
   Language as LanguageIcon,
-  Assessment as AssessmentIcon
+  Assessment as AssessmentIcon,
+  AccountBalance as AccountBalanceIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -871,6 +872,16 @@ const BookingsNewPage = () => {
           </IconButton>
         </SidebarButton>
 
+        <SidebarButton title="ניהול פיננסי" placement="right" isActive={currentPath === '/dashboard/financial-management'}>
+          <IconButton
+            component={RouterLink}
+            to="/dashboard/financial-management"
+            aria-label="financial"
+          >
+            <AccountBalanceIcon sx={{ color: isActive => isActive ? '#16a085' : theme.palette.text.secondary, '&:hover': { color: '#1abc9c' } }} />
+          </IconButton>
+        </SidebarButton>
+        
         <Box sx={{ flexGrow: 1 }} /> {/* מרווח גמיש שידחוף את האייקון הבא לתחתית */}
         
         <SidebarButton title="אתר הבית" placement="right" isActive={currentPath === '/'}>

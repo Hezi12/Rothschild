@@ -4,6 +4,7 @@ import EventIcon from '@mui/icons-material/Event';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SummarizeIcon from '@mui/icons-material/Summarize';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import { Divider, Typography } from '@mui/material';
 
 const Sidebar = () => {
@@ -33,6 +34,14 @@ const Sidebar = () => {
         text="דוח הכנסות" 
         icon={<SummarizeIcon />} 
         isActive={pathname === '/dashboard/income-report'}
+      />
+
+      {/* ניהול כספים */}
+      <NavItem 
+        to="/dashboard/financial-management" 
+        text="ניהול כספים" 
+        icon={<AccountBalanceIcon />} 
+        isActive={pathname === '/dashboard/financial-management'}
       />
       
       <Divider style={{ margin: '8px 0' }} />
