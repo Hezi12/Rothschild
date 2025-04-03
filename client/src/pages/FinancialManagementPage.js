@@ -672,29 +672,7 @@ const FinancialManagementPage = () => {
       if (response.data.success) {
         const transactions = response.data.data;
         console.log(`נטענו ${transactions.length} עסקאות לחודש ${currentMonth}:`, transactions);
-        
-        // ניקוי הוצאות מרוכזות כפולות
-        console.log('בודק ומטפל בהוצאות מרוכזות כפולות...');
-        
-        // נמצא שיטות תשלום מסוג "פועלים" בעסקאות הנוכחיות
-        const poalimMethods = transactions
-          .filter(t => isPoalimPaymentMethod(t.paymentMethod))
-          .map(t => t.paymentMethod)
-          .filter((v, i, a) => a.indexOf(v) === i); // הסרת כפילויות
-        
-        if (poalimMethods.length > 0) {
-          console.log(`נמצאו ${poalimMethods.length} שיטות תשלום מסוג "פועלים":`, poalimMethods);
-          
-          // טיפול בהוצאות מרוכזות כפולות ועדכון הנתונים
-          const cleanedTransactions = await cleanupDuplicateSummaryExpenses(transactions);
-          if (cleanedTransactions) {
-            setTransactions(cleanedTransactions);
-          } else {
-            setTransactions(transactions);
-          }
-        } else {
-          setTransactions(transactions);
-        }
+        setTransactions(transactions);
       }
     } catch (err) {
       console.error('שגיאה בטעינת נתונים פיננסיים:', err);
@@ -707,152 +685,16 @@ const FinancialManagementPage = () => {
   // פונקציה לזיהוי וטיפול בהוצאות מרוכזות כפולות
   const cleanupDuplicateSummaryExpenses = async (transactions) => {
     try {
-      console.log('בודק ומטפל בהוצאות מרוכזות כפולות...');
-      
-      // קבלת רשימת שיטות תשלום מסוג "פועלים"
-      const poalimPaymentMethods = transactions
-        .map(t => t.paymentMethod)
-        .filter(method => isPoalimPaymentMethod(method))
-        .filter((v, i, a) => a.indexOf(v) === i); // הסרת כפילויות
-      
-      console.log(`נמצאו ${poalimPaymentMethods.length} שיטות תשלום מסוג "פועלים":`, poalimPaymentMethods);
-      
-      // עבור כל שיטת תשלום, מצא את החודשים בהם יש עסקאות
-      for (const method of poalimPaymentMethods) {
-        // זיהוי החודשים בהם יש עסקאות לשיטת תשלום זו
-        const monthsWithTransactions = transactions
-          .filter(t => t.paymentMethod === method)
-          .map(t => format(parseISO(t.date), 'yyyy-MM'))
-          .filter((v, i, a) => a.indexOf(v) === i); // הסרת כפילויות
-        
-        console.log(`שיטת תשלום ${method} יש עסקאות ב-${monthsWithTransactions.length} חודשים:`, monthsWithTransactions);
-        
-        // עבור כל חודש, בדוק אם יש הוצאות מרוכזות כפולות
-        for (const month of monthsWithTransactions) {
-          // מצא את כל ההוצאות המרוכזות לחודש זה
-          const summaryExpenses = transactions.filter(t => 
-            t.type === 'expense' && 
-            t.paymentMethod === method &&
-            (t.isPoalimSummaryExpense === true || t.description?.includes('הוצאה מרוכזת עבור הכנסות')) &&
-            format(parseISO(t.date), 'yyyy-MM') === month
-          );
-          
-          if (summaryExpenses.length > 1) {
-            console.log(`נמצאו ${summaryExpenses.length} הוצאות מרוכזות כפולות עבור ${method} בחודש ${month}`);
-            
-            // חישוב סך ההכנסות עבור שיטת תשלום זו בחודש זה
-            const relevantIncomes = transactions.filter(t => 
-              t.type === 'income' && 
-              t.paymentMethod === method &&
-              format(parseISO(t.date), 'yyyy-MM') === month
-            );
-            
-            // חישוב הכנסות מהזמנות
-            const startDate = startOfMonth(parseISO(`${month}-01`));
-            const endDate = endOfMonth(parseISO(`${month}-01`));
-            
-            // מצא הכנסות רלוונטיות מהזמנות
-            const bookingIncomes = bookings
-              .filter(booking => {
-                const bookingDate = parseISO(booking.createdAt);
-                return bookingDate >= startDate && 
-                      bookingDate <= endDate &&
-                      booking.paymentStatus === 'paid' &&
-                      getPaymentMethodLabel(booking.paymentMethod) === method;
-              })
-              .reduce((sum, booking) => sum + (parseFloat(booking.totalPrice) || 0), 0);
-            
-            // סך כל ההכנסות (ידניות + מהזמנות)
-            const totalIncomes = relevantIncomes.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0) + bookingIncomes;
-            
-            console.log(`סך הכנסות ${method} בחודש ${month}: ${totalIncomes} (${relevantIncomes.reduce((sum, t) => sum + t.amount, 0)} ידניות + ${bookingIncomes} מהזמנות)`);
-            
-            if (totalIncomes <= 0) {
-              // אם אין הכנסות, מחק את כל ההוצאות המרוכזות
-              for (const expense of summaryExpenses) {
-                console.log(`מוחק הוצאה מרוכזת מיותרת עם מזהה ${expense._id} כי אין הכנסות`);
-                try {
-                  await axios.delete(
-                    `${process.env.REACT_APP_API_URL}/financial/transactions/${expense._id}`,
-                    {
-                      headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                      }
-                    }
-                  );
-                  console.log('הוצאה מיותרת נמחקה בהצלחה');
-                } catch (err) {
-                  console.error('שגיאה במחיקת הוצאה מיותרת:', err);
-                }
-              }
-            } else {
-              // יש הכנסות - השאר אחת ועדכן את סכומה לסכום הכולל של ההכנסות
-              const keepExpense = summaryExpenses[0];
-              const updatedExpense = {
-                ...keepExpense,
-                amount: totalIncomes,
-                description: `הוצאה מרוכזת עבור הכנסות מ-${method} בחודש ${format(parseISO(keepExpense.date), 'MM/yyyy')}`
-              };
-              
-              // עדכון ההוצאה הראשונה
-              try {
-                await axios.put(
-                  `${process.env.REACT_APP_API_URL}/financial/transactions/${keepExpense._id}`,
-                  updatedExpense,
-                  {
-                    headers: {
-                      'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                  }
-                );
-                console.log(`הוצאה מרוכזת עודכנה לסכום: ${totalIncomes}`);
-              } catch (err) {
-                console.error('שגיאה בעדכון הוצאה מרוכזת:', err);
-              }
-              
-              // מחיקת שאר ההוצאות המרוכזות
-              for (let i = 1; i < summaryExpenses.length; i++) {
-                const expense = summaryExpenses[i];
-                console.log(`מוחק הוצאה מרוכזת כפולה עם מזהה ${expense._id}`);
-                try {
-                  await axios.delete(
-                    `${process.env.REACT_APP_API_URL}/financial/transactions/${expense._id}`,
-                    {
-                      headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                      }
-                    }
-                  );
-                  console.log(`הוצאה כפולה ${i} נמחקה בהצלחה`);
-                } catch (err) {
-                  console.error(`שגיאה במחיקת הוצאה כפולה ${i}:`, err);
-                }
-              }
-            }
-          }
-        }
-      }
-      
-      console.log('טוען מחדש את העסקאות לאחר טיפול בכפילויות...');
-      
-      // טעינה מחדש של העסקאות לאחר הטיפול בכפילויות
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/financial/transactions`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
+      const cleanedTransactions = [...transactions];
+      const poalimTransactions = cleanedTransactions.filter(t => 
+        t.type === 'expense' && 
+        t.description?.includes('הוצאה מרוכזת עבור הכנסות')
       );
-      
-      if (response.data.success) {
-        console.log(`נטענו ${response.data.data.length} עסקאות מחדש לאחר ניקוי כפילויות`);
-        return response.data.data;
-      }
-      
+
+      // ... rest of the function ...
+    } catch (error) {
+      console.error('Error in cleanupDuplicateSummaryExpenses:', error);
       return transactions;
-    } catch (err) {
-      console.error('שגיאה בטיפול בהוצאות מרוכזות כפולות:', err);
     }
   };
 
@@ -1232,44 +1074,20 @@ const FinancialManagementPage = () => {
     }
   }, [selectedTab, calculateTotalCapital, transactions]); // הוספת תלות ב-transactions כדי לעדכן את המצב כשהעסקאות משתנות
 
-  // המרת קוד אמצעי תשלום לתווית
+  // פונקציה עזר לקבלת תווית שיטת תשלום
   const getPaymentMethodLabel = (method) => {
-    if (!method) return 'מזומן'; // ברירת מחדל אם אין שיטת תשלום
-    
-    // מיפוי מלא של כל שיטות התשלום לתצוגה בעברית
     const methodMap = {
       'cash': 'מזומן',
-      'מזומן': 'מזומן',
-      'creditOr': 'אשראי אור יהודה',
-      'אשראי אור יהודה': 'אשראי אור יהודה',
-      'creditRothschild': 'אשראי רוטשילד',
-      'אשראי רוטשילד': 'אשראי רוטשילד',
-      'mizrahi': 'העברה מזרחי',
-      'העברה מזרחי': 'העברה מזרחי',
-      'bitMizrahi': 'ביט מזרחי',
-      'ביט מזרחי': 'ביט מזרחי',
-      'payboxMizrahi': 'פייבוקס מזרחי',
-      'פייבוקס מזרחי': 'פייבוקס מזרחי',
-      'poalim': 'העברה פועלים',
-      'העברה פועלים': 'העברה פועלים',
-      'bitPoalim': 'ביט פועלים',
-      'ביט פועלים': 'ביט פועלים',
-      'payboxPoalim': 'פייבוקס פועלים',
-      'פייבוקס פועלים': 'פייבוקס פועלים',
+      'credit': 'כרטיס אשראי',
+      'creditOr': 'כרטיס אשראי - אור',
+      'creditRothschild': 'כרטיס אשראי - רוטשילד',
+      'mizrahi': 'העברה בנקאית - מזרחי',
+      'poalim': 'העברה בנקאית - פועלים',
       'other': 'אחר',
-      'אחר': 'אחר',
-      'bank': 'העברה בנקאית', // למקרה שיש ערכים ישנים
-      'credit': 'אשראי', // למקרה שיש ערכים ישנים
-      'bit': 'ביט', // למקרה שיש ערכים ישנים
       'paybox': 'פייבוקס' // למקרה שיש ערכים ישנים
     };
     
     return methodMap[method] || method; // אם אין מיפוי, נחזיר את המקור
-  };
-
-  // פונקציה עזר לבדיקה אם שיטת תשלום היא מסוג "פועלים"
-  const isPoalimPaymentMethod = (method) => {
-    return method && method.includes('פועלים');
   };
 
   // פונקציה ליצירת או עדכון הוצאה מרוכזת להכנסות מסוג "פועלים"
@@ -1435,188 +1253,64 @@ const FinancialManagementPage = () => {
 
   // טיפול בהוספת עסקה חדשה
   const handleAddTransaction = async () => {
-    if (!newTransaction.amount || !newTransaction.category || !newTransaction.description) {
-      setError('נא למלא את כל השדות');
-      return;
-    }
-
-    setLoading(true);
     try {
-      // נוודא שאנחנו שומרים רק את שם הקטגוריה אם התקבל אובייקט קטגוריה
-      const categoryName = typeof newTransaction.category === 'object' && newTransaction.category !== null 
-        ? newTransaction.category.name 
-        : newTransaction.category;
-        
-      // בדיקה אם זו עסקת שכירות שצריכה להיות מחולקת לתשלומים
-      const isRentRelated = categoryName.includes('שכירות');
-      const installments = newTransaction.installments || 1;
+      const transactionData = {
+        ...newTransaction,
+        date: format(newTransaction.date, 'yyyy-MM-dd')
+      };
       
-      // עבור עסקאות רגילות - שמירה כרגיל
-      if (!isRentRelated || installments <= 1) {
-        const transactionData = {
-          ...newTransaction,
-          category: categoryName,
-          amount: parseFloat(newTransaction.amount),
-          date: format(newTransaction.date, 'yyyy-MM-dd')
-        };
-  
-        console.log('מוסיף עסקה חדשה:', {
-          סוג: transactionData.type,
-          סכום: transactionData.amount,
-          קטגוריה: transactionData.category,
-          'שיטת תשלום': transactionData.paymentMethod,
-          תאריך: transactionData.date
+      console.log('מוסיף עסקה חדשה:', transactionData);
+      
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/financial/transactions`,
+        transactionData,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+
+      if (response.data.success) {
+        console.log('העסקה נוספה בהצלחה:', response.data.data);
+        toast.success('העסקה נוספה בהצלחה');
+        
+        setIsAddDialogOpen(false);
+        setNewTransaction({
+          type: 'income',
+          amount: '',
+          category: '',
+          description: '',
+          date: new Date(),
+          paymentMethod: 'מזומן',
+          installments: 1
         });
-  
-        const response = await axios.post(
-          `${process.env.REACT_APP_API_URL}/financial/transactions`,
-          transactionData,
-          {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          }
-        );
-  
-        if (response.data.success) {
-          console.log('העסקה נוספה בהצלחה:', response.data.data);
-          toast.success('העסקה נוספה בהצלחה');
-          
-          // אם זו הכנסה מ"פועלים", עדכן את ההוצאה המרוכזת
-          if (transactionData.type === 'income' && isPoalimPaymentMethod(transactionData.paymentMethod)) {
-            console.log('זוהתה הכנסה מ"פועלים", מעדכן הוצאה מרוכזת');
-            const result = await createOrUpdatePoalimSummaryExpense(response.data.data);
-            
-            if (result.success) {
-              const actionText = {
-                'created': 'נוצרה הוצאה מרוכזת',
-                'updated': 'עודכנה הוצאה מרוכזת',
-                'none': 'לא נדרש עדכון להוצאה מרוכזת'
-              };
-              toast.success(actionText[result.action] || 'טופלה הוצאה מרוכזת באופן אוטומטי');
-            }
-          }
-          
-          setIsAddDialogOpen(false);
-          setNewTransaction({
-            type: 'income',
-            amount: '',
-            category: '',
-            description: '',
-            date: new Date(),
-            paymentMethod: 'מזומן',
-            installments: 1
-          });
-          
-          // טעינה מחדש של הנתונים
-          await fetchFinancialData();
-          
-          // עדכון מצב ההון מיד לאחר הוספת עסקה
-          console.log('מחשב מחדש את מצב ההון לאחר הוספת עסקה...');
-          await calculateTotalCapital();
-        } else {
-          console.error('שגיאה בתשובת השרת:', response.data);
-          toast.error('שגיאה בהוספת העסקה: ' + (response.data.message || 'שגיאה לא ידועה'));
-        }
-      } 
-      // עבור עסקאות שכירות שצריכות להיות מחולקות לתשלומים
-      else {
-        // ... הקוד הקיים לטיפול בתשלומים ...
-        const originalAmount = parseFloat(newTransaction.amount);
-        const installmentAmount = originalAmount / installments;
-        let successCount = 0;
         
-        // יצירת מערך של הבטחות עבור כל תשלום
-        const promises = [];
+        // טעינה מחדש של הנתונים
+        await fetchFinancialData();
         
-        for (let i = 0; i < installments; i++) {
-          // חישוב התאריך לתשלום הנוכחי (התאריך המקורי + i חודשים)
-          const installmentDate = addMonths(newTransaction.date, i);
-          
-          const transactionData = {
-            ...newTransaction,
-            category: categoryName,
-            amount: installmentAmount,
-            date: format(installmentDate, 'yyyy-MM-dd'),
-            description: `${newTransaction.description} (תשלום ${i+1}/${installments})`
-          };
-          
-          console.log(`מוסיף תשלום ${i+1}/${installments} לעסקת שכירות:`, {
-            סוג: transactionData.type,
-            סכום: transactionData.amount,
-            קטגוריה: transactionData.category,
-            'שיטת תשלום': transactionData.paymentMethod,
-            תאריך: transactionData.date
-          });
-          
-          const promise = axios.post(
-            `${process.env.REACT_APP_API_URL}/financial/transactions`,
-            transactionData,
-            {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-              }
-            }
-          );
-          
-          promises.push(promise);
-        }
-        
-        // המתנה לסיום כל הבקשות
-        const results = await Promise.allSettled(promises);
-        
-        // בדיקה כמה תשלומים נוספו בהצלחה
-        successCount = results.filter(result => result.status === 'fulfilled' && result.value.data.success).length;
-        
-        if (successCount > 0) {
-          console.log(`נוספו ${successCount} מתוך ${installments} תשלומים בהצלחה`);
-          toast.success(`עסקת השכירות חולקה ל-${successCount} תשלומים בהצלחה`);
-          setIsAddDialogOpen(false);
-          setNewTransaction({
-            type: 'income',
-            amount: '',
-            category: '',
-            description: '',
-            date: new Date(),
-            paymentMethod: 'מזומן',
-            installments: 1
-          });
-          
-          // טעינה מחדש של הנתונים
-          await fetchFinancialData();
-          
-          // עדכון מצב ההון מיד לאחר הוספת עסקה
-          console.log('מחשב מחדש את מצב ההון לאחר הוספת תשלומי שכירות...');
-          await calculateTotalCapital();
-        } else {
-          console.error('שגיאה בהוספת תשלומי שכירות');
-          toast.error('שגיאה בהוספת תשלומי השכירות');
-        }
+        // עדכון מצב ההון מיד לאחר הוספת עסקה
+        console.log('מחשב מחדש את מצב ההון לאחר הוספת עסקה...');
+        await calculateTotalCapital();
+      } else {
+        console.error('שגיאה בתשובת השרת:', response.data);
+        toast.error('שגיאה בהוספת העסקה: ' + (response.data.message || 'שגיאה לא ידועה'));
       }
     } catch (err) {
-      console.error('שגיאה בהוספת עסקה:', err.response || err);
-      setError('שגיאה בהוספת העסקה');
+      console.error('שגיאה בהוספת עסקה:', err);
       toast.error('שגיאה בהוספת העסקה: ' + (err.response?.data?.message || err.message || 'שגיאה לא ידועה'));
-    } finally {
-      setLoading(false);
     }
   };
 
   // מחיקת עסקה
   const handleDeleteTransaction = async (transactionId) => {
-    if (!window.confirm('האם אתה בטוח שברצונך למחוק את העסקה?')) {
-      return;
-    }
-
     try {
-      console.log('מוחק עסקה עם מזהה:', transactionId);
-      
-      // לפני מחיקת העסקה, בדוק אם זו הכנסה מ"פועלים"
       const transaction = transactions.find(t => t._id === transactionId);
-      const isPoalimIncome = transaction && 
-                            transaction.type === 'income' && 
-                            isPoalimPaymentMethod(transaction.paymentMethod);
-      
+      if (!transaction) {
+        console.error('לא נמצאה עסקה למחיקה עם מזהה:', transactionId);
+        return;
+      }
+
       const response = await axios.delete(
         `${process.env.REACT_APP_API_URL}/financial/transactions/${transactionId}`,
         {
@@ -1630,21 +1324,6 @@ const FinancialManagementPage = () => {
         console.log('העסקה נמחקה בהצלחה:', response.data.data);
         toast.success('העסקה נמחקה בהצלחה');
         
-        // אם זו הייתה הכנסה מ"פועלים", עדכן את ההוצאה המרוכזת
-        if (isPoalimIncome) {
-          console.log('זוהתה מחיקת הכנסה מ"פועלים", מעדכן הוצאה מרוכזת');
-          const result = await createOrUpdatePoalimSummaryExpense(transaction, true);
-          
-          if (result.success) {
-            const actionText = {
-              'updated': 'עודכנה הוצאה מרוכזת',
-              'deleted': 'נמחקה הוצאה מרוכזת',
-              'none': 'לא נדרש עדכון להוצאה מרוכזת'
-            };
-            toast.success(actionText[result.action] || 'עודכנה הוצאה מרוכזת באופן אוטומטי');
-          }
-        }
-        
         // טעינה מחדש של הנתונים
         await fetchFinancialData();
         
@@ -1656,49 +1335,25 @@ const FinancialManagementPage = () => {
         toast.error('שגיאה במחיקת העסקה: ' + (response.data.message || 'שגיאה לא ידועה'));
       }
     } catch (err) {
-      console.error('שגיאה במחיקת עסקה:', err.response || err);
+      console.error('שגיאה במחיקת עסקה:', err);
       toast.error('שגיאה במחיקת העסקה: ' + (err.response?.data?.message || err.message || 'שגיאה לא ידועה'));
     }
   };
 
   // עדכון עסקה
   const handleUpdateTransaction = async () => {
-    if (!editingTransaction || !editingTransaction._id) {
-      setError('שגיאה בעדכון העסקה');
-      return;
-    }
-
     try {
-      // נוודא שאנחנו שומרים רק את שם הקטגוריה אם התקבל אובייקט קטגוריה
-      const categoryName = typeof editingTransaction.category === 'object' && editingTransaction.category !== null 
-        ? editingTransaction.category.name 
-        : editingTransaction.category;
-      
-      console.log('מעדכן עסקה:', {
-        מזהה: editingTransaction._id,
-        סוג: editingTransaction.type,
-        סכום: editingTransaction.amount,
-        קטגוריה: categoryName,
-        'שיטת תשלום': editingTransaction.paymentMethod
-      });
-      
-      // בדיקה אם זו הכנסה מ"פועלים" (לפני ואחרי העדכון)
-      const originalTransaction = transactions.find(t => t._id === editingTransaction._id);
-      const wasPoalimIncome = originalTransaction && 
-                            originalTransaction.type === 'income' && 
-                            isPoalimPaymentMethod(originalTransaction.paymentMethod);
-      
-      const isPoalimIncome = editingTransaction.type === 'income' && 
-                            isPoalimPaymentMethod(editingTransaction.paymentMethod);
-      
+      if (!editingTransaction) {
+        console.error('אין עסקה לעדכון');
+        return;
+      }
+
       const updatedData = {
         ...editingTransaction,
-        category: categoryName, // שמירת שם הקטגוריה כמחרוזת
-        amount: parseFloat(editingTransaction.amount),
-        date: typeof editingTransaction.date === 'string' 
-          ? editingTransaction.date 
-          : format(editingTransaction.date, 'yyyy-MM-dd')
+        date: format(editingTransaction.date, 'yyyy-MM-dd')
       };
+
+      console.log('מעדכן עסקה:', updatedData);
 
       const response = await axios.put(
         `${process.env.REACT_APP_API_URL}/financial/transactions/${editingTransaction._id}`,
@@ -1714,63 +1369,6 @@ const FinancialManagementPage = () => {
         console.log('העסקה עודכנה בהצלחה:', response.data.data);
         toast.success('העסקה עודכנה בהצלחה');
         
-        // טיפול בהוצאה מרוכזת
-        if (wasPoalimIncome || isPoalimIncome) {
-          console.log('זוהה עדכון של הכנסה מ"פועלים", מעדכן הוצאות מרוכזות');
-          
-          // אם השתנתה שיטת התשלום, נצטרך לעדכן את שתי ההוצאות המרוכזות
-          if (wasPoalimIncome && isPoalimIncome && 
-              originalTransaction.paymentMethod !== editingTransaction.paymentMethod) {
-              
-            // עדכון ההוצאה המרוכזת של שיטת התשלום הישנה
-            const oldResult = await createOrUpdatePoalimSummaryExpense({
-              ...originalTransaction,
-              _id: editingTransaction._id
-            }, true);
-            
-            // עדכון ההוצאה המרוכזת של שיטת התשלום החדשה
-            const newResult = await createOrUpdatePoalimSummaryExpense(response.data.data);
-            
-            if (oldResult.success && newResult.success) {
-              toast.success('עודכנו הוצאות מרוכזות עבור שתי שיטות תשלום');
-            }
-          }
-          else if (wasPoalimIncome && !isPoalimIncome) {
-            // אם הייתה הכנסה מ"פועלים" אך שונתה, עדכן את ההוצאה המרוכזת
-            const result = await createOrUpdatePoalimSummaryExpense(originalTransaction, true);
-            
-            if (result.success) {
-              const actionText = {
-                'updated': 'עודכנה הוצאה מרוכזת',
-                'deleted': 'נמחקה הוצאה מרוכזת',
-                'none': 'לא נדרש עדכון להוצאה מרוכזת'
-              };
-              toast.success(actionText[result.action] || 'טופלה הוצאה מרוכזת באופן אוטומטי');
-            }
-          }
-          else if (!wasPoalimIncome && isPoalimIncome) {
-            // אם לא הייתה הכנסה מ"פועלים" אך עכשיו כן, עדכן את ההוצאה המרוכזת
-            const result = await createOrUpdatePoalimSummaryExpense(response.data.data);
-            
-            if (result.success) {
-              const actionText = {
-                'created': 'נוצרה הוצאה מרוכזת',
-                'updated': 'עודכנה הוצאה מרוכזת',
-                'none': 'לא נדרש עדכון להוצאה מרוכזת'
-              };
-              toast.success(actionText[result.action] || 'טופלה הוצאה מרוכזת באופן אוטומטי');
-            }
-          }
-          else {
-            // אם זו עדיין הכנסה מ"פועלים" ללא שינוי בשיטת התשלום, רק עדכן את ההוצאה המרוכזת
-            const result = await createOrUpdatePoalimSummaryExpense(response.data.data);
-            
-            if (result.success) {
-              toast.success('עודכנה הוצאה מרוכזת באופן אוטומטי');
-            }
-          }
-        }
-        
         setIsEditDialogOpen(false);
         setEditingTransaction(null);
         
@@ -1785,7 +1383,7 @@ const FinancialManagementPage = () => {
         toast.error('שגיאה בעדכון העסקה: ' + (response.data.message || 'שגיאה לא ידועה'));
       }
     } catch (err) {
-      console.error('שגיאה בעדכון עסקה:', err.response || err);
+      console.error('שגיאה בעדכון עסקה:', err);
       toast.error('שגיאה בעדכון העסקה: ' + (err.response?.data?.message || err.message || 'שגיאה לא ידועה'));
     }
   };
@@ -1826,1052 +1424,984 @@ const FinancialManagementPage = () => {
     }
   };
 
-
-  // פונקציה ליצירת או עדכון הוצאות מרוכזות עבור הכנסות מהזמנות
-  const handleBookingIncomes = useCallback(async () => {
-    try {
-      console.log('בודק הכנסות מהזמנות ומטפל בהוצאות מרוכזות...');
-      
-      const startDate = startOfMonth(selectedDate);
-      const endDate = endOfMonth(selectedDate);
-      const currentMonth = format(selectedDate, 'yyyy-MM');
-      
-      // מיפוי של הכנסות מהזמנות לפי שיטת תשלום
-      const bookingIncomesByMethod = {};
-      
-      // סינון הזמנות רלוונטיות (שולמו ושייכות לחודש הנוכחי)
-      const relevantBookings = bookings.filter(booking => {
-        const bookingDate = parseISO(booking.createdAt);
-        return bookingDate >= startDate && 
-               bookingDate <= endDate &&
-               booking.paymentStatus === 'paid' &&
-               !booking.paymentMethod.startsWith('credit');
-      });
-      
-      console.log(`נמצאו ${relevantBookings.length} הזמנות רלוונטיות לחודש ${currentMonth}`);
-      
-      // קיבוץ הכנסות לפי שיטת תשלום
-      relevantBookings.forEach(booking => {
-        const method = getPaymentMethodLabel(booking.paymentMethod);
-        if (isPoalimPaymentMethod(method)) {
-          if (!bookingIncomesByMethod[method]) {
-            bookingIncomesByMethod[method] = [];
-          }
-          bookingIncomesByMethod[method].push(booking);
-        }
-      });
-      
-      // עבור כל שיטת תשלום, חשב את הסכום הכולל ויצור/עדכן הוצאה מרוכזת
-      for (const [method, bookings] of Object.entries(bookingIncomesByMethod)) {
-        if (bookings.length > 0) {
-          const totalAmount = bookings.reduce((sum, booking) => sum + (parseFloat(booking.totalPrice) || 0), 0);
-          console.log(`סך הכנסות מהזמנות עבור ${method}: ${totalAmount}`);
-          
-          if (totalAmount > 0) {
-            // יצירת אובייקט הכנסה מדומה לשימוש בפונקציה הקיימת
-            const dummyIncome = {
-              type: 'income',
-              amount: totalAmount,
-              paymentMethod: method,
-              date: format(new Date(), 'yyyy-MM-dd'), // תאריך נוכחי
-              description: `הכנסות מהזמנות - ${method}`
-            };
-            
-            // יצירה או עדכון של הוצאה מרוכזת
-            await createOrUpdatePoalimSummaryExpense(dummyIncome);
-          }
-        }
-      }
-      
-      console.log('הטיפול בהכנסות מהזמנות הסתיים בהצלחה');
-    } catch (err) {
-      console.error('שגיאה בטיפול בהכנסות מהזמנות:', err);
-    }
-  }, [bookings, selectedDate]);
-
-  // הפעלת פונקציית טיפול בהכנסות מהזמנות כשיש שינוי בהזמנות
-  useEffect(() => {
-    if (bookings.length > 0) {
-      handleBookingIncomes();
-    }
-  }, [bookings, handleBookingIncomes]);
-
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        <Box sx={{ mb: 4 }}>
-          <Tabs
-            value={selectedTab}
-            onChange={(e, newValue) => {
-              setSelectedTab(newValue);
-              if (newValue === 0) {
-                // אם עברנו לטאב מצב הון, נעדכן את הנתונים
-                calculateTotalCapital();
-              }
-            }}
-            variant="fullWidth"
-            sx={{
-              borderBottom: 1,
-              borderColor: 'divider',
-              mb: 3,
-              '& .MuiTabs-indicator': {
-                backgroundColor: theme.palette.primary.main,
-                height: 3,
-              },
-              '& .MuiTab-root': {
-                textTransform: 'none',
-                fontSize: '1rem',
-                fontWeight: 500,
-              }
-            }}
-          >
-            <Tab 
-              icon={<AccountBalanceIcon />} 
-              label="מצב הון" 
-              iconPosition="start"
-            />
-            <Tab 
-              icon={<DateRangeIcon />} 
-              label="ניהול חודשי" 
-              iconPosition="start"
-            />
-          </Tabs>
-        </Box>
-
-        {selectedTab === 0 ? (
-          <Box>
-            {loadingCapital ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <Grid container spacing={3}>
-                {/* כרטיס הון כולל */}
-                <Grid item xs={12}>
-                  <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
-                    <StatCard
-                      icon={<AccountBalanceIcon />}
-                      title="הון כולל בעסק"
-                      value={totalCapital}
-                      subtext="סה״כ הכנסות פחות הוצאות"
-                      color={CHART_COLORS.balance}
-                    />
-                  </Paper>
-                </Grid>
-
-                {/* התפלגות הון לפי שיטות תשלום */}
-                <Grid item xs={12}>
-                  <Paper sx={{ p: 3, borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <SectionTitle variant="h5" gutterBottom sx={{ mb: 0 }}>
-                        התפלגות הון לפי שיטות תשלום
-                      </SectionTitle>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Tooltip title="הגדרת יתרות פתיחה">
-                          <IconButton 
-                            onClick={() => {
-                              // יצירת עותק של היתרות הקיימות לעריכה
-                              setEditingInitialBalances({...initialBalances});
-                              setIsInitialBalancesDialogOpen(true);
-                            }}
-                            color="primary"
-                          >
-                            <SettingsIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="רענון נתוני הון">
-                          <IconButton 
-                            onClick={() => {
-                              setLoadingCapital(true);
-                              calculateTotalCapital();
-                            }}
-                            color="primary"
-                          >
-                            <RefreshIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </Box>
-                    
-                    <Alert severity="info" sx={{ mb: 3 }}>
-                      <Typography variant="body2">
-                        <strong>איך זה עובד:</strong> המערכת מחשבת את יתרת ההון בכל אמצעי תשלום על ידי התחלה מיתרות הפתיחה שהוגדרו, חיבור כל ההכנסות והחסרת כל ההוצאות בכל שיטת תשלום. כאשר מתווספת הכנסה חדשה או הוצאה חדשה, היתרה מתעדכנת בהתאם. לחץ על <SettingsIcon fontSize="small" sx={{ verticalAlign: 'middle' }}/> להגדרת יתרות פתיחה.
-                      </Typography>
-                    </Alert>
-                    
-                    <Grid container spacing={3}>
-                      {Object.entries(capitalByPaymentMethod).map(([method, amount], index) => (
-                        <Grid item xs={12} sm={6} md={4} key={method}>
-                          <StatCard
-                            icon={ICON_MAP[method] || <AttachMoneyIcon />}
-                            title={method}
-                            value={amount}
-                            subtext="הון בשיטת תשלום זו"
-                            color={CHART_COLORS.categories[index % CHART_COLORS.categories.length]}
-                          />
-                        </Grid>
-                      ))}
-                    </Grid>
-
-                    {/* גרף עוגה */}
-                    <Box sx={{ mt: 4, height: 400 }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={Object.entries(capitalByPaymentMethod).map(([method, amount], index) => ({
-                              name: method,
-                              value: amount
-                            }))}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            outerRadius={150}
-                            fill="#8884d8"
-                            dataKey="value"
-                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          >
-                            {Object.entries(capitalByPaymentMethod).map(([method, amount], index) => (
-                              <Cell key={`cell-${method}`} fill={CHART_COLORS.categories[index % CHART_COLORS.categories.length]} />
-                            ))}
-                          </Pie>
-                          <RechartsTooltip 
-                            formatter={(value) => `₪${value.toLocaleString()}`}
-                            contentStyle={{ direction: 'rtl' }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </Box>
-                  </Paper>
-                </Grid>
-              </Grid>
-            )}
+      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+          <Box sx={{ mb: 4 }}>
+            <Tabs
+              value={selectedTab}
+              onChange={(e, newValue) => {
+                setSelectedTab(newValue);
+                if (newValue === 0) {
+                  // אם עברנו לטאב מצב הון, נעדכן את הנתונים
+                  calculateTotalCapital();
+                }
+              }}
+              variant="fullWidth"
+              sx={{
+                borderBottom: 1,
+                borderColor: 'divider',
+                mb: 3,
+                '& .MuiTabs-indicator': {
+                  backgroundColor: theme.palette.primary.main,
+                  height: 3,
+                },
+                '& .MuiTab-root': {
+                  textTransform: 'none',
+                  fontSize: '1rem',
+                  fontWeight: 500,
+                }
+              }}
+            >
+              <Tab 
+                icon={<AccountBalanceIcon />} 
+                label="מצב הון" 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<DateRangeIcon />} 
+                label="ניהול חודשי" 
+                iconPosition="start"
+              />
+            </Tabs>
           </Box>
-        ) : (
-          <Box>
-            {/* התוכן הקיים של ניהול חודשי */}
-            <Grid container spacing={3}>
-              {/* סרגל צדדי */}
-              <Grid item xs={12} md={1}>
-                <MinimalSidebar>
-                  <SidebarButton title="לוח מחוונים" placement="right" active={currentPath === '/dashboard' ? true : undefined}>
-                    <IconButton
-                      component={RouterLink}
-                      to="/dashboard"
-                      aria-label="dashboard"
-                    >
-                      <DashboardIcon sx={{ color: currentPath === '/dashboard' ? '#3498db' : theme.palette.text.secondary, '&:hover': { color: '#2980b9' } }} />
-                    </IconButton>
-                  </SidebarButton>
-                  
-                  <SidebarButton title="יומן הזמנות" placement="right" active={currentPath === '/dashboard/bookings-calendar' ? true : undefined}>
-                    <IconButton
-                      component={RouterLink}
-                      to="/dashboard/bookings-calendar"
-                      aria-label="bookings-calendar"
-                    >
-                      <CalendarMonthIcon sx={{ color: currentPath === '/dashboard/bookings-calendar' ? '#e74c3c' : theme.palette.text.secondary, '&:hover': { color: '#c0392b' } }} />
-                    </IconButton>
-                  </SidebarButton>
-                  
-                  <SidebarButton title="106 / Airport" placement="right" active={currentPath === '/dashboard/simple-bookings' ? true : undefined}>
-                    <IconButton
-                      component={RouterLink}
-                      to="/dashboard/simple-bookings"
-                      aria-label="airport"
-                    >
-                      <HotelIcon sx={{ color: currentPath === '/dashboard/simple-bookings' ? '#f39c12' : theme.palette.text.secondary, '&:hover': { color: '#d35400' } }} />
-                    </IconButton>
-                  </SidebarButton>
-                  
-                  <SidebarButton title="דו״ח הכנסות" placement="right" active={currentPath === '/dashboard/income-report' ? true : undefined}>
-                    <IconButton
-                      component={RouterLink}
-                      to="/dashboard/income-report"
-                      aria-label="income-report"
-                    >
-                      <AssessmentIcon sx={{ color: currentPath === '/dashboard/income-report' ? '#9b59b6' : theme.palette.text.secondary, '&:hover': { color: '#8e44ad' } }} />
-                    </IconButton>
-                  </SidebarButton>
-                  
-                  <Box sx={{ flexGrow: 1 }} /> {/* מרווח גמיש שידחוף את האייקון הבא לתחתית */}
-                  
-                  <SidebarButton title="אתר הבית" placement="right" active={currentPath === '/' ? true : undefined}>
-                    <IconButton
-                      component={RouterLink}
-                      to="/"
-                      aria-label="home"
-                    >
-                      <LanguageIcon sx={{ color: currentPath === '/' ? '#2ecc71' : theme.palette.text.secondary, '&:hover': { color: '#27ae60' } }} />
-                    </IconButton>
-                  </SidebarButton>
-                </MinimalSidebar>
-              </Grid>
-              
-              {/* תוכן ראשי */}
-              <Grid item xs={12} md={11}>
-                <Container maxWidth="xl" sx={{ mt: 3, mb: 6 }}>
-                  {/* סרגל כלים */}
-                  <Box sx={{ 
-                    mb: 4, 
-                    display: 'flex', 
-                    gap: 2, 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    backgroundColor: theme.palette.background.paper,
-                    borderRadius: 2,
-                    p: 2,
-                    boxShadow: '0 2px 10px 0 rgba(0,0,0,0.05)'
-                  }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <IconButton 
-                        onClick={() => setSelectedDate(prevDate => subMonths(prevDate, 1))}
-                        sx={{ 
-                          bgcolor: alpha(theme.palette.primary.main, 0.1),
-                          '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) }
-                        }}
-                      >
-                        <ChevronRightIcon />
-                      </IconButton>
-                      <Typography variant="h6" sx={{ fontWeight: 600, minWidth: 150, textAlign: 'center' }}>
-                        {format(selectedDate, 'MMMM yyyy', { locale: he })}
-                      </Typography>
-                      <IconButton 
-                        onClick={() => setSelectedDate(prevDate => addMonths(prevDate, 1))}
-                        sx={{ 
-                          bgcolor: alpha(theme.palette.primary.main, 0.1),
-                          '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) }
-                        }}
-                      >
-                        <ChevronLeftIcon />
-                      </IconButton>
-                    </Box>
-                    <Box>
-                      <Button
-                        variant="outlined"
-                        startIcon={<SettingsIcon />}
-                        onClick={() => setIsCategoryManagerOpen(true)}
-                        sx={{ 
-                          mr: 2,
-                          borderRadius: 2,
-                          textTransform: 'none'
-                        }}
-                      >
-                        ניהול קטגוריות
-                      </Button>
-                      <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => setIsAddDialogOpen(true)}
-                        sx={{ 
-                          mr: 2,
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          px: 3
-                        }}
-                      >
-                        הוסף עסקה
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        startIcon={<DownloadIcon />}
-                        sx={{ 
-                          mr: 2,
-                          borderRadius: 2,
-                          textTransform: 'none'
-                        }}
-                      >
-                        ייצא ל-CSV
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        startIcon={<PrintIcon />}
-                        sx={{ 
-                          borderRadius: 2,
-                          textTransform: 'none'
-                        }}
-                      >
-                        הדפס
-                      </Button>
-                    </Box>
-                  </Box>
 
-                  {/* כרטיס מאזן */}
-                  <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
-                    <Grid container spacing={3}>
-                      <Grid item xs={12}>
-                        <StatCard
-                          icon={<AccountBalanceIcon />}
-                          title="מאזן חודש נוכחי"
-                          value={currentMonthData.balance}
-                          subtext="הכנסות פחות הוצאות"
-                          color={CHART_COLORS.balance}
-                          trend={calculateTrend(currentMonthData.balance, previousMonthData.balance)}
-                        />
-                      </Grid>
-                    </Grid>
-                  </Paper>
+          {selectedTab === 0 ? (
+            <Box>
+              {loadingCapital ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <Grid container spacing={3}>
+                  {/* כרטיס הון כולל */}
+                  <Grid item xs={12}>
+                    <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
+                      <StatCard
+                        icon={<AccountBalanceIcon />}
+                        title="הון כולל בעסק"
+                        value={totalCapital}
+                        subtext="סה״כ הכנסות פחות הוצאות"
+                        color={CHART_COLORS.balance}
+                      />
+                    </Paper>
+                  </Grid>
 
-                  {/* תצוגת הכנסות והוצאות */}
-                  <Grid container spacing={4}>
-                    {/* צד ימין - הכנסות */}
-                    <Grid item xs={12} md={6}>
-                      <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
-                        <SectionTitle variant="h5" gutterBottom>
-                          הכנסות
+                  {/* התפלגות הון לפי שיטות תשלום */}
+                  <Grid item xs={12}>
+                    <Paper sx={{ p: 3, borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <SectionTitle variant="h5" gutterBottom sx={{ mb: 0 }}>
+                          התפלגות הון לפי שיטות תשלום
                         </SectionTitle>
-                        <Box sx={{ mb: 4 }}>
-                          <StatCard
-                            icon={<TrendingUpIcon />}
-                            title="הכנסות חודש נוכחי"
-                            value={currentMonthData.income}
-                            subtext="סה״כ הכנסות מהזמנות"
-                            color={CHART_COLORS.income}
-                            trend={calculateTrend(currentMonthData.income, previousMonthData.income)}
-                          />
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Tooltip title="הגדרת יתרות פתיחה">
+                            <IconButton 
+                              onClick={() => {
+                                // יצירת עותק של היתרות הקיימות לעריכה
+                                setEditingInitialBalances({...initialBalances});
+                                setIsInitialBalancesDialogOpen(true);
+                              }}
+                              color="primary"
+                            >
+                              <SettingsIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="רענון נתוני הון">
+                            <IconButton 
+                              onClick={() => {
+                                setLoadingCapital(true);
+                                calculateTotalCapital();
+                              }}
+                              color="primary"
+                            >
+                              <RefreshIcon />
+                            </IconButton>
+                          </Tooltip>
                         </Box>
-                        
-                        {/* טבלת הכנסות */}
-                        <Typography variant="h6" gutterBottom sx={{ 
-                          fontWeight: 500,
-                          mb: 3,
-                          position: 'relative',
-                          '&:after': {
-                            content: '""',
-                            position: 'absolute',
-                            bottom: -8,
-                            left: 0,
-                            width: 40,
-                            height: 3,
-                            borderRadius: 1.5,
-                            backgroundColor: theme.palette.primary.main
-                          }
-                        }}>
-                          התפלגות הכנסות לפי שיטת תשלום
+                      </Box>
+                      
+                      <Alert severity="info" sx={{ mb: 3 }}>
+                        <Typography variant="body2">
+                          <strong>איך זה עובד:</strong> המערכת מחשבת את יתרת ההון בכל אמצעי תשלום על ידי התחלה מיתרות הפתיחה שהוגדרו, חיבור כל ההכנסות והחסרת כל ההוצאות בכל שיטת תשלום. כאשר מתווספת הכנסה חדשה או הוצאה חדשה, היתרה מתעדכנת בהתאם. לחץ על <SettingsIcon fontSize="small" sx={{ verticalAlign: 'middle' }}/> להגדרת יתרות פתיחה.
                         </Typography>
-                        <TableContainer 
-                          component={Paper} 
+                      </Alert>
+                      
+                      <Grid container spacing={3}>
+                        {Object.entries(capitalByPaymentMethod).map(([method, amount], index) => (
+                          <Grid item xs={12} sm={6} md={4} key={method}>
+                            <StatCard
+                              icon={ICON_MAP[method] || <AttachMoneyIcon />}
+                              title={method}
+                              value={amount}
+                              subtext="הון בשיטת תשלום זו"
+                              color={CHART_COLORS.categories[index % CHART_COLORS.categories.length]}
+                            />
+                          </Grid>
+                        ))}
+                      </Grid>
+
+                      {/* גרף עוגה */}
+                      <Box sx={{ mt: 4, height: 400 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={Object.entries(capitalByPaymentMethod).map(([method, amount], index) => ({
+                                name: method,
+                                value: amount
+                              }))}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              outerRadius={150}
+                              fill="#8884d8"
+                              dataKey="value"
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            >
+                              {Object.entries(capitalByPaymentMethod).map(([method, amount], index) => (
+                                <Cell key={`cell-${method}`} fill={CHART_COLORS.categories[index % CHART_COLORS.categories.length]} />
+                              ))}
+                            </Pie>
+                            <RechartsTooltip 
+                              formatter={(value) => `₪${value.toLocaleString()}`}
+                              contentStyle={{ direction: 'rtl' }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </Box>
+                    </Paper>
+                  </Grid>
+                </Grid>
+              )}
+            </Box>
+          ) : (
+            <Box>
+              {/* התוכן הקיים של ניהול חודשי */}
+              <Grid container spacing={3}>
+                {/* סרגל צדדי */}
+                <Grid item xs={12} md={1}>
+                  <MinimalSidebar>
+                    <SidebarButton title="לוח מחוונים" placement="right" active={currentPath === '/dashboard' ? true : undefined}>
+                      <IconButton
+                        component={RouterLink}
+                        to="/dashboard"
+                        aria-label="dashboard"
+                      >
+                        <DashboardIcon sx={{ color: currentPath === '/dashboard' ? '#3498db' : theme.palette.text.secondary, '&:hover': { color: '#2980b9' } }} />
+                      </IconButton>
+                    </SidebarButton>
+                    
+                    <SidebarButton title="יומן הזמנות" placement="right" active={currentPath === '/dashboard/bookings-calendar' ? true : undefined}>
+                      <IconButton
+                        component={RouterLink}
+                        to="/dashboard/bookings-calendar"
+                        aria-label="bookings-calendar"
+                      >
+                        <CalendarMonthIcon sx={{ color: currentPath === '/dashboard/bookings-calendar' ? '#e74c3c' : theme.palette.text.secondary, '&:hover': { color: '#c0392b' } }} />
+                      </IconButton>
+                    </SidebarButton>
+                    
+                    <SidebarButton title="106 / Airport" placement="right" active={currentPath === '/dashboard/simple-bookings' ? true : undefined}>
+                      <IconButton
+                        component={RouterLink}
+                        to="/dashboard/simple-bookings"
+                        aria-label="airport"
+                      >
+                        <HotelIcon sx={{ color: currentPath === '/dashboard/simple-bookings' ? '#f39c12' : theme.palette.text.secondary, '&:hover': { color: '#d35400' } }} />
+                      </IconButton>
+                    </SidebarButton>
+                    
+                    <SidebarButton title="דו״ח הכנסות" placement="right" active={currentPath === '/dashboard/income-report' ? true : undefined}>
+                      <IconButton
+                        component={RouterLink}
+                        to="/dashboard/income-report"
+                        aria-label="income-report"
+                      >
+                        <AssessmentIcon sx={{ color: currentPath === '/dashboard/income-report' ? '#9b59b6' : theme.palette.text.secondary, '&:hover': { color: '#8e44ad' } }} />
+                      </IconButton>
+                    </SidebarButton>
+                    
+                    <Box sx={{ flexGrow: 1 }} /> {/* מרווח גמיש שידחוף את האייקון הבא לתחתית */}
+                    
+                    <SidebarButton title="אתר הבית" placement="right" active={currentPath === '/' ? true : undefined}>
+                      <IconButton
+                        component={RouterLink}
+                        to="/"
+                        aria-label="home"
+                      >
+                        <LanguageIcon sx={{ color: currentPath === '/' ? '#2ecc71' : theme.palette.text.secondary, '&:hover': { color: '#27ae60' } }} />
+                      </IconButton>
+                    </SidebarButton>
+                  </MinimalSidebar>
+                </Grid>
+                
+                {/* תוכן ראשי */}
+                <Grid item xs={12} md={11}>
+                  <Container maxWidth="xl" sx={{ mt: 3, mb: 6 }}>
+                    {/* סרגל כלים */}
+                    <Box sx={{ 
+                      mb: 4, 
+                      display: 'flex', 
+                      gap: 2, 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      backgroundColor: theme.palette.background.paper,
+                      borderRadius: 2,
+                      p: 2,
+                      boxShadow: '0 2px 10px 0 rgba(0,0,0,0.05)'
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <IconButton 
+                          onClick={() => setSelectedDate(prevDate => subMonths(prevDate, 1))}
                           sx={{ 
-                            borderRadius: 2,
-                            boxShadow: '0 2px 10px 0 rgba(0,0,0,0.05)',
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            '& .MuiTableCell-root': {
-                              fontSize: '1rem',
-                              py: 2
-                            }
+                            bgcolor: alpha(theme.palette.primary.main, 0.1),
+                            '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) }
                           }}
                         >
-                          <Table>
-                            <TableHead>
-                              <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
-                                <TableCell sx={{ 
-                                  fontWeight: 600,
-                                  borderBottom: '2px solid',
-                                  borderBottomColor: theme.palette.primary.main
-                                }}>
-                                  שיטת תשלום
-                                </TableCell>
-                                <TableCell 
-                                  align="right" 
-                                  sx={{ 
+                          <ChevronRightIcon />
+                        </IconButton>
+                        <Typography variant="h6" sx={{ fontWeight: 600, minWidth: 150, textAlign: 'center' }}>
+                          {format(selectedDate, 'MMMM yyyy', { locale: he })}
+                        </Typography>
+                        <IconButton 
+                          onClick={() => setSelectedDate(prevDate => addMonths(prevDate, 1))}
+                          sx={{ 
+                            bgcolor: alpha(theme.palette.primary.main, 0.1),
+                            '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) }
+                          }}
+                        >
+                          <ChevronLeftIcon />
+                        </IconButton>
+                      </Box>
+                      <Box>
+                        <Button
+                          variant="outlined"
+                          startIcon={<SettingsIcon />}
+                          onClick={() => setIsCategoryManagerOpen(true)}
+                          sx={{ 
+                            mr: 2,
+                            borderRadius: 2,
+                            textTransform: 'none'
+                          }}
+                        >
+                          ניהול קטגוריות
+                        </Button>
+                        <Button
+                          variant="contained"
+                          startIcon={<AddIcon />}
+                          onClick={() => setIsAddDialogOpen(true)}
+                          sx={{ 
+                            mr: 2,
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            px: 3
+                          }}
+                        >
+                          הוסף עסקה
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          startIcon={<DownloadIcon />}
+                          sx={{ 
+                            mr: 2,
+                            borderRadius: 2,
+                            textTransform: 'none'
+                          }}
+                        >
+                          ייצא ל-CSV
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          startIcon={<PrintIcon />}
+                          sx={{ 
+                            borderRadius: 2,
+                            textTransform: 'none'
+                          }}
+                        >
+                          הדפס
+                        </Button>
+                      </Box>
+                    </Box>
+
+                    {/* כרטיס מאזן */}
+                    <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
+                      <Grid container spacing={3}>
+                        <Grid item xs={12}>
+                          <StatCard
+                            icon={<AccountBalanceIcon />}
+                            title="מאזן חודש נוכחי"
+                            value={currentMonthData.balance}
+                            subtext="הכנסות פחות הוצאות"
+                            color={CHART_COLORS.balance}
+                            trend={calculateTrend(currentMonthData.balance, previousMonthData.balance)}
+                          />
+                        </Grid>
+                      </Grid>
+                    </Paper>
+
+                    {/* תצוגת הכנסות והוצאות */}
+                    <Grid container spacing={4}>
+                      {/* צד ימין - הכנסות */}
+                      <Grid item xs={12} md={6}>
+                        <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
+                          <SectionTitle variant="h5" gutterBottom>
+                            הכנסות
+                          </SectionTitle>
+                          <Box sx={{ mb: 4 }}>
+                            <StatCard
+                              icon={<TrendingUpIcon />}
+                              title="הכנסות חודש נוכחי"
+                              value={currentMonthData.income}
+                              subtext="סה״כ הכנסות מהזמנות"
+                              color={CHART_COLORS.income}
+                              trend={calculateTrend(currentMonthData.income, previousMonthData.income)}
+                            />
+                          </Box>
+                          
+                          {/* טבלת הכנסות */}
+                          <Typography variant="h6" gutterBottom sx={{ 
+                            fontWeight: 500,
+                            mb: 3,
+                            position: 'relative',
+                            '&:after': {
+                              content: '""',
+                              position: 'absolute',
+                              bottom: -8,
+                              left: 0,
+                              width: 40,
+                              height: 3,
+                              borderRadius: 1.5,
+                              backgroundColor: theme.palette.primary.main
+                            }
+                          }}>
+                            התפלגות הכנסות לפי שיטת תשלום
+                          </Typography>
+                          <TableContainer 
+                            component={Paper} 
+                            sx={{ 
+                              borderRadius: 2,
+                              boxShadow: '0 2px 10px 0 rgba(0,0,0,0.05)',
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              '& .MuiTableCell-root': {
+                                fontSize: '1rem',
+                                py: 2
+                              }
+                            }}
+                          >
+                            <Table>
+                              <TableHead>
+                                <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
+                                  <TableCell sx={{ 
                                     fontWeight: 600,
                                     borderBottom: '2px solid',
                                     borderBottomColor: theme.palette.primary.main
-                                  }}
-                                >
-                                  סכום
-                                </TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {Object.entries(calculateIncomeByPaymentMethod()).map(([method, amount], index) => (
-                                <TableRow 
-                                  key={`income-${method}`} 
-                                  hover
-                                  sx={{
-                                    '&:last-child td': { border: 0 },
-                                    '&:hover': {
-                                      bgcolor: alpha(theme.palette.primary.main, 0.05)
-                                    }
-                                  }}
-                                >
-                                  <TableCell sx={{ 
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 2,
-                                    fontWeight: 500
                                   }}>
-                                    {getPaymentMethodLabel(method)}
+                                    שיטת תשלום
                                   </TableCell>
                                   <TableCell 
                                     align="right" 
                                     sx={{ 
-                                      color: theme.palette.success.main,
-                                      fontWeight: 500
+                                      fontWeight: 600,
+                                      borderBottom: '2px solid',
+                                      borderBottomColor: theme.palette.primary.main
                                     }}
                                   >
-                                    ₪{amount.toLocaleString()}
+                                    סכום
                                   </TableCell>
                                 </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {Object.entries(calculateIncomeByPaymentMethod()).map(([method, amount], index) => (
+                                  <TableRow 
+                                    key={`income-${method}`} 
+                                    hover
+                                    sx={{
+                                      '&:last-child td': { border: 0 },
+                                      '&:hover': {
+                                        bgcolor: alpha(theme.palette.primary.main, 0.05)
+                                      }
+                                    }}
+                                  >
+                                    <TableCell sx={{ 
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 2,
+                                      fontWeight: 500
+                                    }}>
+                                      {getPaymentMethodLabel(method)}
+                                    </TableCell>
+                                    <TableCell 
+                                      align="right" 
+                                      sx={{ 
+                                        color: theme.palette.success.main,
+                                        fontWeight: 500
+                                      }}
+                                    >
+                                      ₪{amount.toLocaleString()}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                                <TableRow sx={{ 
+                                  bgcolor: alpha(theme.palette.primary.main, 0.05),
+                                  '& td': { py: 2.5 }
+                                }}>
+                                  <TableCell sx={{ fontWeight: 600, fontSize: '1.1rem' }}>סה״כ</TableCell>
+                                  <TableCell 
+                                    align="right" 
+                                    sx={{ 
+                                      color: theme.palette.primary.main,
+                                      fontWeight: 600,
+                                      fontSize: '1.1rem'
+                                    }}
+                                  >
+                                    ₪{Object.values(calculateIncomeByPaymentMethod())
+                                        .reduce((sum, amount) => sum + amount, 0)
+                                        .toLocaleString()}
+                                  </TableCell>
+                                </TableRow>
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                          
+                          {/* טבלת עסקאות הכנסה */}
+                          <Typography variant="h6" gutterBottom sx={{ 
+                            fontWeight: 500,
+                            mb: 3,
+                            mt: 4,
+                            position: 'relative',
+                            '&:after': {
+                              content: '""',
+                              position: 'absolute',
+                              bottom: -8,
+                              left: 0,
+                              width: 40,
+                              height: 3,
+                              borderRadius: 1.5,
+                              backgroundColor: theme.palette.primary.main
+                            }
+                          }}>
+                            רשימת עסקאות הכנסה
+                          </Typography>
+                          <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
+                            <Table>
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell sx={{ fontWeight: 600 }}>תאריך</TableCell>
+                                  <TableCell sx={{ fontWeight: 600 }}>קטגוריה</TableCell>
+                                  <TableCell sx={{ fontWeight: 600 }}>תיאור</TableCell>
+                                  <TableCell sx={{ fontWeight: 600 }}>שיטת תשלום</TableCell>
+                                  <TableCell align="right" sx={{ fontWeight: 600 }}>סכום</TableCell>
+                                  <TableCell sx={{ fontWeight: 600 }}>פעולות</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {transactions
+                                  .filter(t => t.type === 'income')
+                                  .map((transaction) => (
+                                    <TableRow key={transaction._id} hover>
+                                      <TableCell>{format(parseISO(transaction.date), 'dd/MM/yyyy')}</TableCell>
+                                      <TableCell>{transaction.category}</TableCell>
+                                      <TableCell>{transaction.description}</TableCell>
+                                      <TableCell>
+                                        <Chip
+                                          label={getPaymentMethodLabel(transaction.paymentMethod)}
+                                          size="small"
+                                          color="success"
+                                          variant="outlined"
+                                        />
+                                      </TableCell>
+                                      <TableCell align="right" sx={{ color: CHART_COLORS.income }}>
+                                        ₪{transaction.amount.toLocaleString()}
+                                      </TableCell>
+                                      <TableCell>
+                                        <IconButton size="small" sx={{ mr: 1 }} onClick={() => handleOpenEditDialog(transaction)}>
+                                          <EditIcon fontSize="small" />
+                                        </IconButton>
+                                        <IconButton size="small" color="error" onClick={() => handleDeleteTransaction(transaction._id)}>
+                                          <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                  {transactions.filter(t => t.type === 'income').length === 0 && (
+                                    <TableRow>
+                                      <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                                        <Typography variant="body2" color="text.secondary">
+                                          לא נמצאו עסקאות הכנסה לחודש זה
+                                        </Typography>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        </Paper>
+                      </Grid>
+
+                      {/* צד שמאל - הוצאות */}
+                      <Grid item xs={12} md={6}>
+                        <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
+                          <SectionTitle variant="h5" gutterBottom>
+                            הוצאות
+                          </SectionTitle>
+                          <Box sx={{ mb: 4 }}>
+                            <StatCard
+                              icon={<TrendingDownIcon />}
+                              title="הוצאות חודש נוכחי"
+                              value={currentMonthData.expenses}
+                              subtext="סה״כ הוצאות"
+                              color={CHART_COLORS.expense}
+                              trend={calculateTrend(currentMonthData.expenses, previousMonthData.expenses)}
+                            />
+                          </Box>
+
+                          {/* טבלת הוצאות */}
+                          <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
+                            <Table>
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell sx={{ fontWeight: 600 }}>תאריך</TableCell>
+                                  <TableCell sx={{ fontWeight: 600 }}>קטגוריה</TableCell>
+                                  <TableCell sx={{ fontWeight: 600 }}>תיאור</TableCell>
+                                  <TableCell sx={{ fontWeight: 600 }}>שיטת תשלום</TableCell>
+                                  <TableCell align="right" sx={{ fontWeight: 600 }}>סכום</TableCell>
+                                  <TableCell sx={{ fontWeight: 600 }}>פעולות</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {transactions
+                                  .filter(t => t.type === 'expense')
+                                  .map((transaction) => (
+                                    <TableRow key={transaction._id} hover>
+                                      <TableCell>{format(parseISO(transaction.date), 'dd/MM/yyyy')}</TableCell>
+                                      <TableCell>{transaction.category}</TableCell>
+                                      <TableCell>{transaction.description}</TableCell>
+                                      <TableCell>
+                                        <Chip
+                                          label={getPaymentMethodLabel(transaction.paymentMethod)}
+                                          size="small"
+                                          color="primary"
+                                          variant="outlined"
+                                        />
+                                      </TableCell>
+                                      <TableCell align="right" sx={{ color: CHART_COLORS.expense }}>
+                                        ₪{transaction.amount.toLocaleString()}
+                                      </TableCell>
+                                      <TableCell>
+                                        <IconButton size="small" sx={{ mr: 1 }} onClick={() => handleOpenEditDialog(transaction)}>
+                                          <EditIcon fontSize="small" />
+                                        </IconButton>
+                                        <IconButton size="small" color="error" onClick={() => handleDeleteTransaction(transaction._id)}>
+                                          <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        </Paper>
+                      </Grid>
+                    </Grid>
+
+                    {/* דיאלוג הוספת עסקה */}
+                    <Dialog open={isAddDialogOpen} onClose={() => setIsAddDialogOpen(false)}>
+                      <DialogTitle>הוספת עסקה חדשה</DialogTitle>
+                      <DialogContent>
+                        <Stack spacing={2} sx={{ mt: 2 }}>
+                          <FormControl fullWidth>
+                            <InputLabel>סוג עסקה</InputLabel>
+                            <Select
+                              value={newTransaction.type}
+                              onChange={(e) => setNewTransaction({ ...newTransaction, type: e.target.value })}
+                              label="סוג עסקה"
+                            >
+                              <MenuItem value="income">הכנסה</MenuItem>
+                              <MenuItem value="expense">הוצאה</MenuItem>
+                            </Select>
+                          </FormControl>
+
+                          <TextField
+                            fullWidth
+                            label="סכום"
+                            type="number"
+                            value={newTransaction.amount}
+                            onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                            InputProps={{
+                              startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                            }}
+                          />
+
+                          <FormControl fullWidth>
+                            <InputLabel>קטגוריה</InputLabel>
+                            <Select
+                              value={newTransaction.category}
+                              onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
+                              label="קטגוריה"
+                            >
+                              {categories && categories[newTransaction.type === 'income' ? 'income' : 'expenses'] && 
+                               categories[newTransaction.type === 'income' ? 'income' : 'expenses'].map((category) => (
+                                <MenuItem key={category.id || category} value={category.name || category}>
+                                  {category.name || category}
+                                </MenuItem>
                               ))}
-                              <TableRow sx={{ 
-                                bgcolor: alpha(theme.palette.primary.main, 0.05),
-                                '& td': { py: 2.5 }
-                              }}>
-                                <TableCell sx={{ fontWeight: 600, fontSize: '1.1rem' }}>סה״כ</TableCell>
-                                <TableCell 
-                                  align="right" 
-                                  sx={{ 
-                                    color: theme.palette.primary.main,
-                                    fontWeight: 600,
-                                    fontSize: '1.1rem'
-                                  }}
+                            </Select>
+                          </FormControl>
+
+                          {/* הוסר התנאי המסנן כך ששיטת התשלום תוצג לכל סוגי העסקאות */}
+                          <FormControl fullWidth>
+                            <InputLabel>שיטת תשלום</InputLabel>
+                            <Select
+                              value={newTransaction.paymentMethod}
+                              onChange={(e) => setNewTransaction({ ...newTransaction, paymentMethod: e.target.value })}
+                              label="שיטת תשלום"
+                            >
+                              <MenuItem value="מזומן">מזומן</MenuItem>
+                              <MenuItem value="אשראי אור יהודה">אשראי אור יהודה</MenuItem>
+                              <MenuItem value="אשראי רוטשילד">אשראי רוטשילד</MenuItem>
+                              <MenuItem value="העברה מזרחי">העברה מזרחי</MenuItem>
+                              <MenuItem value="ביט מזרחי">ביט מזרחי</MenuItem>
+                              <MenuItem value="פייבוקס מזרחי">פייבוקס מזרחי</MenuItem>
+                              <MenuItem value="העברה פועלים">העברה פועלים</MenuItem>
+                              <MenuItem value="ביט פועלים">ביט פועלים</MenuItem>
+                              <MenuItem value="פייבוקס פועלים">פייבוקס פועלים</MenuItem>
+                              <MenuItem value="אחר">אחר</MenuItem>
+                            </Select>
+                          </FormControl>
+
+                          <TextField
+                            fullWidth
+                            label="תיאור"
+                            value={newTransaction.description}
+                            onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+                          />
+
+                          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+                            <DatePicker
+                              label="תאריך"
+                              value={newTransaction.date}
+                              onChange={(date) => setNewTransaction({ ...newTransaction, date })}
+                              slotProps={{ textField: { fullWidth: true } }}
+                            />
+                          </LocalizationProvider>
+                          
+                          {/* אפשרות חלוקה לתשלומים רק אם מדובר בהוצאה וקטגוריה מכילה את המילה "שכירות" */}
+                          {newTransaction.type === 'expense' && 
+                           typeof newTransaction.category === 'string' && 
+                           newTransaction.category.includes('שכירות') && (
+                            <>
+                              <Alert severity="info" sx={{ mb: 2 }}>
+                                <Typography variant="body2">
+                                  <strong>חלוקת תשלומי שכירות:</strong> ניתן לחלק את הוצאת השכירות למספר תשלומים חודשיים. המערכת תיצור עסקאות נפרדות לכל חודש, אך היתרה הכוללת תושפע רק מהתשלום הנוכחי.
+                                </Typography>
+                              </Alert>
+                              <FormControl fullWidth>
+                                <InputLabel>מספר תשלומים</InputLabel>
+                                <Select
+                                  value={newTransaction.installments || 1}
+                                  onChange={(e) => setNewTransaction({ ...newTransaction, installments: e.target.value })}
+                                  label="מספר תשלומים"
                                 >
-                                  ₪{Object.values(calculateIncomeByPaymentMethod())
-                                      .reduce((sum, amount) => sum + amount, 0)
-                                      .toLocaleString()}
-                                </TableCell>
-                              </TableRow>
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                        
-                        {/* טבלת עסקאות הכנסה */}
-                        <Typography variant="h6" gutterBottom sx={{ 
-                          fontWeight: 500,
-                          mb: 3,
-                          mt: 4,
-                          position: 'relative',
-                          '&:after': {
-                            content: '""',
-                            position: 'absolute',
-                            bottom: -8,
-                            left: 0,
-                            width: 40,
-                            height: 3,
-                            borderRadius: 1.5,
-                            backgroundColor: theme.palette.primary.main
-                          }
-                        }}>
-                          רשימת עסקאות הכנסה
-                        </Typography>
-                        <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
-                          <Table>
-                            <TableHead>
-                              <TableRow>
-                                <TableCell sx={{ fontWeight: 600 }}>תאריך</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>קטגוריה</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>תיאור</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>שיטת תשלום</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 600 }}>סכום</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>פעולות</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {transactions
-                                .filter(t => t.type === 'income')
-                                .map((transaction) => (
-                                  <TableRow key={transaction._id} hover>
-                                    <TableCell>{format(parseISO(transaction.date), 'dd/MM/yyyy')}</TableCell>
-                                    <TableCell>{transaction.category}</TableCell>
-                                    <TableCell>{transaction.description}</TableCell>
-                                    <TableCell>
-                                      <Chip
-                                        label={getPaymentMethodLabel(transaction.paymentMethod)}
-                                        size="small"
-                                        color="success"
-                                        variant="outlined"
-                                      />
-                                    </TableCell>
-                                    <TableCell align="right" sx={{ color: CHART_COLORS.income }}>
-                                      ₪{transaction.amount.toLocaleString()}
-                                    </TableCell>
-                                    <TableCell>
-                                      <IconButton size="small" sx={{ mr: 1 }} onClick={() => handleOpenEditDialog(transaction)}>
-                                        <EditIcon fontSize="small" />
-                                      </IconButton>
-                                      <IconButton size="small" color="error" onClick={() => handleDeleteTransaction(transaction._id)}>
-                                        <DeleteIcon fontSize="small" />
-                                      </IconButton>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                                {transactions.filter(t => t.type === 'income').length === 0 && (
-                                  <TableRow>
-                                    <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                                      <Typography variant="body2" color="text.secondary">
-                                        לא נמצאו עסקאות הכנסה לחודש זה
-                                      </Typography>
-                                    </TableCell>
-                                  </TableRow>
+                                  <MenuItem value={1}>תשלום אחד (ללא חלוקה)</MenuItem>
+                                  <MenuItem value={2}>2 תשלומים</MenuItem>
+                                  <MenuItem value={3}>3 תשלומים</MenuItem>
+                                  <MenuItem value={4}>4 תשלומים</MenuItem>
+                                  <MenuItem value={6}>6 תשלומים</MenuItem>
+                                  <MenuItem value={12}>12 תשלומים</MenuItem>
+                                </Select>
+                                {newTransaction.installments > 1 && (
+                                  <FormHelperText>
+                                    העסקה תחולק ל-{newTransaction.installments} תשלומים חודשיים שווים של ₪{newTransaction.amount ? (parseFloat(newTransaction.amount) / newTransaction.installments).toFixed(2) : 0} כל אחד.
+                                  </FormHelperText>
                                 )}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      </Paper>
-                    </Grid>
+                              </FormControl>
+                            </>
+                          )}
+                        </Stack>
+                      </DialogContent>
+                      <DialogActions>
+                        <Button onClick={() => setIsAddDialogOpen(false)}>
+                          ביטול
+                        </Button>
+                        <Button onClick={handleAddTransaction} variant="contained">
+                          שמור
+                        </Button>
+                      </DialogActions>
+                    </Dialog>
 
-                    {/* צד שמאל - הוצאות */}
-                    <Grid item xs={12} md={6}>
-                      <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
-                        <SectionTitle variant="h5" gutterBottom>
-                          הוצאות
-                        </SectionTitle>
-                        <Box sx={{ mb: 4 }}>
-                          <StatCard
-                            icon={<TrendingDownIcon />}
-                            title="הוצאות חודש נוכחי"
-                            value={currentMonthData.expenses}
-                            subtext="סה״כ הוצאות"
-                            color={CHART_COLORS.expense}
-                            trend={calculateTrend(currentMonthData.expenses, previousMonthData.expenses)}
+                    {/* דיאלוג עריכת עסקה */}
+                    <Dialog open={isEditDialogOpen} onClose={handleCloseEditDialog}>
+                      <DialogTitle>עריכת עסקה</DialogTitle>
+                      <DialogContent>
+                        <Stack spacing={2} sx={{ mt: 2 }}>
+                          <FormControl fullWidth>
+                            <InputLabel>סוג עסקה</InputLabel>
+                            <Select
+                              value={editingTransaction?.type || ''}
+                              onChange={(e) => setEditingTransaction({ ...editingTransaction, type: e.target.value })}
+                              label="סוג עסקה"
+                            >
+                              <MenuItem value="income">הכנסה</MenuItem>
+                              <MenuItem value="expense">הוצאה</MenuItem>
+                            </Select>
+                          </FormControl>
+
+                          <TextField
+                            fullWidth
+                            label="סכום"
+                            type="number"
+                            value={editingTransaction?.amount || ''}
+                            onChange={(e) => setEditingTransaction({ ...editingTransaction, amount: e.target.value })}
+                            InputProps={{
+                              startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                            }}
                           />
-                        </Box>
 
-                        {/* טבלת הוצאות */}
-                        <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
-                          <Table>
-                            <TableHead>
-                              <TableRow>
-                                <TableCell sx={{ fontWeight: 600 }}>תאריך</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>קטגוריה</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>תיאור</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>שיטת תשלום</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 600 }}>סכום</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>פעולות</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {transactions
-                                .filter(t => t.type === 'expense')
-                                .map((transaction) => (
-                                  <TableRow key={transaction._id} hover>
-                                    <TableCell>{format(parseISO(transaction.date), 'dd/MM/yyyy')}</TableCell>
-                                    <TableCell>{transaction.category}</TableCell>
-                                    <TableCell>{transaction.description}</TableCell>
-                                    <TableCell>
-                                      <Chip
-                                        label={getPaymentMethodLabel(transaction.paymentMethod)}
-                                        size="small"
-                                        color="primary"
-                                        variant="outlined"
-                                      />
-                                    </TableCell>
-                                    <TableCell align="right" sx={{ color: CHART_COLORS.expense }}>
-                                      ₪{transaction.amount.toLocaleString()}
-                                    </TableCell>
-                                    <TableCell>
-                                      <IconButton size="small" sx={{ mr: 1 }} onClick={() => handleOpenEditDialog(transaction)}>
-                                        <EditIcon fontSize="small" />
-                                      </IconButton>
-                                      <IconButton size="small" color="error" onClick={() => handleDeleteTransaction(transaction._id)}>
-                                        <DeleteIcon fontSize="small" />
-                                      </IconButton>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      </Paper>
-                    </Grid>
-                  </Grid>
+                          <FormControl fullWidth>
+                            <InputLabel>קטגוריה</InputLabel>
+                            <Select
+                              value={editingTransaction?.category || ''}
+                              onChange={(e) => setEditingTransaction({ ...editingTransaction, category: e.target.value })}
+                              label="קטגוריה"
+                            >
+                              {editingTransaction && categories && categories[editingTransaction.type === 'income' ? 'income' : 'expenses'] && 
+                               categories[editingTransaction.type === 'income' ? 'income' : 'expenses'].map((category) => (
+                                <MenuItem key={category.id || category} value={category.name || category}>
+                                  {category.name || category}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
 
-                  {/* דיאלוג הוספת עסקה */}
-                  <Dialog open={isAddDialogOpen} onClose={() => setIsAddDialogOpen(false)}>
-                    <DialogTitle>הוספת עסקה חדשה</DialogTitle>
-                    <DialogContent>
-                      <Stack spacing={2} sx={{ mt: 2 }}>
-                        <FormControl fullWidth>
-                          <InputLabel>סוג עסקה</InputLabel>
-                          <Select
-                            value={newTransaction.type}
-                            onChange={(e) => setNewTransaction({ ...newTransaction, type: e.target.value })}
-                            label="סוג עסקה"
-                          >
-                            <MenuItem value="income">הכנסה</MenuItem>
-                            <MenuItem value="expense">הוצאה</MenuItem>
-                          </Select>
-                        </FormControl>
+                          {/* הוסר התנאי המסנן כך ששיטת התשלום תוצג לכל סוגי העסקאות */}
+                          <FormControl fullWidth>
+                            <InputLabel>שיטת תשלום</InputLabel>
+                            <Select
+                              value={getPaymentMethodLabel(editingTransaction?.paymentMethod) || 'מזומן'}
+                              onChange={(e) => setEditingTransaction({ ...editingTransaction, paymentMethod: e.target.value })}
+                              label="שיטת תשלום"
+                            >
+                              <MenuItem value="מזומן">מזומן</MenuItem>
+                              <MenuItem value="אשראי אור יהודה">אשראי אור יהודה</MenuItem>
+                              <MenuItem value="אשראי רוטשילד">אשראי רוטשילד</MenuItem>
+                              <MenuItem value="העברה מזרחי">העברה מזרחי</MenuItem>
+                              <MenuItem value="ביט מזרחי">ביט מזרחי</MenuItem>
+                              <MenuItem value="פייבוקס מזרחי">פייבוקס מזרחי</MenuItem>
+                              <MenuItem value="העברה פועלים">העברה פועלים</MenuItem>
+                              <MenuItem value="ביט פועלים">ביט פועלים</MenuItem>
+                              <MenuItem value="פייבוקס פועלים">פייבוקס פועלים</MenuItem>
+                              <MenuItem value="אחר">אחר</MenuItem>
+                            </Select>
+                          </FormControl>
 
-                        <TextField
-                          fullWidth
-                          label="סכום"
-                          type="number"
-                          value={newTransaction.amount}
-                          onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
-                          InputProps={{
-                            startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                          }}
-                        />
-
-                        <FormControl fullWidth>
-                          <InputLabel>קטגוריה</InputLabel>
-                          <Select
-                            value={newTransaction.category}
-                            onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
-                            label="קטגוריה"
-                          >
-                            {categories && categories[newTransaction.type === 'income' ? 'income' : 'expenses'] && 
-                             categories[newTransaction.type === 'income' ? 'income' : 'expenses'].map((category) => (
-                              <MenuItem key={category.id || category} value={category.name || category}>
-                                {category.name || category}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-
-                        {/* הוסר התנאי המסנן כך ששיטת התשלום תוצג לכל סוגי העסקאות */}
-                        <FormControl fullWidth>
-                          <InputLabel>שיטת תשלום</InputLabel>
-                          <Select
-                            value={newTransaction.paymentMethod}
-                            onChange={(e) => setNewTransaction({ ...newTransaction, paymentMethod: e.target.value })}
-                            label="שיטת תשלום"
-                          >
-                            <MenuItem value="מזומן">מזומן</MenuItem>
-                            <MenuItem value="אשראי אור יהודה">אשראי אור יהודה</MenuItem>
-                            <MenuItem value="אשראי רוטשילד">אשראי רוטשילד</MenuItem>
-                            <MenuItem value="העברה מזרחי">העברה מזרחי</MenuItem>
-                            <MenuItem value="ביט מזרחי">ביט מזרחי</MenuItem>
-                            <MenuItem value="פייבוקס מזרחי">פייבוקס מזרחי</MenuItem>
-                            <MenuItem value="העברה פועלים">העברה פועלים</MenuItem>
-                            <MenuItem value="ביט פועלים">ביט פועלים</MenuItem>
-                            <MenuItem value="פייבוקס פועלים">פייבוקס פועלים</MenuItem>
-                            <MenuItem value="אחר">אחר</MenuItem>
-                          </Select>
-                        </FormControl>
-
-                        <TextField
-                          fullWidth
-                          label="תיאור"
-                          value={newTransaction.description}
-                          onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
-                        />
-
-                        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-                          <DatePicker
-                            label="תאריך"
-                            value={newTransaction.date}
-                            onChange={(date) => setNewTransaction({ ...newTransaction, date })}
-                            slotProps={{ textField: { fullWidth: true } }}
+                          <TextField
+                            fullWidth
+                            label="תיאור"
+                            value={editingTransaction?.description || ''}
+                            onChange={(e) => setEditingTransaction({ ...editingTransaction, description: e.target.value })}
                           />
-                        </LocalizationProvider>
-                        
-                        {/* אפשרות חלוקה לתשלומים רק אם מדובר בהוצאה וקטגוריה מכילה את המילה "שכירות" */}
-                        {newTransaction.type === 'expense' && 
-                         typeof newTransaction.category === 'string' && 
-                         newTransaction.category.includes('שכירות') && (
-                          <>
-                            <Alert severity="info" sx={{ mb: 2 }}>
-                              <Typography variant="body2">
-                                <strong>חלוקת תשלומי שכירות:</strong> ניתן לחלק את הוצאת השכירות למספר תשלומים חודשיים. המערכת תיצור עסקאות נפרדות לכל חודש, אך היתרה הכוללת תושפע רק מהתשלום הנוכחי.
-                              </Typography>
-                            </Alert>
-                            <FormControl fullWidth>
-                              <InputLabel>מספר תשלומים</InputLabel>
-                              <Select
-                                value={newTransaction.installments || 1}
-                                onChange={(e) => setNewTransaction({ ...newTransaction, installments: e.target.value })}
-                                label="מספר תשלומים"
-                              >
-                                <MenuItem value={1}>תשלום אחד (ללא חלוקה)</MenuItem>
-                                <MenuItem value={2}>2 תשלומים</MenuItem>
-                                <MenuItem value={3}>3 תשלומים</MenuItem>
-                                <MenuItem value={4}>4 תשלומים</MenuItem>
-                                <MenuItem value={6}>6 תשלומים</MenuItem>
-                                <MenuItem value={12}>12 תשלומים</MenuItem>
-                              </Select>
-                              {newTransaction.installments > 1 && (
-                                <FormHelperText>
-                                  העסקה תחולק ל-{newTransaction.installments} תשלומים חודשיים שווים של ₪{newTransaction.amount ? (parseFloat(newTransaction.amount) / newTransaction.installments).toFixed(2) : 0} כל אחד.
-                                </FormHelperText>
-                              )}
-                            </FormControl>
-                          </>
-                        )}
-                      </Stack>
-                    </DialogContent>
-                    <DialogActions>
-                      <Button onClick={() => setIsAddDialogOpen(false)}>
-                        ביטול
-                      </Button>
-                      <Button onClick={handleAddTransaction} variant="contained">
-                        שמור
-                      </Button>
-                    </DialogActions>
-                  </Dialog>
 
-                  {/* דיאלוג עריכת עסקה */}
-                  <Dialog open={isEditDialogOpen} onClose={handleCloseEditDialog}>
-                    <DialogTitle>עריכת עסקה</DialogTitle>
-                    <DialogContent>
-                      <Stack spacing={2} sx={{ mt: 2 }}>
-                        <FormControl fullWidth>
-                          <InputLabel>סוג עסקה</InputLabel>
-                          <Select
-                            value={editingTransaction?.type || ''}
-                            onChange={(e) => setEditingTransaction({ ...editingTransaction, type: e.target.value })}
-                            label="סוג עסקה"
-                          >
-                            <MenuItem value="income">הכנסה</MenuItem>
-                            <MenuItem value="expense">הוצאה</MenuItem>
-                          </Select>
-                        </FormControl>
+                          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+                            <DatePicker
+                              label="תאריך"
+                              value={editingTransaction?.date || null}
+                              onChange={(date) => setEditingTransaction({ ...editingTransaction, date })}
+                              slotProps={{ textField: { fullWidth: true } }}
+                            />
+                          </LocalizationProvider>
+                        </Stack>
+                      </DialogContent>
+                      <DialogActions>
+                        <Button
+                          onClick={handleCloseEditDialog}
+                          color="inherit"
+                        >
+                          ביטול
+                        </Button>
+                        <Button
+                          onClick={handleUpdateTransaction}
+                          color="primary"
+                          disabled={loading}
+                        >
+                          {loading ? <CircularProgress size={24} /> : 'עדכן'}
+                        </Button>
+                      </DialogActions>
+                    </Dialog>
 
-                        <TextField
-                          fullWidth
-                          label="סכום"
-                          type="number"
-                          value={editingTransaction?.amount || ''}
-                          onChange={(e) => setEditingTransaction({ ...editingTransaction, amount: e.target.value })}
-                          InputProps={{
-                            startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                          }}
-                        />
-
-                        <FormControl fullWidth>
-                          <InputLabel>קטגוריה</InputLabel>
-                          <Select
-                            value={editingTransaction?.category || ''}
-                            onChange={(e) => setEditingTransaction({ ...editingTransaction, category: e.target.value })}
-                            label="קטגוריה"
-                          >
-                            {editingTransaction && categories && categories[editingTransaction.type === 'income' ? 'income' : 'expenses'] && 
-                             categories[editingTransaction.type === 'income' ? 'income' : 'expenses'].map((category) => (
-                              <MenuItem key={category.id || category} value={category.name || category}>
-                                {category.name || category}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-
-                        {/* הוסר התנאי המסנן כך ששיטת התשלום תוצג לכל סוגי העסקאות */}
-                        <FormControl fullWidth>
-                          <InputLabel>שיטת תשלום</InputLabel>
-                          <Select
-                            value={getPaymentMethodLabel(editingTransaction?.paymentMethod) || 'מזומן'}
-                            onChange={(e) => setEditingTransaction({ ...editingTransaction, paymentMethod: e.target.value })}
-                            label="שיטת תשלום"
-                          >
-                            <MenuItem value="מזומן">מזומן</MenuItem>
-                            <MenuItem value="אשראי אור יהודה">אשראי אור יהודה</MenuItem>
-                            <MenuItem value="אשראי רוטשילד">אשראי רוטשילד</MenuItem>
-                            <MenuItem value="העברה מזרחי">העברה מזרחי</MenuItem>
-                            <MenuItem value="ביט מזרחי">ביט מזרחי</MenuItem>
-                            <MenuItem value="פייבוקס מזרחי">פייבוקס מזרחי</MenuItem>
-                            <MenuItem value="העברה פועלים">העברה פועלים</MenuItem>
-                            <MenuItem value="ביט פועלים">ביט פועלים</MenuItem>
-                            <MenuItem value="פייבוקס פועלים">פייבוקס פועלים</MenuItem>
-                            <MenuItem value="אחר">אחר</MenuItem>
-                          </Select>
-                        </FormControl>
-
-                        <TextField
-                          fullWidth
-                          label="תיאור"
-                          value={editingTransaction?.description || ''}
-                          onChange={(e) => setEditingTransaction({ ...editingTransaction, description: e.target.value })}
-                        />
-
-                        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-                          <DatePicker
-                            label="תאריך"
-                            value={editingTransaction?.date || null}
-                            onChange={(date) => setEditingTransaction({ ...editingTransaction, date })}
-                            slotProps={{ textField: { fullWidth: true } }}
-                          />
-                        </LocalizationProvider>
-                      </Stack>
-                    </DialogContent>
-                    <DialogActions>
-                      <Button
-                        onClick={handleCloseEditDialog}
-                        color="inherit"
-                      >
-                        ביטול
-                      </Button>
-                      <Button
-                        onClick={handleUpdateTransaction}
-                        color="primary"
-                        disabled={loading}
-                      >
-                        {loading ? <CircularProgress size={24} /> : 'עדכן'}
-                      </Button>
-                    </DialogActions>
-                  </Dialog>
-
-                  {/* מנהל הקטגוריות */}
-                  {isCategoryManagerOpen && (
-                    <CategoryManager 
-                      onClose={() => setIsCategoryManagerOpen(false)} 
-                      onCategoriesUpdate={fetchCategories}
-                    />
-                  )}
-                </Container>
+                    {/* מנהל הקטגוריות */}
+                    {isCategoryManagerOpen && (
+                      <CategoryManager 
+                        onClose={() => setIsCategoryManagerOpen(false)} 
+                        onCategoriesUpdate={fetchCategories}
+                      />
+                    )}
+                  </Container>
+                </Grid>
               </Grid>
-            </Grid>
-          </Box>
-        )}
-
-        {/* דיאלוג הגדרת יתרות פתיחה */}
-        <Dialog 
-          open={isInitialBalancesDialogOpen} 
-          onClose={() => setIsInitialBalancesDialogOpen(false)}
-          fullWidth
-          maxWidth="sm"
-        >
-          <DialogTitle>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <AccountBalanceIcon />
-              הגדרת יתרות פתיחה
             </Box>
-          </DialogTitle>
-          <DialogContent>
-            <Alert severity="info" sx={{ mb: 3, mt: 1 }}>
-              <Typography variant="body2">
-                הגדר יתרות פתיחה לכל שיטת תשלום. יתרות אלה ישמשו כבסיס לחישוב מצב ההון הכולל.
+          )}
+
+          {/* דיאלוג הגדרת יתרות פתיחה */}
+          <Dialog 
+            open={isInitialBalancesDialogOpen} 
+            onClose={() => setIsInitialBalancesDialogOpen(false)}
+            fullWidth
+            maxWidth="sm"
+          >
+            <DialogTitle>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <AccountBalanceIcon />
+                הגדרת יתרות פתיחה
+              </Box>
+            </DialogTitle>
+            <DialogContent>
+              <Alert severity="info" sx={{ mb: 3, mt: 1 }}>
+                <Typography variant="body2">
+                  הגדר יתרות פתיחה לכל שיטת תשלום. יתרות אלה ישמשו כבסיס לחישוב מצב ההון הכולל.
+                </Typography>
+              </Alert>
+              
+              <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 500 }}>
+                שיטות תשלום:
               </Typography>
-            </Alert>
-            
-            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 500 }}>
-              שיטות תשלום:
-            </Typography>
-            
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="מזומן"
-                  type="number"
-                  value={editingInitialBalances['מזומן'] || ''}
-                  onChange={(e) => setEditingInitialBalances({
-                    ...editingInitialBalances,
-                    'מזומן': e.target.value
-                  })}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                  }}
-                />
-              </Grid>
               
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="העברה מזרחי"
-                  type="number"
-                  value={editingInitialBalances['העברה מזרחי'] || ''}
-                  onChange={(e) => setEditingInitialBalances({
-                    ...editingInitialBalances,
-                    'העברה מזרחי': e.target.value
-                  })}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                  }}
-                />
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="מזומן"
+                    type="number"
+                    value={editingInitialBalances['מזומן'] || ''}
+                    onChange={(e) => setEditingInitialBalances({
+                      ...editingInitialBalances,
+                      'מזומן': e.target.value
+                    })}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="העברה מזרחי"
+                    type="number"
+                    value={editingInitialBalances['העברה מזרחי'] || ''}
+                    onChange={(e) => setEditingInitialBalances({
+                      ...editingInitialBalances,
+                      'העברה מזרחי': e.target.value
+                    })}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="ביט מזרחי"
+                    type="number"
+                    value={editingInitialBalances['ביט מזרחי'] || ''}
+                    onChange={(e) => setEditingInitialBalances({
+                      ...editingInitialBalances,
+                      'ביט מזרחי': e.target.value
+                    })}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="פייבוקס מזרחי"
+                    type="number"
+                    value={editingInitialBalances['פייבוקס מזרחי'] || ''}
+                    onChange={(e) => setEditingInitialBalances({
+                      ...editingInitialBalances,
+                      'פייבוקס מזרחי': e.target.value
+                    })}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="העברה פועלים"
+                    type="number"
+                    value={editingInitialBalances['העברה פועלים'] || ''}
+                    onChange={(e) => setEditingInitialBalances({
+                      ...editingInitialBalances,
+                      'העברה פועלים': e.target.value
+                    })}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="ביט פועלים"
+                    type="number"
+                    value={editingInitialBalances['ביט פועלים'] || ''}
+                    onChange={(e) => setEditingInitialBalances({
+                      ...editingInitialBalances,
+                      'ביט פועלים': e.target.value
+                    })}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="פייבוקס פועלים"
+                    type="number"
+                    value={editingInitialBalances['פייבוקס פועלים'] || ''}
+                    onChange={(e) => setEditingInitialBalances({
+                      ...editingInitialBalances,
+                      'פייבוקס פועלים': e.target.value
+                    })}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">₪</InputAdornment>,
+                    }}
+                  />
+                </Grid>
               </Grid>
-              
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="ביט מזרחי"
-                  type="number"
-                  value={editingInitialBalances['ביט מזרחי'] || ''}
-                  onChange={(e) => setEditingInitialBalances({
-                    ...editingInitialBalances,
-                    'ביט מזרחי': e.target.value
-                  })}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="פייבוקס מזרחי"
-                  type="number"
-                  value={editingInitialBalances['פייבוקס מזרחי'] || ''}
-                  onChange={(e) => setEditingInitialBalances({
-                    ...editingInitialBalances,
-                    'פייבוקס מזרחי': e.target.value
-                  })}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="העברה פועלים"
-                  type="number"
-                  value={editingInitialBalances['העברה פועלים'] || ''}
-                  onChange={(e) => setEditingInitialBalances({
-                    ...editingInitialBalances,
-                    'העברה פועלים': e.target.value
-                  })}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="ביט פועלים"
-                  type="number"
-                  value={editingInitialBalances['ביט פועלים'] || ''}
-                  onChange={(e) => setEditingInitialBalances({
-                    ...editingInitialBalances,
-                    'ביט פועלים': e.target.value
-                  })}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="פייבוקס פועלים"
-                  type="number"
-                  value={editingInitialBalances['פייבוקס פועלים'] || ''}
-                  onChange={(e) => setEditingInitialBalances({
-                    ...editingInitialBalances,
-                    'פייבוקס פועלים': e.target.value
-                  })}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">₪</InputAdornment>,
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button 
-              onClick={() => setIsInitialBalancesDialogOpen(false)} 
-              color="inherit"
-            >
-              ביטול
-            </Button>
-            <Button 
-              onClick={() => {
-                updateInitialBalances(editingInitialBalances);
-                setIsInitialBalancesDialogOpen(false);
-              }} 
-              variant="contained"
-              color="primary"
-            >
-              שמור יתרות
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Container>
+            </DialogContent>
+            <DialogActions>
+              <Button 
+                onClick={() => setIsInitialBalancesDialogOpen(false)} 
+                color="inherit"
+              >
+                ביטול
+              </Button>
+              <Button 
+                onClick={() => {
+                  updateInitialBalances(editingInitialBalances);
+                  setIsInitialBalancesDialogOpen(false);
+                }} 
+                variant="contained"
+                color="primary"
+              >
+                שמור יתרות
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </Container>
+      </Box>
     </LocalizationProvider>
   );
 };
