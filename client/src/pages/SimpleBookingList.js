@@ -12,7 +12,6 @@ import {
   Grid,
   Card,
   CardHeader,
-  CardContent,
   Divider,
   List,
   ListItem,
@@ -34,8 +33,7 @@ import {
   CircularProgress,
   styled,
   Container,
-  Breadcrumbs,
-  Avatar
+  MenuItem
 } from '@mui/material';
 import {
   ArrowForward as ArrowForwardIcon,
@@ -86,42 +84,22 @@ const LOCATIONS = {
   }
 };
 
-// קומפוננטות מותאמות אישית עם עיצוב משופר
-const StyledPaper = styled(Paper)(({ theme }) => ({
-  borderRadius: 16,
-  boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)',
-  border: '1px solid',
-  borderColor: alpha(theme.palette.divider, 0.1),
-  transition: 'all 0.3s ease',
-  '&:hover': {
-    boxShadow: '0 8px 25px 0 rgba(0,0,0,0.08)'
-  },
-  background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(theme.palette.background.paper, 0.92)} 100%)`
-}));
+// רשימת אמצעי תשלום
+const PAYMENT_METHODS = [
+  { value: '', label: 'לא שולם' },
+  { value: 'cash', label: 'מזומן' },
+  { value: 'creditOr', label: 'אשראי אור יהודה' },
+  { value: 'creditRothschild', label: 'אשראי רוטשילד' },
+  { value: 'mizrahi', label: 'העברה מזרחי' },
+  { value: 'bitMizrahi', label: 'ביט מזרחי' },
+  { value: 'payboxMizrahi', label: 'פייבוקס מזרחי' },
+  { value: 'poalim', label: 'העברה פועלים' },
+  { value: 'bitPoalim', label: 'ביט פועלים' },
+  { value: 'payboxPoalim', label: 'פייבוקס פועלים' },
+  { value: 'other', label: 'אחר' }
+];
 
-// קומפוננטה עבור כותרת מתחם מודרנית
-const LocationHeader = styled(Box)(({ theme }) => ({
-  padding: '16px 20px',
-  borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-  display: 'flex',
-  alignItems: 'center',
-  gap: '10px',
-  position: 'relative',
-  backgroundColor: 'white',
-  '&:after': {
-    content: '""',
-    position: 'absolute',
-    left: 0,
-    top: '50%',
-    transform: 'translateY(-50%)',
-    width: 4,
-    height: '60%',
-    backgroundColor: theme.palette.primary.main,
-    borderRadius: '0 2px 2px 0'
-  }
-}));
-
-// קומפוננטה עבור תא של חדר - משופר
+// קומפוננטה עבור תא של חדר
 const RoomBookingCell = ({ 
   locationId, 
   roomId, 
@@ -136,6 +114,8 @@ const RoomBookingCell = ({
   
   // מצב מקומי לתא
   const [localBooking, setLocalBooking] = useState(booking);
+  // פותח את תפריט אמצעי התשלום
+  const [paymentMenuOpen, setPaymentMenuOpen] = useState(false);
   
   // עדכון לוקאלי כאשר משתנה ה-booking מבחוץ
   useEffect(() => {
@@ -144,14 +124,28 @@ const RoomBookingCell = ({
   
   // עדכון שדה ספציפי בהזמנה המקומית ושמירה אוטומטית
   const handleChange = (field, value) => {
-    const updatedBooking = {
-      ...localBooking,
-      [field]: value
-    };
+    let updatedBooking = { ...localBooking };
+    
+    // מטפל במקרה של שינוי אמצעי תשלום
+    if (field === 'paymentMethod') {
+      updatedBooking[field] = value;
+      
+      // אם בחרו שיטת תשלום (לא "לא שולם"), אז מעדכנים גם את isPaid לtrue
+      if (value !== '') {
+        updatedBooking.isPaid = true;
+      } else {
+        // אם בחרו "לא שולם", אז מעדכנים את isPaid לfalse
+        updatedBooking.isPaid = false;
+      }
+    } else {
+      // שינוי של שדות אחרים
+      updatedBooking[field] = value;
+    }
+    
     setLocalBooking(updatedBooking);
     
-    // שומר אוטומטית כאשר משתנה מצב התשלום (כי אין אירוע onBlur ל-Switch)
-    if (field === 'isPaid') {
+    // שמירה אוטומטית כשמשנים שיטת תשלום
+    if (field === 'paymentMethod') {
       onSave(locationId, roomId, updatedBooking);
     }
   };
@@ -174,333 +168,368 @@ const RoomBookingCell = ({
     window.open(`https://wa.me/${formattedPhone}`, '_blank');
   };
   
-  // עוגל את סטטוס התשלום
-  const togglePaymentStatus = () => {
-    handleChange('isPaid', !localBooking.isPaid);
+  // החזרת שם אמצעי תשלום לפי ערך
+  const getPaymentMethodLabel = (value) => {
+    const method = PAYMENT_METHODS.find(m => m.value === value);
+    return method ? method.label : '';
   };
   
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        py: 1.2,
-        px: 2,
-        backgroundColor: 'white',
-        borderRadius: 3,
-        mb: 1,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-        border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
-        transition: 'all 0.2s ease-in-out',
-        '&:hover': {
-          boxShadow: '0 4px 12px rgba(0,0,0,0.07)',
-          transform: 'translateY(-2px)',
-          borderColor: alpha(theme.palette.primary.main, 0.1)
-        },
-        position: 'relative',
-        overflow: 'hidden'
-      }}
-    >
-      {isMultiNightDisplay && (
-        <Chip 
-          icon={<EventAvailableIcon fontSize="small" />} 
-          label="המשך הזמנה" 
-          size="small"
-          color="info"
-          variant="outlined"
-          sx={{ 
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            fontSize: '0.75rem',
-            height: '24px',
-            borderRadius: '12px',
-            boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
-            zIndex: 2
-          }}
-        />
-      )}
-      
-      <Box sx={{ 
-        display: 'flex', 
-        alignItems: 'center',
-        gap: 2,
-        width: '100%',
-        position: 'relative'
-      }}>
-        {/* מספר החדר */}
-        <Box 
-          sx={{ 
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: localBooking.guestName ? 
-              (localBooking.isPaid ? 
-                alpha('#4caf50', 0.08) : 
-                alpha('#ff9800', 0.08)) : 
-              alpha(theme.palette.grey[100], 0.7),
-            color: localBooking.guestName ? 
-              (localBooking.isPaid ? 
-                '#2e7d32' : 
-                '#e65100') : 
-              alpha(theme.palette.text.secondary, 0.8),
-            width: 48,
-            height: 48,
-            borderRadius: '14px',
-            fontWeight: 'bold',
-            fontSize: '1.2rem',
-            flexShrink: 0,
-            border: '1px solid',
-            borderColor: localBooking.guestName ? 
-              (localBooking.isPaid ? 
-                alpha('#4caf50', 0.2) : 
-                alpha('#ff9800', 0.2)) : 
-              alpha(theme.palette.grey[200], 0.8),
-            boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-          }}
-        >
-          {roomId}
+    <React.Fragment>
+      <ListItem
+        sx={{
+          py: 0.8,
+          px: 1,
+          backgroundColor: 'white',
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
+          '&:hover': {
+            backgroundColor: alpha(theme.palette.primary.light, 0.05)
+          },
+          transition: 'all 0.2s ease',
+          position: 'relative'
+        }}
+      >
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center',
+          width: '100%'
+        }}>
+          {/* מספר החדר */}
+          <Box 
+            sx={{ 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: localBooking.guestName ? 
+                (localBooking.isPaid ? 
+                  alpha(theme.palette.success.main || '#4caf50', 0.15) : 
+                  alpha(theme.palette.warning.main || '#ff9800', 0.15)) : 
+                alpha(theme.palette.grey[200], 0.7),
+              color: localBooking.guestName ? 
+                (localBooking.isPaid ? 
+                  theme.palette.success.dark || '#1b5e20' : 
+                  theme.palette.warning.dark || '#e65100') : 
+                theme.palette.text.secondary,
+              width: 28,
+              height: 28,
+              borderRadius: '6px',
+              fontWeight: 'bold',
+              fontSize: '0.95rem',
+              flexShrink: 0,
+              marginRight: 1.5,
+              border: '1px solid',
+              borderColor: localBooking.guestName ? 
+                (localBooking.isPaid ? 
+                  alpha(theme.palette.success.main || '#4caf50', 0.3) : 
+                  alpha(theme.palette.warning.main || '#ff9800', 0.3)) : 
+                alpha(theme.palette.grey[300], 0.5)
+            }}
+          >
+            {roomId}
+          </Box>
+          
+          {isMultiNightDisplay ? (
+            // תצוגת מידע של המשך הזמנה
+            <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                {localBooking.guestName}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2, color: alpha(theme.palette.text.primary, 0.7) }}>
+                {localBooking.phone && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <PhoneIcon fontSize="small" />
+                    <Typography variant="body2">{localBooking.phone}</Typography>
+                  </Box>
+                )}
+                {localBooking.nights > 1 && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <NightsStayIcon fontSize="small" />
+                    <Typography variant="body2">המשך הזמנה ({localBooking.nights} לילות)</Typography>
+                  </Box>
+                )}
+                {localBooking.isPaid && localBooking.paymentMethod && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <PaymentIcon fontSize="small" />
+                    <Typography variant="body2">
+                      {getPaymentMethodLabel(localBooking.paymentMethod)}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          ) : (
+            // טופס עריכה - תמיד מוצג
+            <Grid container spacing={1} sx={{ width: '100%' }}>
+              {/* שם אורח */}
+              <Grid item xs={2.8} sx={{ px: 0.5 }}>
+                <TextField
+                  fullWidth
+                  placeholder="שם האורח"
+                  variant="outlined"
+                  size="small"
+                  value={localBooking.guestName}
+                  onChange={(e) => handleChange('guestName', e.target.value)}
+                  onBlur={handleBlur}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <PersonIcon fontSize="small" sx={{ color: alpha(theme.palette.text.primary, 0.5) }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 1.5,
+                      height: '38px',
+                      '& fieldset': {
+                        borderColor: alpha(theme.palette.divider, 0.8)
+                      },
+                      '&:hover fieldset': {
+                        borderColor: theme.palette.primary.main
+                      }
+                    }
+                  }}
+                />
+              </Grid>
+              
+              {/* טלפון עם אייקון וואטסאפ */}
+              <Grid item xs={2} sx={{ px: 0.5 }}>
+                <TextField
+                  fullWidth
+                  placeholder="טלפון"
+                  variant="outlined"
+                  size="small"
+                  value={localBooking.phone}
+                  onChange={(e) => handleChange('phone', e.target.value)}
+                  onBlur={handleBlur}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <PhoneIcon fontSize="small" sx={{ color: alpha(theme.palette.text.primary, 0.5) }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: localBooking.phone && (
+                      <InputAdornment position="end">
+                        <Tooltip title="שלח הודעת וואטסאפ">
+                          <IconButton
+                            edge="end"
+                            onClick={() => handleWhatsAppClick(localBooking.phone)}
+                            size="small"
+                            sx={{ 
+                              color: '#25D366',
+                              '&:hover': { 
+                                bgcolor: alpha('#25D366', 0.1)
+                              },
+                              padding: '2px'
+                            }}
+                          >
+                            <WhatsAppIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </InputAdornment>
+                    )
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 1.5,
+                      height: '38px',
+                      '& fieldset': {
+                        borderColor: alpha(theme.palette.divider, 0.8)
+                      },
+                      '&:hover fieldset': {
+                        borderColor: theme.palette.primary.main
+                      }
+                    }
+                  }}
+                />
+              </Grid>
+              
+              {/* מספר לילות - מוקטן */}
+              <Grid item xs={0.8} sx={{ px: 0.5 }}>
+                <TextField
+                  fullWidth
+                  placeholder="לילות"
+                  variant="outlined"
+                  size="small"
+                  type="number"
+                  inputProps={{ min: 1, max: 30 }}
+                  value={localBooking.nights || 1}
+                  onChange={(e) => handleChange('nights', parseInt(e.target.value) || 1)}
+                  onBlur={handleBlur}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <NightsStayIcon fontSize="small" sx={{ color: alpha(theme.palette.text.primary, 0.5) }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 1.5,
+                      height: '38px',
+                      '& fieldset': {
+                        borderColor: alpha(theme.palette.divider, 0.8)
+                      },
+                      '&:hover fieldset': {
+                        borderColor: theme.palette.primary.main
+                      }
+                    }
+                  }}
+                />
+              </Grid>
+              
+              {/* הערות - מוגדל */}
+              <Grid item xs={4} sx={{ px: 0.5 }}>
+                <TextField
+                  fullWidth
+                  placeholder="הערות"
+                  variant="outlined"
+                  size="small"
+                  value={localBooking.notes}
+                  onChange={(e) => handleChange('notes', e.target.value)}
+                  onBlur={handleBlur}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <CommentIcon fontSize="small" sx={{ color: alpha(theme.palette.text.primary, 0.5) }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 1.5,
+                      height: '38px',
+                      '& fieldset': {
+                        borderColor: alpha(theme.palette.divider, 0.8)
+                      },
+                      '&:hover fieldset': {
+                        borderColor: theme.palette.primary.main
+                      }
+                    }
+                  }}
+                />
+              </Grid>
+              
+              {/* אמצעי תשלום */}
+              <Grid item xs={1.3} sx={{ px: 0.5 }}>
+                <TextField
+                  select
+                  fullWidth
+                  placeholder="אמצעי תשלום"
+                  variant="outlined"
+                  size="small"
+                  value={localBooking.paymentMethod || ''}
+                  onChange={(e) => handleChange('paymentMethod', e.target.value)}
+                  SelectProps={{
+                    MenuProps: {
+                      anchorOrigin: {
+                        vertical: 'bottom',
+                        horizontal: 'left',
+                      },
+                      transformOrigin: {
+                        vertical: 'top',
+                        horizontal: 'left',
+                      },
+                    }
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 1.5,
+                      height: '38px',
+                      '& fieldset': {
+                        borderColor: alpha(theme.palette.divider, 0.8)
+                      },
+                      '&:hover fieldset': {
+                        borderColor: theme.palette.primary.main
+                      }
+                    }
+                  }}
+                >
+                  {PAYMENT_METHODS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              
+              {/* סכום */}
+              <Grid item xs={1.1} sx={{ px: 0.5 }}>
+                <TextField
+                  fullWidth
+                  placeholder="סכום"
+                  variant="outlined"
+                  size="small"
+                  type="number"
+                  value={localBooking.amount || ''}
+                  onChange={(e) => handleChange('amount', e.target.value)}
+                  onBlur={handleBlur}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">₪</InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 1.5,
+                      height: '38px',
+                      '& fieldset': {
+                        borderColor: alpha(theme.palette.divider, 0.8)
+                      },
+                      '&:hover fieldset': {
+                        borderColor: theme.palette.primary.main
+                      }
+                    }
+                  }}
+                />
+              </Grid>
+            </Grid>
+          )}
         </Box>
         
-        {isMultiNightDisplay ? (
-          // תצוגת מידע של המשך הזמנה
-          <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.95rem', mb: 0.5 }}>
-              {localBooking.guestName}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 2, color: alpha(theme.palette.text.primary, 0.7) }}>
-              {localBooking.phone && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <PhoneIcon fontSize="small" sx={{ color: alpha(theme.palette.primary.main, 0.7) }} />
-                  <Typography variant="body2">{localBooking.phone}</Typography>
-                </Box>
-              )}
-              {localBooking.nights > 1 && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <NightsStayIcon fontSize="small" sx={{ color: alpha(theme.palette.info.main, 0.7) }} />
-                  <Typography variant="body2">המשך הזמנה ({localBooking.nights} לילות)</Typography>
-                </Box>
-              )}
-            </Box>
-          </Box>
-        ) : (
-          // טופס עריכה - תמיד מוצג
-          <Grid container spacing={2} sx={{ ml: 0 }}>
-            {/* שם אורח */}
-            <Grid item xs={12} sm={3}>
-              <TextField
-                fullWidth
-                placeholder="שם האורח"
-                variant="outlined"
-                size="small"
-                value={localBooking.guestName}
-                onChange={(e) => handleChange('guestName', e.target.value)}
-                onBlur={handleBlur}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonIcon fontSize="small" sx={{ color: alpha(theme.palette.primary.main, 0.6) }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2.5,
-                    '& fieldset': {
-                      borderColor: alpha(theme.palette.divider, 0.5)
-                    },
-                    '&:hover fieldset': {
-                      borderColor: alpha(theme.palette.primary.main, 0.5)
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderWidth: 1,
-                      borderColor: theme.palette.primary.main
-                    }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* טלפון עם אייקון וואטסאפ */}
-            <Grid item xs={12} sm={3}>
-              <TextField
-                fullWidth
-                placeholder="טלפון"
-                variant="outlined"
-                size="small"
-                value={localBooking.phone}
-                onChange={(e) => handleChange('phone', e.target.value)}
-                onBlur={handleBlur}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PhoneIcon fontSize="small" sx={{ color: alpha(theme.palette.primary.main, 0.6) }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: localBooking.phone && (
-                    <InputAdornment position="end">
-                      <Tooltip title="שלח הודעת וואטסאפ">
-                        <IconButton
-                          edge="end"
-                          onClick={() => handleWhatsAppClick(localBooking.phone)}
-                          size="small"
-                          sx={{ 
-                            color: '#25D366',
-                            '&:hover': { 
-                              bgcolor: alpha('#25D366', 0.1),
-                              transform: 'scale(1.05)'
-                            },
-                            transition: 'all 0.2s',
-                            borderRadius: '10px'
-                          }}
-                        >
-                          <WhatsAppIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </InputAdornment>
-                  )
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2.5,
-                    '& fieldset': {
-                      borderColor: alpha(theme.palette.divider, 0.5)
-                    },
-                    '&:hover fieldset': {
-                      borderColor: alpha(theme.palette.primary.main, 0.5)
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderWidth: 1,
-                      borderColor: theme.palette.primary.main
-                    }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* מספר לילות - מוקטן */}
-            <Grid item xs={6} sm={1}>
-              <TextField
-                fullWidth
-                placeholder="לילות"
-                variant="outlined"
-                size="small"
-                type="number"
-                inputProps={{ min: 1, max: 30 }}
-                value={localBooking.nights || 1}
-                onChange={(e) => handleChange('nights', parseInt(e.target.value) || 1)}
-                onBlur={handleBlur}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <NightsStayIcon fontSize="small" sx={{ color: alpha(theme.palette.primary.main, 0.6) }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2.5,
-                    '& fieldset': {
-                      borderColor: alpha(theme.palette.divider, 0.5)
-                    },
-                    '&:hover fieldset': {
-                      borderColor: alpha(theme.palette.primary.main, 0.5)
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderWidth: 1,
-                      borderColor: theme.palette.primary.main
-                    }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* הערות - מוגדל */}
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                placeholder="הערות"
-                variant="outlined"
-                size="small"
-                value={localBooking.notes}
-                onChange={(e) => handleChange('notes', e.target.value)}
-                onBlur={handleBlur}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <CommentIcon fontSize="small" sx={{ color: alpha(theme.palette.primary.main, 0.6) }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2.5,
-                    '& fieldset': {
-                      borderColor: alpha(theme.palette.divider, 0.5)
-                    },
-                    '&:hover fieldset': {
-                      borderColor: alpha(theme.palette.primary.main, 0.5)
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderWidth: 1,
-                      borderColor: theme.palette.primary.main
-                    }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* סטטוס תשלום וכפתור מחיקה */}
-            <Grid item xs={6} sm={1} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Tooltip title={localBooking.isPaid ? "סמן כלא שולם" : "סמן כשולם"}>
-                <IconButton
-                  onClick={togglePaymentStatus}
-                  size="small"
-                  sx={{
-                    color: localBooking.isPaid ? 
-                      '#4caf50' : 
-                      alpha(theme.palette.text.secondary, 0.7),
-                    '&:hover': {
-                      bgcolor: localBooking.isPaid ? 
-                        alpha('#4caf50', 0.1) : 
-                        alpha('#f44336', 0.05),
-                      transform: 'scale(1.05)'
-                    },
-                    transition: 'all 0.2s',
-                    borderRadius: '10px',
-                    width: 32,
-                    height: 32
-                  }}
-                >
-                  {localBooking.isPaid ? <CheckCircleIcon /> : <PaymentIcon />}
-                </IconButton>
-              </Tooltip>
-
-              <Tooltip title="מחק">
-                <IconButton 
-                  onClick={() => onDelete(locationId, roomId)}
-                  color="error"
-                  size="small"
-                  sx={{ 
-                    opacity: 0.6,
-                    '&:hover': { 
-                      opacity: 1,
-                      backgroundColor: alpha('#f44336', 0.1),
-                      transform: 'scale(1.05)'
-                    },
-                    transition: 'all 0.2s',
-                    borderRadius: '10px',
-                    width: 32,
-                    height: 32
-                  }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Grid>
-          </Grid>
+        {/* מחיקה - מחוץ לתוך ה-Box כדי לוודא התייחסות נכונה */}
+        {!isMultiNightDisplay && (
+          <Tooltip title="מחק" placement="top">
+            <IconButton 
+              onClick={() => onDelete(locationId, roomId)}
+              color="error"
+              size="small"
+              sx={{ 
+                opacity: 0.7,
+                '&:hover': { opacity: 1 },
+                padding: '4px',
+                position: 'absolute',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                right: 8
+              }}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         )}
-      </Box>
-    </Paper>
+        
+        {isMultiNightDisplay && (
+          <Tooltip title={`הזמנה מקורית מתאריך ${format(parseISO(originalBookingDate), 'dd/MM/yyyy')}`} placement="top">
+            <Chip 
+              icon={<EventAvailableIcon />} 
+              label="המשך הזמנה" 
+              size="small"
+              color="info"
+              variant="outlined"
+              sx={{ 
+                fontSize: '0.7rem',
+                height: '20px',
+                position: 'absolute',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                right: 8
+              }}
+            />
+          </Tooltip>
+        )}
+      </ListItem>
+    </React.Fragment>
   );
 };
 
@@ -514,8 +543,8 @@ const MinimalSidebar = styled(Box)(({ theme }) => ({
   flexDirection: 'column',
   padding: '10px 0',
   backgroundColor: '#ffffff',
-  boxShadow: '0 3px 15px rgba(0,0,0,0.1)',
-  borderRadius: '0 12px 12px 0',
+  boxShadow: '0 3px 10px rgba(0,0,0,0.1)',
+  borderRadius: '0 8px 8px 0',
   zIndex: 100,
   gap: '5px',
   width: '60px'
@@ -534,51 +563,6 @@ const SidebarButton = styled(Tooltip)(({ theme, isActive }) => ({
     borderRight: 'none'
   }
 }));
-
-// קומפוננטה של הסטטיסטיקה
-const StatCard = ({ icon, title, value, color }) => {
-  const theme = useTheme();
-  
-  return (
-    <StyledPaper>
-      <Box 
-        sx={{
-          position: 'absolute',
-          top: -30,
-          right: -10,
-          borderRadius: '50%',
-          width: 130,
-          height: 130,
-          background: `linear-gradient(145deg, ${alpha(color, 0.12)} 20%, ${alpha(color, 0.04)} 80%)`,
-          zIndex: 0
-        }}
-      />
-      <CardContent sx={{ position: 'relative', zIndex: 1, height: '100%' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Box
-            sx={{
-              p: 1,
-              borderRadius: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: alpha(color, 0.15),
-              color: color
-            }}
-          >
-            {icon}
-          </Box>
-        </Box>
-        <Typography variant="h4" component="div" sx={{ fontWeight: 600, mb: 0.5 }}>
-          {value}
-        </Typography>
-        <Typography variant="body1" color="text.primary" sx={{ fontWeight: 500 }}>
-          {title}
-        </Typography>
-      </CardContent>
-    </StyledPaper>
-  );
-};
 
 const SimpleBookingList = () => {
   const theme = useTheme();
@@ -631,6 +615,8 @@ const SimpleBookingList = () => {
             notes: booking.notes || '',
             isPaid: booking.isPaid || false,
             nights: booking.nights || 1,
+            paymentMethod: booking.paymentMethod || '',
+            amount: booking.amount || 0,
             bookingId: booking._id // שמירת המזהה מהשרת
           };
         });
@@ -736,107 +722,105 @@ const SimpleBookingList = () => {
     return format(date, 'yyyy-MM-dd');
   };
   
-  // שמירת הזמנה
+  // פונקציה להוספת או עדכון הזמנה
   const handleSaveBooking = async (locationId, roomId, bookingData) => {
-    const dateKey = getDateKey(currentDate);
-    
     try {
-      // מבנה נתונים בסיסי לשרת החדש
+      setIsLoading(true);
+      
+      // הכנת נתוני ההזמנה לשליחה לשרת
+      const { guestName, phone, notes, isPaid, nights, paymentMethod, amount, bookingId } = bookingData;
+      const dateKey = format(currentDate, 'yyyy-MM-dd');
+      
+      // נתוני ההזמנה
       const bookingToSave = {
         date: dateKey,
+        guestName,
+        phone,
+        notes,
+        isPaid: paymentMethod ? true : false, // הגדרת isPaid לפי אם יש אמצעי תשלום או לא
+        nights: nights || 1,
         location: locationId,
-        roomId: roomId,
-        guestName: bookingData.guestName.trim(),
-        phone: bookingData.phone.trim(),
-        notes: bookingData.notes.trim(),
-        nights: bookingData.nights || 1,
-        isPaid: bookingData.isPaid
+        roomId,
+        paymentMethod: paymentMethod || '', // אמצעי תשלום
+        amount: amount || 0
       };
       
-      // עדכון או מחיקה בהתאם למצב
-      if (bookingData.guestName.trim() === '' && 
-          bookingData.phone.trim() === '' && 
-          bookingData.notes.trim() === '') {
-        
-        // בדיקה אם יש מזהה של הזמנה בשרת שצריך למחוק
-        if (bookingData.bookingId) {
-          await axios.delete(`${process.env.REACT_APP_API_URL}/simple-bookings/${bookingData.bookingId}`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          });
-        }
-        
-        // מחיקה מקומית
-        setBookings(prev => {
-          const newBookings = { ...prev };
-          
-          if (newBookings[dateKey]?.[locationId]?.[roomId]) {
-            delete newBookings[dateKey][locationId][roomId];
-          }
-          
-          // ניקוי מבנים ריקים
-          if (newBookings[dateKey]?.[locationId] && Object.keys(newBookings[dateKey][locationId]).length === 0) {
-            delete newBookings[dateKey][locationId];
-          }
-          
-          if (newBookings[dateKey] && Object.keys(newBookings[dateKey]).length === 0) {
-            delete newBookings[dateKey];
-          }
-          
-          return newBookings;
-        });
-      } else {
-        // שליחת הבקשה לשרת - יצירה או עדכון דרך ה-API החדש
-        let response;
-        
-        if (bookingData.bookingId) {
-          // עדכון הזמנה קיימת
-          response = await axios.put(`${process.env.REACT_APP_API_URL}/simple-bookings/${bookingData.bookingId}`, bookingToSave, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          });
-        } else {
-          // יצירת הזמנה חדשה
-          response = await axios.post(`${process.env.REACT_APP_API_URL}/simple-bookings`, bookingToSave, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          });
-        }
+      // אם יש מזהה הזמנה, זה עדכון של הזמנה קיימת
+      if (bookingId) {
+        // עדכון הזמנה קיימת בשרת
+        const response = await axios.put(`${process.env.REACT_APP_API_URL}/simple-bookings/${bookingId}`, 
+          bookingToSave,
+          { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }
+        );
         
         if (response.data && response.data.success) {
-          // קבלת המזהה שנוצר על ידי השרת
-          const bookingId = response.data.booking?._id || bookingData.bookingId;
+          // עדכון מצב הזמנות מקומי
+          const updatedBookings = { ...bookings };
+          if (!updatedBookings[dateKey]) {
+            updatedBookings[dateKey] = {};
+          }
+          if (!updatedBookings[dateKey][locationId]) {
+            updatedBookings[dateKey][locationId] = {};
+          }
           
-          // עדכון ההזמנה בסטייט המקומי
-          setBookings(prev => {
-            const newBookings = { ...prev };
-            
-            // וידוא שהמבנה קיים
-            if (!newBookings[dateKey]) {
-              newBookings[dateKey] = {};
-            }
-            
-            if (!newBookings[dateKey][locationId]) {
-              newBookings[dateKey][locationId] = {};
-            }
-            
-            // שמירת ההזמנה עם המזהה שהתקבל
-            newBookings[dateKey][locationId][roomId] = {
-              guestName: bookingData.guestName.trim(),
-              phone: bookingData.phone.trim(),
-              notes: bookingData.notes.trim(),
-              isPaid: bookingData.isPaid,
-              nights: bookingData.nights || 1,
-              bookingId: bookingId // שמירת המזהה מהשרת
+          // שים לב: בתגובת PUT המזהה נמצא ב-booking._id
+          const savedBookingId = response.data.booking && response.data.booking._id ? 
+            response.data.booking._id : bookingId;
+          
+          updatedBookings[dateKey][locationId][roomId] = {
+            ...bookingToSave,
+            bookingId: savedBookingId
+          };
+          
+          setBookings(updatedBookings);
+          calculateMultiNightBookings(updatedBookings);
+          
+          console.log(`הזמנה עודכנה בהצלחה לחדר ${roomId} בתאריך ${dateKey}`);
+        }
+      } 
+      // אחרת, זו הזמנה חדשה
+      else {
+        // יצירת הזמנה חדשה בשרת
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/simple-bookings`, 
+          bookingToSave,
+          { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }
+        );
+        
+        if (response.data && response.data.success) {
+          // עדכון מצב הזמנות מקומי
+          const updatedBookings = { ...bookings };
+          if (!updatedBookings[dateKey]) {
+            updatedBookings[dateKey] = {};
+          }
+          if (!updatedBookings[dateKey][locationId]) {
+            updatedBookings[dateKey][locationId] = {};
+          }
+          
+          // שים לב: בתגובת POST המזהה נמצא ב-booking._id
+          const savedBookingId = response.data.booking && response.data.booking._id ? 
+            response.data.booking._id : null;
+          
+          if (savedBookingId) {
+            updatedBookings[dateKey][locationId][roomId] = {
+              ...bookingToSave,
+              bookingId: savedBookingId
             };
             
-            return newBookings;
-          });
+            setBookings(updatedBookings);
+            calculateMultiNightBookings(updatedBookings);
+            
+            console.log(`הזמנה חדשה נוצרה בהצלחה לחדר ${roomId} בתאריך ${dateKey}`);
+          } else {
+            console.error('לא ניתן למצוא את מזהה ההזמנה בתגובת השרת');
+            toast.error('אירעה שגיאה בשמירת ההזמנה - חסר מזהה');
+          }
         }
       }
     } catch (error) {
       console.error('שגיאה בשמירת ההזמנה:', error);
       toast.error('אירעה שגיאה בשמירת ההזמנה');
-      
-      // עדכון מקומי גם במקרה של שגיאה, כגיבוי
-      updateLocalBookingState(dateKey, locationId, roomId, bookingData);
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -887,63 +871,83 @@ const SimpleBookingList = () => {
     });
   };
   
+  // פונקציה ליצירת הזמנה חדשה לחדר
+  const handleAddBooking = (locationId, roomId) => {
+    // יצירת מזהה זמני ייחודי
+    const dateKey = format(currentDate, 'yyyy-MM-dd');
+    
+    // הכנת נתוני הזמנה בסיסיים
+    const newBooking = {
+      guestName: '',
+      phone: '',
+      notes: '',
+      isPaid: false,
+      nights: 1,
+      paymentMethod: '',
+      amount: 0
+    };
+    
+    // עדכון מצב הזמנה ללא שליחה לשרת (תתבצע כאשר האורח ישנה ויזין מידע)
+    const updatedBookings = { ...bookings };
+    if (!updatedBookings[dateKey]) {
+      updatedBookings[dateKey] = {};
+    }
+    if (!updatedBookings[dateKey][locationId]) {
+      updatedBookings[dateKey][locationId] = {};
+    }
+    updatedBookings[dateKey][locationId][roomId] = newBooking;
+    setBookings(updatedBookings);
+    
+    toast.success('תא הזמנה חדש נוצר. הזן פרטי אורח לשמירה');
+  };
+
   // מחיקת הזמנה
   const handleDeleteBooking = async (locationId, roomId) => {
-    const dateKey = getDateKey(currentDate);
+    const dateKey = format(currentDate, 'yyyy-MM-dd');
     
     try {
-      // בדיקה אם יש הזמנה בשרת שצריך למחוק
-      const bookingId = bookings[dateKey]?.[locationId]?.[roomId]?.bookingId;
+      setIsLoading(true);
       
-      if (bookingId) {
-        // מחיקה מהשרת
-        await axios.delete(`${process.env.REACT_APP_API_URL}/simple-bookings/${bookingId}`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
+      // ודא שההזמנה קיימת
+      if (!bookings[dateKey]?.[locationId]?.[roomId]) {
+        toast.error('ההזמנה לא נמצאה');
+        return;
       }
       
-      // מחיקה מקומית
-      setBookings(prev => {
-        const newBookings = { ...prev };
+      // אם יש מזהה הזמנה, נמחק מהשרת
+      const bookingId = bookings[dateKey][locationId][roomId].bookingId;
+      if (bookingId) {
+        const response = await axios.delete(`${process.env.REACT_APP_API_URL}/simple-bookings/${bookingId}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
         
-        if (newBookings[dateKey]?.[locationId]?.[roomId]) {
-          delete newBookings[dateKey][locationId][roomId];
+        if (response.data && response.data.success) {
+          toast.success('ההזמנה נמחקה בהצלחה');
         }
+      }
+      
+      // עדכון מצב מקומי
+      const updatedBookings = { ...bookings };
+      if (updatedBookings[dateKey]?.[locationId]?.[roomId]) {
+        delete updatedBookings[dateKey][locationId][roomId];
         
         // ניקוי מבנים ריקים
-        if (newBookings[dateKey]?.[locationId] && Object.keys(newBookings[dateKey][locationId]).length === 0) {
-          delete newBookings[dateKey][locationId];
+        if (Object.keys(updatedBookings[dateKey][locationId]).length === 0) {
+          delete updatedBookings[dateKey][locationId];
         }
         
-        if (newBookings[dateKey] && Object.keys(newBookings[dateKey]).length === 0) {
-          delete newBookings[dateKey];
+        if (Object.keys(updatedBookings[dateKey]).length === 0) {
+          delete updatedBookings[dateKey];
         }
         
-        return newBookings;
-      });
+        setBookings(updatedBookings);
+        calculateMultiNightBookings(updatedBookings);
+      }
     } catch (error) {
       console.error('שגיאה במחיקת ההזמנה:', error);
       toast.error('אירעה שגיאה במחיקת ההזמנה');
-      
-      // מחיקה מקומית גם במקרה של שגיאה
-      setBookings(prev => {
-        const newBookings = { ...prev };
-        
-        if (newBookings[dateKey]?.[locationId]?.[roomId]) {
-          delete newBookings[dateKey][locationId][roomId];
-        }
-        
-        // ניקוי מבנים ריקים
-        if (newBookings[dateKey]?.[locationId] && Object.keys(newBookings[dateKey][locationId]).length === 0) {
-          delete newBookings[dateKey][locationId];
-        }
-        
-        if (newBookings[dateKey] && Object.keys(newBookings[dateKey]).length === 0) {
-          delete newBookings[dateKey];
-        }
-        
-        return newBookings;
-      });
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -960,51 +964,6 @@ const SimpleBookingList = () => {
   // פונקציה לבדיקה אם החדר מאוכלס כחלק מהזמנה רב-לילות
   const isPartOfMultiNightBooking = (locationId, roomId) => {
     return multiNightBookings[currentDateKey]?.[locationId]?.[roomId] || null;
-  };
-
-  // חישובים לסטטיסטיקה
-  const getTotalBookingsCount = () => {
-    let count = 0;
-    
-    // הזמנות רגילות
-    const dateBookings = bookings[currentDateKey] || {};
-    for (const locationId in dateBookings) {
-      count += Object.keys(dateBookings[locationId] || {}).length;
-    }
-    
-    // הזמנות רב-לילות
-    const multiDateBookings = multiNightBookings[currentDateKey] || {};
-    for (const locationId in multiDateBookings) {
-      count += Object.keys(multiDateBookings[locationId] || {}).length;
-    }
-    
-    return count;
-  };
-  
-  const getTotalPaidBookingsCount = () => {
-    let count = 0;
-    
-    // הזמנות רגילות
-    const dateBookings = bookings[currentDateKey] || {};
-    for (const locationId in dateBookings) {
-      for (const roomId in dateBookings[locationId] || {}) {
-        if (dateBookings[locationId][roomId].isPaid) {
-          count++;
-        }
-      }
-    }
-    
-    // הזמנות רב-לילות
-    const multiDateBookings = multiNightBookings[currentDateKey] || {};
-    for (const locationId in multiDateBookings) {
-      for (const roomId in multiDateBookings[locationId] || {}) {
-        if (multiDateBookings[locationId][roomId].isPaid) {
-          count++;
-        }
-      }
-    }
-    
-    return count;
   };
 
   return (
@@ -1093,38 +1052,63 @@ const SimpleBookingList = () => {
       </MinimalSidebar>
       
       {/* תוכן העמוד בסגנון dashboard */}
-      <Container maxWidth="xl" sx={{ mt: 3, mb: 4, paddingLeft: '55px' }}>
-        <StyledPaper 
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4, paddingLeft: '55px' }}>
+        <Paper 
           elevation={0} 
           sx={{ 
-            p: 2,
+            p: 3, 
             mb: 3, 
-            borderRadius: 3,
-            boxShadow: '0 3px 15px rgba(0,0,0,0.08)'
+            borderRadius: 2,
+            boxShadow: '0 2px 10px rgba(0,0,0,0.08)'
           }}
         >
-          {/* סרגל ניווט תאריכים עם כפתור רענון */}
+          {/* כותרת הדף בסגנון dashboard */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+                <HotelIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                106 / Airport Guest House
+              </Typography>
+            </Box>
+            
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<RefreshIcon />}
+              onClick={fetchBookings}
+              sx={{ 
+                borderRadius: 1.5,
+                boxShadow: 2
+              }}
+            >
+              רענון
+            </Button>
+          </Box>
+          
+          <Divider sx={{ mb: 3 }} />
+          
+          {/* סרגל ניווט תאריכים בסגנון dashboard */}
           <Paper 
             elevation={1}
             sx={{ 
               p: 1.5, 
-              mb: 3,
+              mb: 3, 
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              borderRadius: 3,
+              borderRadius: 2,
               background: isWeekend ? 
-                `linear-gradient(to right, ${alpha(theme.palette.warning.light, 0.05)}, ${alpha(theme.palette.warning.light, 0.08)})` : 
-                `linear-gradient(to right, ${alpha(theme.palette.primary.light, 0.02)}, ${alpha(theme.palette.primary.light, 0.05)})`,
+                `linear-gradient(to right, ${alpha(theme.palette.primary.main, 0.05)}, ${alpha(theme.palette.primary.light, 0.08)})` : 
+                'white',
               border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-              boxShadow: `0 3px 12px ${alpha(theme.palette.primary.main, 0.06)}`
+              boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.06)}`
             }}
           >
             <IconButton 
               onClick={handlePrevDay}
               size="small"
               sx={{ 
-                borderRadius: 2,
+                borderRadius: 1.5,
                 color: theme.palette.primary.main,
                 '&:hover': { 
                   backgroundColor: alpha(theme.palette.primary.main, 0.1) 
@@ -1148,10 +1132,10 @@ const SimpleBookingList = () => {
                 size="small"
                 color="primary"
                 sx={{ 
-                  borderRadius: 2,
+                  borderRadius: 1.5,
                   px: 1.5,
                   '&:hover': {
-                    boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.2)}`
+                    boxShadow: `0 1px 5px ${alpha(theme.palette.primary.main, 0.2)}`
                   }
                 }}
               >
@@ -1161,16 +1145,11 @@ const SimpleBookingList = () => {
               <Button
                 onClick={handleOpenDatePicker}
                 variant="text"
-                color={isWeekend ? "warning" : "primary"}
+                color="primary"
                 sx={{ 
-                  borderRadius: 2,
+                  borderRadius: 1.5,
                   fontWeight: 500,
-                  minWidth: 250,
-                  py: 0.5,
-                  px: 1.5,
-                  '&:hover': { 
-                    backgroundColor: alpha(isWeekend ? theme.palette.warning.main : theme.palette.primary.main, 0.05) 
-                  }
+                  minWidth: 250
                 }}
                 startIcon={<DateRangeIcon />}
               >
@@ -1179,30 +1158,11 @@ const SimpleBookingList = () => {
                   sx={{ 
                     fontWeight: 500,
                     textAlign: 'center',
-                    color: isWeekend ? 
-                      alpha(theme.palette.warning.dark, 0.9) : 
-                      alpha(theme.palette.primary.main, 0.9),
-                    fontSize: '1rem'
+                    color: isWeekend ? theme.palette.primary.dark : theme.palette.primary.main,
                   }}
                 >
                   {formattedDate}
                 </Typography>
-              </Button>
-              
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<RefreshIcon />}
-                onClick={fetchBookings}
-                size="small"
-                sx={{ 
-                  borderRadius: 2,
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                  minWidth: 'unset',
-                  px: 2
-                }}
-              >
-                רענון
               </Button>
             </Box>
             
@@ -1210,7 +1170,7 @@ const SimpleBookingList = () => {
               onClick={handleNextDay}
               size="small"
               sx={{ 
-                borderRadius: 2,
+                borderRadius: 1.5,
                 color: theme.palette.primary.main,
                 '&:hover': { 
                   backgroundColor: alpha(theme.palette.primary.main, 0.1) 
@@ -1223,7 +1183,7 @@ const SimpleBookingList = () => {
           
           {/* חיווי טעינה */}
           {isLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
               <CircularProgress thickness={3} sx={{ color: theme.palette.primary.main }} />
             </Box>
           )}
@@ -1232,29 +1192,35 @@ const SimpleBookingList = () => {
           <Grid container spacing={2}>
             {Object.entries(LOCATIONS).map(([locationId, location]) => (
               <Grid item xs={12} key={locationId}>
-                <Paper 
+                <Card 
                   elevation={0}
                   sx={{
-                    borderRadius: 3,
+                    borderRadius: 2,
                     overflow: 'hidden',
                     border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                    mb: 1.5,
-                    boxShadow: '0 3px 10px rgba(0,0,0,0.03)',
+                    mb: 1,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                     '&:hover': {
-                      boxShadow: '0 5px 15px rgba(0,0,0,0.06)'
+                      boxShadow: `0 5px 15px ${alpha(theme.palette.primary.main, 0.08)}`
                     },
-                    transition: 'box-shadow 0.3s ease, transform 0.2s ease',
-                    backgroundColor: 'white'
+                    transition: 'box-shadow 0.3s ease'
                   }}
                 >
-                  <LocationHeader theme={theme}>
-                    <HotelIcon sx={{ color: alpha(theme.palette.primary.main, 0.8) }} />
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: alpha(theme.palette.text.primary, 0.85) }}>
-                      {location.name}
-                    </Typography>
-                  </LocationHeader>
+                  <CardHeader
+                    title={location.name}
+                    sx={{
+                      background: `linear-gradient(to right, ${alpha(theme.palette.primary.main, 0.7)}, ${alpha(theme.palette.primary.dark, 0.85)})`,
+                      color: 'white',
+                      py: 1,
+                      px: 2,
+                      '& .MuiCardHeader-title': {
+                        fontSize: '1rem',
+                        fontWeight: '600'
+                      }
+                    }}
+                  />
                   
-                  <Box sx={{ p: 1.5 }}>
+                  <List disablePadding>
                     {location.rooms.map(roomId => {
                       // בדיקה אם החדר מאוכלס כחלק מהזמנה רב-לילות
                       const multiNightBooking = isPartOfMultiNightBooking(locationId, roomId);
@@ -1299,12 +1265,12 @@ const SimpleBookingList = () => {
                         );
                       }
                     })}
-                  </Box>
-                </Paper>
+                  </List>
+                </Card>
               </Grid>
             ))}
           </Grid>
-        </StyledPaper>
+        </Paper>
 
         {/* בוחר תאריך - דיאלוג */}
         <Dialog
@@ -1312,27 +1278,21 @@ const SimpleBookingList = () => {
           onClose={() => setIsDatePickerOpen(false)}
           maxWidth="xs"
           fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: 3,
-              boxShadow: '0 5px 20px rgba(0,0,0,0.15)'
-            }
-          }}
         >
-          <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', py: 2 }}>
+          <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>
             בחר תאריך
           </DialogTitle>
           <DialogContent>
             <DatePicker
               value={currentDate}
               onChange={handleDateChange}
-              renderInput={(params) => <TextField {...params} fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />}
+              renderInput={(params) => <TextField {...params} fullWidth />}
               sx={{ width: '100%' }}
             />
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 3 }}>
-            <Button onClick={() => setIsDatePickerOpen(false)} sx={{ borderRadius: 2 }}>ביטול</Button>
-            <Button onClick={() => handleDateChange(currentDate)} color="primary" variant="contained" sx={{ borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+          <DialogActions>
+            <Button onClick={() => setIsDatePickerOpen(false)}>ביטול</Button>
+            <Button onClick={() => handleDateChange(currentDate)} color="primary" variant="contained">
               אישור
             </Button>
           </DialogActions>

@@ -42,6 +42,15 @@ const SimpleBookingSchema = new Schema({
     type: Boolean,
     default: false
   },
+  // שדות חדשים לאמצעי תשלום וסכום
+  paymentMethod: {
+    type: String,
+    default: ''
+  },
+  amount: {
+    type: Number,
+    default: 0
+  },
 
   // חותמות זמן
   createdAt: {

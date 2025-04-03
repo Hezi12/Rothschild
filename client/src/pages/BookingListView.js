@@ -162,10 +162,9 @@ const HighlightedColumn = styled('div')(({ theme }) => ({
   left: 0,
   right: 0,
   pointerEvents: 'none',
-  boxShadow: 'none', // מסיר את המסגרת הכפולה
-  backgroundColor: alpha('#ff9800', 0.05), // מוסיף רקע כתום עדין יותר
-  zIndex: 0,
-  borderRadius: '4px'
+  boxShadow: `inset 0 0 0 1px ${alpha(theme.palette.primary.main, 0.3)}`,
+  backgroundColor: alpha(theme.palette.primary.light, 0.03),
+  zIndex: 0
 }));
 
 // קומפוננטה חדשה - סרגל צדדי מינימליסטי
@@ -293,8 +292,8 @@ const BookingListView = () => {
     const days = [];
     const today = new Date();
     
-    // מתחיל מיומיים לפני היום הנוכחי
-    for (let i = -2; i < daysToShow - 2; i++) {
+    // מוסיף 3 ימים לפני היום הנוכחי
+    for (let i = -3; i < daysToShow - 3; i++) {
       days.push(addDays(today, i));
     }
     
@@ -431,11 +430,8 @@ const BookingListView = () => {
       
       // עדכון רשימת הימים לתצוגה
       const days = [];
-      const startDay = new Date(month);
-      // מתחיל מיומיים לפני היום שנבחר
-      startDay.setDate(startDay.getDate() - 2);
       for (let i = 0; i < daysToShow; i++) {
-        days.push(addDays(startDay, i));
+        days.push(addDays(month, i));
       }
       setDaysInView(days);
     } catch (error) {
@@ -2560,11 +2556,7 @@ const BookingListView = () => {
                                   sx={{ 
                                       width: '120px', // רוחב קבוע לכל עמודה
                                       minWidth: '120px', 
-                                      maxWidth: '120px',
-                                      ...(isToday && {
-                                        border: `2px solid ${alpha('#ff9800', 0.7)}`, // מסגרת כתומה יותר בולטת
-                                        backgroundColor: alpha('#ff9800', 0.05) // רקע בגוון כתום עדין לכותרת
-                                      })
+                                      maxWidth: '120px'
                                   }}
                                 >
                                   {isToday && <HighlightedColumn />}
@@ -2572,13 +2564,13 @@ const BookingListView = () => {
                                     <Box sx={{ 
                                       display: 'flex', 
                                       alignItems: 'center', 
-                                      color: isFriday ? theme.palette.warning.dark : isToday ? '#e67e22' : theme.palette.text.primary, // צבע טקסט כתום יותר כהה ליום הנוכחי
+                                      color: isFriday ? theme.palette.warning.dark : isToday ? theme.palette.primary.main : theme.palette.text.primary,
                                       mb: 0.5
                                     }}>
                                       {isFriday 
                                         ? <CircleIcon fontSize="small" sx={{ mr: 0.5, fontSize: 6, color: theme.palette.warning.main }} />
                                         : isToday 
-                                          ? <BlinkingDot fontSize="small" sx={{ mr: 0.5, fontSize: 8, color: '#e67e22' }} />
+                                          ? <BlinkingDot fontSize="small" sx={{ mr: 0.5, fontSize: 8, color: theme.palette.primary.main }} />
                                           : <CircleIcon fontSize="small" sx={{ mr: 0.5, fontSize: 6, color: theme.palette.grey[500] }} />
                                       }
                                       <Typography 
@@ -2589,10 +2581,9 @@ const BookingListView = () => {
                                           color: isFriday 
                                             ? theme.palette.warning.dark 
                                             : isToday 
-                                              ? '#e67e22' // צבע כתום כהה יותר ליום הנוכחי
+                                              ? theme.palette.primary.main 
                                               : theme.palette.text.primary,
-                                          fontSize: isToday ? '0.9rem' : '0.8rem', // גופן גדול יותר ליום הנוכחי
-                                          letterSpacing: isToday ? '0.5px' : 'normal' // ריווח אותיות רחב יותר ליום הנוכחי
+                                          fontSize: '0.8rem' // גופן קטן יותר
                                         }}
                                       >
                                         {format(day, 'EEEE', { locale: he })}
@@ -2602,14 +2593,11 @@ const BookingListView = () => {
                                       variant="caption" 
                                       component="div"
                                       sx={{
-                                        fontWeight: isToday ? 700 : 400,
-                                        padding: isToday ? '3px 8px' : '2px 4px', // ריווח גדול יותר לתאריך הנוכחי
+                                        fontWeight: isToday ? 600 : 400,
+                                        padding: '2px 4px', // פחות ריווח
                                         borderRadius: 10,
-                                        bgcolor: isToday ? alpha('#ff9800', 0.15) : 'transparent', // רקע כתום יותר בולט
-                                        fontSize: isToday ? '0.9rem' : '0.8rem', // גופן גדול יותר לתאריך הנוכחי
-                                        ...(isToday && {
-                                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)' // הוספת צל קל לתאריך הנוכחי
-                                        })
+                                        bgcolor: isToday ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                                        fontSize: '0.8rem' // גופן קטן יותר
                                       }}
                                     >
                                       {format(day, 'dd/MM')}

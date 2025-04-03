@@ -68,7 +68,9 @@ router.post('/', protect, async (req, res) => {
       phone, 
       notes, 
       nights, 
-      isPaid 
+      isPaid,
+      paymentMethod,
+      amount 
     } = req.body;
     
     // וידוא שיש תאריך, מיקום ומספר חדר
@@ -96,6 +98,8 @@ router.post('/', protect, async (req, res) => {
       existingBooking.notes = notes || '';
       existingBooking.nights = nights || 1;
       existingBooking.isPaid = isPaid || false;
+      existingBooking.paymentMethod = paymentMethod || '';
+      existingBooking.amount = amount || 0;
       existingBooking.updatedAt = new Date();
       
       await existingBooking.save();
@@ -116,7 +120,9 @@ router.post('/', protect, async (req, res) => {
       phone: phone || '',
       notes: notes || '',
       nights: nights || 1,
-      isPaid: isPaid || false
+      isPaid: isPaid || false,
+      paymentMethod: paymentMethod || '',
+      amount: amount || 0
     });
     
     // שמירה במסד הנתונים
@@ -150,7 +156,9 @@ router.put('/:id', protect, async (req, res) => {
       phone, 
       notes, 
       nights, 
-      isPaid 
+      isPaid,
+      paymentMethod,
+      amount
     } = req.body;
     
     // חיפוש ההזמנה במסד הנתונים
@@ -169,6 +177,8 @@ router.put('/:id', protect, async (req, res) => {
     if (notes !== undefined) booking.notes = notes;
     if (nights !== undefined) booking.nights = nights;
     if (isPaid !== undefined) booking.isPaid = isPaid;
+    if (paymentMethod !== undefined) booking.paymentMethod = paymentMethod;
+    if (amount !== undefined) booking.amount = amount;
     
     booking.updatedAt = new Date();
     
