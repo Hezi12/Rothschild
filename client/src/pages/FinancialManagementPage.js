@@ -562,6 +562,23 @@ const SidebarButton = styled(Tooltip)(({ theme, active }) => ({
   }
 }));
 
+const PAYMENT_METHODS = {
+  rothschild: [
+    { id: 'cash', label: 'מזומן' },
+    { id: 'creditRothschild', label: 'כרטיס אשראי' },
+    { id: 'bankTransferRothschild', label: 'העברה בנקאית' },
+    { id: 'bitRothschild', label: 'ביט' },
+    { id: 'payboxRothschild', label: 'פייבוקס' }
+  ],
+  extraRooms: [
+    { id: 'cash', label: 'מזומן' },
+    { id: 'creditExtraRooms', label: 'כרטיס אשראי' },
+    { id: 'bankTransferExtraRooms', label: 'העברה בנקאית' },
+    { id: 'bitExtraRooms', label: 'ביט' },
+    { id: 'payboxExtraRooms', label: 'פייבוקס' }
+  ]
+};
+
 const FinancialManagementPage = () => {
   const theme = useTheme();
   const { user } = useContext(AuthContext);
@@ -579,9 +596,10 @@ const FinancialManagementPage = () => {
     amount: '',
     category: '',
     description: '',
-    date: new Date(),
-    paymentMethod: 'מזומן',
-    installments: 1
+    date: format(new Date(), 'yyyy-MM-dd'),
+    paymentMethod: 'cash',
+    installments: 1,
+    complex: 'rothschild'
   });
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -594,6 +612,11 @@ const FinancialManagementPage = () => {
   const [initialBalances, setInitialBalances] = useState({});
   const [isInitialBalancesDialogOpen, setIsInitialBalancesDialogOpen] = useState(false);
   const [editingInitialBalances, setEditingInitialBalances] = useState({});
+  const [selectedComplex, setSelectedComplex] = useState(0);
+  // משתנים להזמנות של SimpleBookings (חדרים נוספים)
+  const [simpleBookings, setSimpleBookings] = useState([]);
+  const [loadingSimpleBookings, setLoadingSimpleBookings] = useState(false);
+  const [simpleBookingsError, setSimpleBookingsError] = useState(null);
 
   // פונקציה לטעינת יתרות פתיחה
   const fetchInitialBalances = useCallback(async () => {
@@ -647,6 +670,43 @@ const FinancialManagementPage = () => {
       toast.error('שגיאה בעדכון יתרות פתיחה');
     }
   };
+
+  // פונקציה לטעינת הזמנות מ-SimpleBookings (חדרים נוספים)
+  const fetchSimpleBookings = useCallback(async () => {
+    try {
+      setLoadingSimpleBookings(true);
+      setSimpleBookingsError(null);
+      
+      // טעינת כל ההזמנות מהשרת (ללא פילטור לפי תאריך בצד השרת)
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/simple-bookings`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      if (response.data && response.data.success) {
+        console.log('נטענו הזמנות SimpleBookings:', response.data.simpleBookings);
+        
+        // פילטור ההזמנות לפי החודש שנבחר
+        const firstDayOfMonth = startOfMonth(selectedDate);
+        const lastDayOfMonth = endOfMonth(selectedDate);
+        
+        const filteredBookings = response.data.simpleBookings.filter(booking => {
+          if (!booking.date) return false;
+          
+          const bookingDate = new Date(booking.date);
+          return bookingDate >= firstDayOfMonth && bookingDate <= lastDayOfMonth && 
+                 booking.isPaid && booking.paymentMethod && booking.amount > 0;
+        });
+        
+        console.log('הזמנות SimpleBookings מסוננות לחודש זה:', filteredBookings);
+        setSimpleBookings(filteredBookings);
+      }
+    } catch (error) {
+      console.error('שגיאה בטעינת הזמנות SimpleBookings:', error);
+      setSimpleBookingsError('שגיאה בטעינת הזמנות מחדרים נוספים');
+    } finally {
+      setLoadingSimpleBookings(false);
+    }
+  }, [selectedDate]);
 
   // טעינת נתונים פיננסיים לחודש מסוים
   const fetchFinancialData = useCallback(async () => {
@@ -721,39 +781,84 @@ const FinancialManagementPage = () => {
     fetchFinancialData();
     fetchCategories();
     fetchInitialBalances();
-  }, [fetchFinancialData, fetchCategories, fetchInitialBalances]);
+    fetchSimpleBookings(); // הוספת טעינת הזמנות SimpleBookings
+  }, [fetchFinancialData, fetchCategories, fetchInitialBalances, fetchSimpleBookings]);
+  
+  // עדכון הנתונים כשמשתנה התאריך
+  useEffect(() => {
+    fetchFinancialData();
+    fetchSimpleBookings(); // טעינה מחדש של SimpleBookings כשמשתנה התאריך
+  }, [selectedDate, fetchFinancialData, fetchSimpleBookings]);
 
-  // חישוב נתוני הכנסות מההזמנות
+  // חישוב נתוני הכנסות מההזמנות לפי המתחם הנוכחי
   const calculateIncomeFromBookings = useCallback(() => {
     const startDate = startOfMonth(selectedDate);
     const endDate = endOfMonth(selectedDate);
+    const currentComplex = selectedComplex === 0 ? 'rothschild' : 'extraRooms';
 
     return bookings
       .filter(booking => {
+        // סינון לפי תאריך ותשלום
         const bookingDate = parseISO(booking.createdAt);
-        return bookingDate >= startDate && bookingDate <= endDate &&
-               booking.paymentStatus === 'paid' &&
-               !booking.paymentMethod.startsWith('credit');
+        const isPaid = bookingDate >= startDate && bookingDate <= endDate &&
+                      booking.paymentStatus === 'paid' &&
+                      !booking.paymentMethod.startsWith('credit');
+        
+        if (!isPaid) return false;
+        
+        // סינון לפי מתחם
+        // שיטה 1: אם יש שדה complex מוגדר, השתמש בו ישירות
+        if (booking.complex) {
+          return booking.complex === currentComplex;
+        }
+        
+        // שיטה 2: אם אין שדה complex, בדוק לפי התיאור ואחרים
+        const isExtraRooms = 
+          (booking.room?.name && booking.room.name.includes('חדרים נוספים')) ||
+          (booking.description && booking.description.includes('חדרים נוספים')) ||
+          (booking.notes && booking.notes.includes('חדרים נוספים'));
+          
+        return (currentComplex === 'extraRooms' && isExtraRooms) || 
+               (currentComplex === 'rothschild' && !isExtraRooms);
       })
       .reduce((sum, booking) => sum + (booking.totalPrice || 0), 0);
-  }, [bookings, selectedDate]);
+  }, [bookings, selectedDate, selectedComplex]);
 
-  // חישוב הכנסות לפי שיטת תשלום
+  // חישוב הכנסות לפי שיטת תשלום למתחם הנוכחי
   const calculateIncomeByPaymentMethod = useCallback(() => {
     const startDate = startOfMonth(selectedDate);
     const endDate = endOfMonth(selectedDate);
     const currentMonth = format(selectedDate, 'yyyy-MM');
+    const currentComplex = selectedComplex === 0 ? 'rothschild' : 'extraRooms';
 
     const incomeByMethod = {};
     
     // הוספת הכנסות מהזמנות
     bookings
       .filter(booking => {
+        // סינון לפי תאריך ותשלום
         const bookingDate = parseISO(booking.createdAt);
-        return bookingDate >= startDate && 
-               bookingDate <= endDate &&
-               booking.paymentStatus === 'paid' &&
-               !booking.paymentMethod.startsWith('credit');
+        const isPaid = bookingDate >= startDate && 
+                      bookingDate <= endDate &&
+                      booking.paymentStatus === 'paid' &&
+                      !booking.paymentMethod.startsWith('credit');
+                      
+        if (!isPaid) return false;
+        
+        // סינון לפי מתחם
+        // שיטה 1: אם יש שדה complex מוגדר, השתמש בו ישירות
+        if (booking.complex) {
+          return booking.complex === currentComplex;
+        }
+        
+        // שיטה 2: אם אין שדה complex, בדוק לפי התיאור ואחרים
+        const isExtraRooms = 
+          (booking.room?.name && booking.room.name.includes('חדרים נוספים')) ||
+          (booking.description && booking.description.includes('חדרים נוספים')) ||
+          (booking.notes && booking.notes.includes('חדרים נוספים'));
+          
+        return (currentComplex === 'extraRooms' && isExtraRooms) || 
+               (currentComplex === 'rothschild' && !isExtraRooms);
       })
       .forEach(booking => {
         const method = booking.paymentMethod;
@@ -767,8 +872,24 @@ const FinancialManagementPage = () => {
     transactions
       .filter(t => {
         try {
-          return t.type === 'income' &&
-                 format(parseISO(t.date), 'yyyy-MM') === currentMonth;
+          // בדיקת סוג עסקה ותאריך
+          if (t.type !== 'income' || 
+             format(parseISO(t.date), 'yyyy-MM') !== currentMonth) {
+            return false;
+          }
+          
+          // שיטה 1: אם יש שדה complex מוגדר, השתמש בו ישירות
+          if (t.complex) {
+            return t.complex === currentComplex;
+          }
+          
+          // שיטה 2: אם אין שדה complex, בדוק לפי התיאור והקטגוריה
+          const isExtraRooms = 
+            (t.description && t.description.includes('חדרים נוספים')) ||
+            (t.category && t.category.includes('חדרים נוספים'));
+          
+          return (currentComplex === 'extraRooms' && isExtraRooms) || 
+                 (currentComplex === 'rothschild' && !isExtraRooms);
         } catch (error) {
           console.error('שגיאה בפירוש תאריך:', t.date);
           return false;
@@ -781,41 +902,120 @@ const FinancialManagementPage = () => {
         }
         incomeByMethod[method] += transaction.amount || 0;
       });
+      
+    // הוספת הכנסות מ-SimpleBookings
+    // זה יתווסף רק אם זה מתחם 'extraRooms' (כי SimpleBookings שייכים לחדרים נוספים)
+    if (currentComplex === 'extraRooms' && simpleBookings && simpleBookings.length > 0) {
+      simpleBookings
+        .filter(booking => {
+          try {
+            // סינון לפי תאריך (וודא שיש תאריך ושהוא בחודש הנוכחי)
+            const bookingDate = parseISO(booking.date);
+            return format(bookingDate, 'yyyy-MM') === currentMonth && 
+                   booking.isPaid && booking.amount > 0;
+          } catch (error) {
+            console.error('שגיאה בפירוש תאריך SimpleBooking:', booking.date);
+            return false;
+          }
+        })
+        .forEach(booking => {
+          const method = booking.paymentMethod || 'other';
+          if (!incomeByMethod[method]) {
+            incomeByMethod[method] = 0;
+          }
+          incomeByMethod[method] += booking.amount || 0;
+        });
+    }
 
     return incomeByMethod;
-  }, [bookings, transactions, selectedDate]);
+  }, [bookings, transactions, selectedDate, selectedComplex, simpleBookings]);
 
-  // חישוב סך כל ההכנסות (הזמנות + עסקאות ידניות)
+  // חישוב סך כל ההכנסות (הזמנות + עסקאות ידניות + SimpleBookings) לפי המתחם הנוכחי
   const calculateTotalIncome = useCallback(() => {
-    const bookingsIncome = calculateIncomeFromBookings();
     const currentMonth = format(selectedDate, 'yyyy-MM');
+    const currentComplex = selectedComplex === 0 ? 'rothschild' : 'extraRooms';
+    let totalIncome = 0;
+    
+    // הכנסות מהזמנות רגילות (רק למתחם רוטשילד)
+    if (currentComplex === 'rothschild') {
+      const bookingsIncome = bookings
+        .filter(booking => {
+          const bookingDate = parseISO(booking.createdAt);
+          return format(bookingDate, 'yyyy-MM') === currentMonth &&
+                 booking.paymentStatus === 'paid' &&
+                 !booking.paymentMethod.startsWith('credit');
+        })
+        .reduce((sum, booking) => sum + (booking.totalPrice || 0), 0);
+      totalIncome += bookingsIncome;
+      console.log(`הכנסות מהזמנות רגילות (רוטשילד): ${bookingsIncome}`);
+    }
     
     // הכנסות מעסקאות ידניות
     const manualIncome = transactions
       .filter(t => {
         try {
           return t.type === 'income' &&
-                 format(parseISO(t.date), 'yyyy-MM') === currentMonth;
+                 format(parseISO(t.date), 'yyyy-MM') === currentMonth &&
+                 t.complex === currentComplex;
         } catch (error) {
           console.error('שגיאה בפירוש תאריך:', t.date);
           return false;
         }
       })
       .reduce((sum, t) => sum + (t.amount || 0), 0);
+    totalIncome += manualIncome;
+    console.log(`הכנסות מעסקאות ידניות (${currentComplex}): ${manualIncome}`);
     
-    console.log(`הכנסות מהזמנות: ${bookingsIncome}, הכנסות ידניות: ${manualIncome}, סה"כ: ${bookingsIncome + manualIncome}`);
+    // הכנסות מהזמנות פשוטות (רק למתחם חדרים נוספים)
+    if (currentComplex === 'extraRooms' && simpleBookings) {
+      const simpleBookingsIncome = simpleBookings
+        .filter(booking => {
+          try {
+            return booking.isPaid &&
+                   format(parseISO(booking.date), 'yyyy-MM') === currentMonth;
+          } catch (error) {
+            console.error('שגיאה בפירוש תאריך SimpleBooking:', booking.date);
+            return false;
+          }
+        })
+        .reduce((sum, booking) => sum + (booking.amount || 0), 0);
+      totalIncome += simpleBookingsIncome;
+      console.log(`הכנסות מהזמנות פשוטות (חדרים נוספים): ${simpleBookingsIncome}`);
+    }
     
-    return bookingsIncome + manualIncome;
-  }, [calculateIncomeFromBookings, transactions, selectedDate]);
+    console.log(`סה"כ הכנסות למתחם ${currentComplex}: ${totalIncome}`);
+    return totalIncome;
+  }, [bookings, transactions, selectedDate, selectedComplex, simpleBookings]);
 
   // חישוב נתוני חודש נוכחי
   const currentMonthData = useMemo(() => {
     const income = calculateTotalIncome();
+    
+    // סינון הוצאות לפי תאריך ומתחם
     const expenses = transactions
       .filter(t => {
         try {
-          return t.type === 'expense' && 
-                 format(parseISO(t.date), 'yyyy-MM') === format(selectedDate, 'yyyy-MM');
+          // בדיקת סוג עסקה ותאריך
+          if (t.type !== 'expense' || 
+             format(parseISO(t.date), 'yyyy-MM') !== format(selectedDate, 'yyyy-MM')) {
+            return false;
+          }
+          
+          // קביעת המתחם הנוכחי
+          const currentComplex = selectedComplex === 0 ? 'rothschild' : 'extraRooms';
+          
+          // שיטה 1: אם יש שדה complex מוגדר, השתמש בו ישירות
+          if (t.complex) {
+            return t.complex === currentComplex;
+          }
+          
+          // שיטה 2: אם אין שדה complex, בדוק לפי התיאור והקטגוריה
+          const isExtraRooms = 
+            (t.description && t.description.includes('חדרים נוספים')) ||
+            (t.category && t.category.includes('חדרים נוספים'));
+          
+          return (currentComplex === 'extraRooms' && isExtraRooms) || 
+                 (currentComplex === 'rothschild' && !isExtraRooms);
         } catch (error) {
           console.error('Error parsing date:', t.date);
           return false;
@@ -828,7 +1028,7 @@ const FinancialManagementPage = () => {
       expenses,
       balance: income - expenses
     };
-  }, [calculateTotalIncome, transactions, selectedDate]);
+  }, [calculateTotalIncome, transactions, selectedDate, selectedComplex]);
 
   // חישוב נתוני חודש קודם להשוואה
   const previousMonthData = useMemo(() => {
@@ -967,7 +1167,7 @@ const FinancialManagementPage = () => {
       setLoadingCapital(true);
       console.log('מתחיל חישוב הון כולל...');
       
-      // קבלת כל העסקאות מהשרת - ללא פרמטר month כדי לקבל את כל העסקאות
+      // קבלת כל העסקאות מהשרת - ללא פרמטר month כדי לקבל את כל העסקאות ללא סינון לפי חודש
       console.log('שולח בקשה לקבלת כל העסקאות מהשרת');
       const response = await axios.get(
         `${process.env.REACT_APP_API_URL}/financial/transactions`,
@@ -1254,13 +1454,30 @@ const FinancialManagementPage = () => {
   // טיפול בהוספת עסקה חדשה
   const handleAddTransaction = async () => {
     try {
+      // וידוא שכל השדות החובה מלאים
+      if (!newTransaction.type || 
+          !newTransaction.amount || 
+          !newTransaction.category || 
+          !newTransaction.description || 
+          !newTransaction.date ||
+          !newTransaction.complex ||
+          !newTransaction.paymentMethod) {
+        toast.error('נא למלא את כל שדות החובה');
+        return;
+      }
+
+      // הכנת העסקה לשליחה
       const transactionData = {
-        ...newTransaction,
-        date: format(newTransaction.date, 'yyyy-MM-dd')
+        type: newTransaction.type,
+        amount: parseFloat(newTransaction.amount),
+        category: newTransaction.category,
+        description: newTransaction.description,
+        date: format(parseISO(newTransaction.date), 'yyyy-MM-dd'),
+        complex: newTransaction.complex,
+        paymentMethod: newTransaction.paymentMethod
       };
-      
-      console.log('מוסיף עסקה חדשה:', transactionData);
-      
+
+      // שליחת העסקה לשרת
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/financial/transactions`,
         transactionData,
@@ -1272,33 +1489,28 @@ const FinancialManagementPage = () => {
       );
 
       if (response.data.success) {
-        console.log('העסקה נוספה בהצלחה:', response.data.data);
-        toast.success('העסקה נוספה בהצלחה');
+        // עדכון הרשימה המקומית
+        setTransactions(prev => [...prev, response.data.data]);
         
+        // סגירת הדיאלוג וניקוי הטופס
         setIsAddDialogOpen(false);
         setNewTransaction({
           type: 'income',
           amount: '',
           category: '',
           description: '',
-          date: new Date(),
-          paymentMethod: 'מזומן',
-          installments: 1
+          date: format(new Date(), 'yyyy-MM-dd'),
+          complex: selectedComplex === 0 ? 'rothschild' : 'extraRooms',
+          paymentMethod: ''
         });
         
-        // טעינה מחדש של הנתונים
-        await fetchFinancialData();
-        
-        // עדכון מצב ההון מיד לאחר הוספת עסקה
-        console.log('מחשב מחדש את מצב ההון לאחר הוספת עסקה...');
-        await calculateTotalCapital();
+        toast.success('העסקה נוספה בהצלחה');
       } else {
-        console.error('שגיאה בתשובת השרת:', response.data);
-        toast.error('שגיאה בהוספת העסקה: ' + (response.data.message || 'שגיאה לא ידועה'));
+        toast.error('שגיאה בהוספת העסקה');
       }
     } catch (err) {
-      console.error('שגיאה בהוספת עסקה:', err);
-      toast.error('שגיאה בהוספת העסקה: ' + (err.response?.data?.message || err.message || 'שגיאה לא ידועה'));
+      console.error('שגיאה בהוספת עסקה:', err.response || err);
+      toast.error(err.response?.data?.message || 'שגיאה בהוספת העסקה');
     }
   };
 
@@ -1348,8 +1560,12 @@ const FinancialManagementPage = () => {
         return;
       }
 
+      // וידוא שיש ערך complex, אם לא נגדיר לפי הטאב הנוכחי
+      const complexValue = editingTransaction.complex || (selectedComplex === 0 ? 'rothschild' : 'extraRooms');
+
       const updatedData = {
         ...editingTransaction,
+        complex: complexValue, // וידוא שיש ערך complex
         date: format(editingTransaction.date, 'yyyy-MM-dd')
       };
 
@@ -1390,8 +1606,12 @@ const FinancialManagementPage = () => {
 
   // פתיחת דיאלוג עריכה
   const handleOpenEditDialog = (transaction) => {
+    // אם אין שדה complex, נוסיף אותו לפי המתחם הנוכחי
+    const complex = transaction.complex || (selectedComplex === 0 ? 'rothschild' : 'extraRooms');
+    
     setEditingTransaction({
       ...transaction,
+      complex,
       date: parseISO(transaction.date)
     });
     setIsEditDialogOpen(true);
@@ -1421,6 +1641,68 @@ const FinancialManagementPage = () => {
     } catch (err) {
       console.error('שגיאה בעדכון העסקה:', err);
       setError('שגיאה בעדכון העסקה');
+    }
+  };
+
+  // פונקציה לעדכון עסקה
+  const handleEditTransaction = async () => {
+    try {
+      if (!editingTransaction?._id) {
+        toast.error('שגיאה: לא נמצא מזהה עסקה');
+        return;
+      }
+
+      // וידוא שכל השדות החובה מלאים
+      if (!editingTransaction.type || 
+          !editingTransaction.amount || 
+          !editingTransaction.category || 
+          !editingTransaction.description || 
+          !editingTransaction.date ||
+          !editingTransaction.complex ||
+          !editingTransaction.paymentMethod) {
+        toast.error('נא למלא את כל שדות החובה');
+        return;
+      }
+
+      // הכנת העסקה לשליחה
+      const transactionData = {
+        type: editingTransaction.type,
+        amount: parseFloat(editingTransaction.amount),
+        category: editingTransaction.category,
+        description: editingTransaction.description,
+        date: editingTransaction.date,
+        complex: editingTransaction.complex,
+        paymentMethod: editingTransaction.paymentMethod
+      };
+
+      // שליחת העדכון לשרת
+      const response = await axios.put(
+        `${process.env.REACT_APP_API_URL}/financial/transactions/${editingTransaction._id}`,
+        transactionData,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+
+      if (response.data.success) {
+        // עדכון הרשימה המקומית
+        setTransactions(prev => 
+          prev.map(t => t._id === editingTransaction._id ? response.data.data : t)
+        );
+        
+        // סגירת הדיאלוג וניקוי הטופס
+        setIsEditDialogOpen(false);
+        setEditingTransaction(null);
+        
+        toast.success('העסקה עודכנה בהצלחה');
+      } else {
+        toast.error('שגיאה בעדכון העסקה');
+      }
+    } catch (err) {
+      console.error('שגיאה בעדכון עסקה:', err.response || err);
+      toast.error(err.response?.data?.message || 'שגיאה בעדכון העסקה');
     }
   };
 
@@ -1688,19 +1970,6 @@ const FinancialManagementPage = () => {
                           ניהול קטגוריות
                         </Button>
                         <Button
-                          variant="contained"
-                          startIcon={<AddIcon />}
-                          onClick={() => setIsAddDialogOpen(true)}
-                          sx={{ 
-                            mr: 2,
-                            borderRadius: 2,
-                            textTransform: 'none',
-                            px: 3
-                          }}
-                        >
-                          הוסף עסקה
-                        </Button>
-                        <Button
                           variant="outlined"
                           startIcon={<DownloadIcon />}
                           sx={{ 
@@ -1746,14 +2015,14 @@ const FinancialManagementPage = () => {
                       <Grid item xs={12} md={6}>
                         <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
                           <SectionTitle variant="h5" gutterBottom>
-                            הכנסות
+                            הכנסות {selectedComplex === 0 ? '(מתחם רוטשילד)' : '(חדרים נוספים)'}
                           </SectionTitle>
                           <Box sx={{ mb: 4 }}>
                             <StatCard
                               icon={<TrendingUpIcon />}
-                              title="הכנסות חודש נוכחי"
+                              title={`הכנסות חודש נוכחי ${selectedComplex === 0 ? '(מתחם רוטשילד)' : '(חדרים נוספים)'}`}
                               value={currentMonthData.income}
-                              subtext="סה״כ הכנסות מהזמנות"
+                              subtext="סה״כ הכנסות"
                               color={CHART_COLORS.income}
                               trend={calculateTrend(currentMonthData.income, previousMonthData.income)}
                             />
@@ -1884,6 +2153,53 @@ const FinancialManagementPage = () => {
                           }}>
                             רשימת עסקאות הכנסה
                           </Typography>
+                          
+                          {/* טאבים לבחירת מתחם */}
+                          <Tabs
+                            value={selectedComplex}
+                            onChange={(e, newValue) => {
+                              setSelectedComplex(newValue);
+                            }}
+                            sx={{ 
+                              mb: 2,
+                              borderBottom: '1px solid',
+                              borderColor: 'divider',
+                              '& .MuiTab-root': {
+                                textTransform: 'none',
+                                fontSize: '0.9rem',
+                                fontWeight: 500,
+                                minWidth: 0,
+                                px: 3
+                              }
+                            }}
+                          >
+                            <Tab label="מתחם רוטשילד" />
+                            <Tab label="חדרים נוספים" />
+                          </Tabs>
+                          
+                          {/* כפתור הוספת עסקת הכנסה למתחם הנוכחי */}
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                            <Button
+                              variant="contained"
+                              startIcon={<AddIcon />}
+                              onClick={() => {
+                                setNewTransaction(prev => ({
+                                  ...prev,
+                                  type: 'income',
+                                  complex: selectedComplex === 0 ? 'rothschild' : 'extraRooms'
+                                }));
+                                setIsAddDialogOpen(true);
+                              }}
+                              sx={{ 
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                px: 3
+                              }}
+                            >
+                              הוסף עסקת הכנסה {selectedComplex === 0 ? 'למתחם רוטשילד' : 'לחדרים נוספים'}
+                            </Button>
+                          </Box>
+                          
                           <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                             <Table>
                               <TableHead>
@@ -1898,7 +2214,26 @@ const FinancialManagementPage = () => {
                               </TableHead>
                               <TableBody>
                                 {transactions
-                                  .filter(t => t.type === 'income')
+                                  .filter(t => {
+                                    // סינון לפי סוג עסקה (הכנסה בלבד)
+                                    if (t.type !== 'income') return false;
+                                    
+                                    // קביעת המתחם הנוכחי
+                                    const currentComplex = selectedComplex === 0 ? 'rothschild' : 'extraRooms';
+                                    
+                                    // שיטה 1: אם יש שדה complex מוגדר, השתמש בו ישירות
+                                    if (t.complex) {
+                                      return t.complex === currentComplex;
+                                    }
+                                    
+                                    // שיטה 2: אם אין שדה complex, בדוק לפי התיאור והקטגוריה
+                                    const isExtraRooms = 
+                                      (t.description && t.description.includes('חדרים נוספים')) ||
+                                      (t.category && t.category.includes('חדרים נוספים'));
+                                      
+                                    return (currentComplex === 'extraRooms' && isExtraRooms) || 
+                                           (currentComplex === 'rothschild' && !isExtraRooms);
+                                  })
                                   .map((transaction) => (
                                     <TableRow key={transaction._id} hover>
                                       <TableCell>{format(parseISO(transaction.date), 'dd/MM/yyyy')}</TableCell>
@@ -1925,15 +2260,26 @@ const FinancialManagementPage = () => {
                                       </TableCell>
                                     </TableRow>
                                   ))}
-                                  {transactions.filter(t => t.type === 'income').length === 0 && (
-                                    <TableRow>
-                                      <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                                        <Typography variant="body2" color="text.secondary">
-                                          לא נמצאו עסקאות הכנסה לחודש זה
-                                        </Typography>
-                                      </TableCell>
-                                    </TableRow>
-                                  )}
+                                
+                                {/* הודעה כשאין הכנסות למתחם הנבחר */}
+                                {transactions.filter(t => {
+                                  if (t.type !== 'income') return false;
+                                  const currentComplex = selectedComplex === 0 ? 'rothschild' : 'extraRooms';
+                                  if (t.complex) return t.complex === currentComplex;
+                                  const isExtraRooms = 
+                                    (t.description && t.description.includes('חדרים נוספים')) ||
+                                    (t.category && t.category.includes('חדרים נוספים'));
+                                  return (currentComplex === 'extraRooms' && isExtraRooms) || 
+                                         (currentComplex === 'rothschild' && !isExtraRooms);
+                                }).length === 0 && (
+                                  <TableRow>
+                                    <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                                      <Typography variant="body2" color="text.secondary">
+                                        לא נמצאו עסקאות הכנסה למתחם {selectedComplex === 0 ? 'רוטשילד' : 'חדרים נוספים'} בחודש זה
+                                      </Typography>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
                               </TableBody>
                             </Table>
                           </TableContainer>
@@ -1944,18 +2290,41 @@ const FinancialManagementPage = () => {
                       <Grid item xs={12} md={6}>
                         <Paper sx={{ p: 3, mb: 4, borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
                           <SectionTitle variant="h5" gutterBottom>
-                            הוצאות
+                            הוצאות {selectedComplex === 0 ? '(מתחם רוטשילד)' : '(חדרים נוספים)'}
                           </SectionTitle>
                           <Box sx={{ mb: 4 }}>
                             <StatCard
                               icon={<TrendingDownIcon />}
-                              title="הוצאות חודש נוכחי"
+                              title={`הוצאות חודש נוכחי ${selectedComplex === 0 ? '(מתחם רוטשילד)' : '(חדרים נוספים)'}`}
                               value={currentMonthData.expenses}
                               subtext="סה״כ הוצאות"
                               color={CHART_COLORS.expense}
                               trend={calculateTrend(currentMonthData.expenses, previousMonthData.expenses)}
                             />
                           </Box>
+
+                          {/* טאבים לבחירת מתחם */}
+                          <Tabs
+                            value={selectedComplex}
+                            onChange={(e, newValue) => {
+                              setSelectedComplex(newValue);
+                            }}
+                            sx={{ 
+                              mb: 2,
+                              borderBottom: '1px solid',
+                              borderColor: 'divider',
+                              '& .MuiTab-root': {
+                                textTransform: 'none',
+                                fontSize: '0.9rem',
+                                fontWeight: 500,
+                                minWidth: 0,
+                                px: 3
+                              }
+                            }}
+                          >
+                            <Tab label="מתחם רוטשילד" />
+                            <Tab label="חדרים נוספים" />
+                          </Tabs>
 
                           {/* טבלת הוצאות */}
                           <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
@@ -1972,7 +2341,26 @@ const FinancialManagementPage = () => {
                               </TableHead>
                               <TableBody>
                                 {transactions
-                                  .filter(t => t.type === 'expense')
+                                  .filter(t => {
+                                    // סינון לפי סוג עסקה (הוצאה בלבד)
+                                    if (t.type !== 'expense') return false;
+                                    
+                                    // קביעת המתחם הנוכחי
+                                    const currentComplex = selectedComplex === 0 ? 'rothschild' : 'extraRooms';
+                                    
+                                    // שיטה 1: אם יש שדה complex מוגדר, השתמש בו ישירות
+                                    if (t.complex) {
+                                      return t.complex === currentComplex;
+                                    }
+                                    
+                                    // שיטה 2: אם אין שדה complex, בדוק לפי התיאור והקטגוריה
+                                    const isExtraRooms = 
+                                      (t.description && t.description.includes('חדרים נוספים')) ||
+                                      (t.category && t.category.includes('חדרים נוספים'));
+                                      
+                                    return (currentComplex === 'extraRooms' && isExtraRooms) || 
+                                           (currentComplex === 'rothschild' && !isExtraRooms);
+                                  })
                                   .map((transaction) => (
                                     <TableRow key={transaction._id} hover>
                                       <TableCell>{format(parseISO(transaction.date), 'dd/MM/yyyy')}</TableCell>
@@ -1999,9 +2387,56 @@ const FinancialManagementPage = () => {
                                       </TableCell>
                                     </TableRow>
                                   ))}
+                                  
+                                  {/* הודעה כשאין הוצאות למתחם הנבחר */}
+                                  {transactions.filter(t => {
+                                    if (t.type !== 'expense') return false;
+                                    const currentComplex = selectedComplex === 0 ? 'rothschild' : 'extraRooms';
+                                    if (t.complex) return t.complex === currentComplex;
+                                    const isExtraRooms = 
+                                      (t.description && t.description.includes('חדרים נוספים')) ||
+                                      (t.category && t.category.includes('חדרים נוספים'));
+                                    return (currentComplex === 'extraRooms' && isExtraRooms) || 
+                                           (currentComplex === 'rothschild' && !isExtraRooms);
+                                  }).length === 0 && (
+                                    <TableRow>
+                                      <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                                        <Typography variant="body2" color="text.secondary">
+                                          לא נמצאו עסקאות הוצאה למתחם {selectedComplex === 0 ? 'רוטשילד' : 'חדרים נוספים'} בחודש זה
+                                        </Typography>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
                               </TableBody>
                             </Table>
                           </TableContainer>
+                          
+                          {/* כפתור הוספת עסקת הוצאה למתחם הנוכחי */}
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                            <Button
+                              variant="contained"
+                              startIcon={<AddIcon />}
+                              onClick={() => {
+                                setNewTransaction(prev => ({
+                                  ...prev,
+                                  type: 'expense',
+                                  complex: selectedComplex === 0 ? 'rothschild' : 'extraRooms'
+                                }));
+                                setIsAddDialogOpen(true);
+                              }}
+                              sx={{ 
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                px: 3,
+                                bgcolor: CHART_COLORS.expense,
+                                '&:hover': {
+                                  bgcolor: alpha(CHART_COLORS.expense, 0.8)
+                                }
+                              }}
+                            >
+                              הוסף עסקת הוצאה {selectedComplex === 0 ? 'למתחם רוטשילד' : 'לחדרים נוספים'}
+                            </Button>
+                          </Box>
                         </Paper>
                       </Grid>
                     </Grid>
@@ -2011,6 +2446,18 @@ const FinancialManagementPage = () => {
                       <DialogTitle>הוספת עסקה חדשה</DialogTitle>
                       <DialogContent>
                         <Stack spacing={2} sx={{ mt: 2 }}>
+                          <FormControl fullWidth>
+                            <InputLabel>מתחם</InputLabel>
+                            <Select
+                              value={newTransaction.complex || 'rothschild'}
+                              onChange={(e) => setNewTransaction({ ...newTransaction, complex: e.target.value })}
+                              label="מתחם"
+                            >
+                              <MenuItem value="rothschild">רוטשילד</MenuItem>
+                              <MenuItem value="extraRooms">חדרים נוספים</MenuItem>
+                            </Select>
+                          </FormControl>
+
                           <FormControl fullWidth>
                             <InputLabel>סוג עסקה</InputLabel>
                             <Select
@@ -2032,43 +2479,41 @@ const FinancialManagementPage = () => {
                             InputProps={{
                               startAdornment: <InputAdornment position="start">₪</InputAdornment>,
                             }}
+                            required
+                            error={!newTransaction.amount}
+                            helperText={!newTransaction.amount ? 'שדה חובה' : ''}
                           />
 
-                          <FormControl fullWidth>
+                          <FormControl fullWidth required error={!newTransaction.category}>
                             <InputLabel>קטגוריה</InputLabel>
                             <Select
                               value={newTransaction.category}
                               onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
                               label="קטגוריה"
                             >
-                              {categories && categories[newTransaction.type === 'income' ? 'income' : 'expenses'] && 
-                               categories[newTransaction.type === 'income' ? 'income' : 'expenses'].map((category) => (
+                              {categories && categories[newTransaction.type === 'income' ? 'income' : 'expenses']?.map((category) => (
                                 <MenuItem key={category.id || category} value={category.name || category}>
                                   {category.name || category}
                                 </MenuItem>
                               ))}
                             </Select>
+                            {!newTransaction.category && <FormHelperText>שדה חובה</FormHelperText>}
                           </FormControl>
 
-                          {/* הוסר התנאי המסנן כך ששיטת התשלום תוצג לכל סוגי העסקאות */}
-                          <FormControl fullWidth>
+                          <FormControl fullWidth required error={!newTransaction.paymentMethod}>
                             <InputLabel>שיטת תשלום</InputLabel>
                             <Select
                               value={newTransaction.paymentMethod}
                               onChange={(e) => setNewTransaction({ ...newTransaction, paymentMethod: e.target.value })}
                               label="שיטת תשלום"
                             >
-                              <MenuItem value="מזומן">מזומן</MenuItem>
-                              <MenuItem value="אשראי אור יהודה">אשראי אור יהודה</MenuItem>
-                              <MenuItem value="אשראי רוטשילד">אשראי רוטשילד</MenuItem>
-                              <MenuItem value="העברה מזרחי">העברה מזרחי</MenuItem>
-                              <MenuItem value="ביט מזרחי">ביט מזרחי</MenuItem>
-                              <MenuItem value="פייבוקס מזרחי">פייבוקס מזרחי</MenuItem>
-                              <MenuItem value="העברה פועלים">העברה פועלים</MenuItem>
-                              <MenuItem value="ביט פועלים">ביט פועלים</MenuItem>
-                              <MenuItem value="פייבוקס פועלים">פייבוקס פועלים</MenuItem>
-                              <MenuItem value="אחר">אחר</MenuItem>
+                              {PAYMENT_METHODS[newTransaction.complex || 'rothschild'].map((method) => (
+                                <MenuItem key={method.id} value={method.id}>
+                                  {method.label}
+                                </MenuItem>
+                              ))}
                             </Select>
+                            {!newTransaction.paymentMethod && <FormHelperText>שדה חובה</FormHelperText>}
                           </FormControl>
 
                           <TextField
@@ -2076,49 +2521,24 @@ const FinancialManagementPage = () => {
                             label="תיאור"
                             value={newTransaction.description}
                             onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+                            required
+                            error={!newTransaction.description}
+                            helperText={!newTransaction.description ? 'שדה חובה' : ''}
                           />
 
-                          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-                            <DatePicker
-                              label="תאריך"
-                              value={newTransaction.date}
-                              onChange={(date) => setNewTransaction({ ...newTransaction, date })}
-                              slotProps={{ textField: { fullWidth: true } }}
-                            />
-                          </LocalizationProvider>
-                          
-                          {/* אפשרות חלוקה לתשלומים רק אם מדובר בהוצאה וקטגוריה מכילה את המילה "שכירות" */}
-                          {newTransaction.type === 'expense' && 
-                           typeof newTransaction.category === 'string' && 
-                           newTransaction.category.includes('שכירות') && (
-                            <>
-                              <Alert severity="info" sx={{ mb: 2 }}>
-                                <Typography variant="body2">
-                                  <strong>חלוקת תשלומי שכירות:</strong> ניתן לחלק את הוצאת השכירות למספר תשלומים חודשיים. המערכת תיצור עסקאות נפרדות לכל חודש, אך היתרה הכוללת תושפע רק מהתשלום הנוכחי.
-                                </Typography>
-                              </Alert>
-                              <FormControl fullWidth>
-                                <InputLabel>מספר תשלומים</InputLabel>
-                                <Select
-                                  value={newTransaction.installments || 1}
-                                  onChange={(e) => setNewTransaction({ ...newTransaction, installments: e.target.value })}
-                                  label="מספר תשלומים"
-                                >
-                                  <MenuItem value={1}>תשלום אחד (ללא חלוקה)</MenuItem>
-                                  <MenuItem value={2}>2 תשלומים</MenuItem>
-                                  <MenuItem value={3}>3 תשלומים</MenuItem>
-                                  <MenuItem value={4}>4 תשלומים</MenuItem>
-                                  <MenuItem value={6}>6 תשלומים</MenuItem>
-                                  <MenuItem value={12}>12 תשלומים</MenuItem>
-                                </Select>
-                                {newTransaction.installments > 1 && (
-                                  <FormHelperText>
-                                    העסקה תחולק ל-{newTransaction.installments} תשלומים חודשיים שווים של ₪{newTransaction.amount ? (parseFloat(newTransaction.amount) / newTransaction.installments).toFixed(2) : 0} כל אחד.
-                                  </FormHelperText>
-                                )}
-                              </FormControl>
-                            </>
-                          )}
+                          <TextField
+                            fullWidth
+                            label="תאריך"
+                            type="date"
+                            value={newTransaction.date}
+                            onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
+                            InputLabelProps={{
+                              shrink: true,
+                            }}
+                            required
+                            error={!newTransaction.date}
+                            helperText={!newTransaction.date ? 'שדה חובה' : ''}
+                          />
                         </Stack>
                       </DialogContent>
                       <DialogActions>
@@ -2136,6 +2556,18 @@ const FinancialManagementPage = () => {
                       <DialogTitle>עריכת עסקה</DialogTitle>
                       <DialogContent>
                         <Stack spacing={2} sx={{ mt: 2 }}>
+                          <FormControl fullWidth>
+                            <InputLabel>מתחם</InputLabel>
+                            <Select
+                              value={editingTransaction?.complex || 'rothschild'}
+                              onChange={(e) => setEditingTransaction({ ...editingTransaction, complex: e.target.value })}
+                              label="מתחם"
+                            >
+                              <MenuItem value="rothschild">רוטשילד</MenuItem>
+                              <MenuItem value="extraRooms">חדרים נוספים</MenuItem>
+                            </Select>
+                          </FormControl>
+
                           <FormControl fullWidth>
                             <InputLabel>סוג עסקה</InputLabel>
                             <Select
@@ -2157,43 +2589,41 @@ const FinancialManagementPage = () => {
                             InputProps={{
                               startAdornment: <InputAdornment position="start">₪</InputAdornment>,
                             }}
+                            required
+                            error={!editingTransaction?.amount}
+                            helperText={!editingTransaction?.amount ? 'שדה חובה' : ''}
                           />
 
-                          <FormControl fullWidth>
+                          <FormControl fullWidth required error={!editingTransaction?.category}>
                             <InputLabel>קטגוריה</InputLabel>
                             <Select
                               value={editingTransaction?.category || ''}
                               onChange={(e) => setEditingTransaction({ ...editingTransaction, category: e.target.value })}
                               label="קטגוריה"
                             >
-                              {editingTransaction && categories && categories[editingTransaction.type === 'income' ? 'income' : 'expenses'] && 
-                               categories[editingTransaction.type === 'income' ? 'income' : 'expenses'].map((category) => (
+                              {categories && categories[editingTransaction?.type === 'income' ? 'income' : 'expenses']?.map((category) => (
                                 <MenuItem key={category.id || category} value={category.name || category}>
                                   {category.name || category}
                                 </MenuItem>
                               ))}
                             </Select>
+                            {!editingTransaction?.category && <FormHelperText>שדה חובה</FormHelperText>}
                           </FormControl>
 
-                          {/* הוסר התנאי המסנן כך ששיטת התשלום תוצג לכל סוגי העסקאות */}
-                          <FormControl fullWidth>
+                          <FormControl fullWidth required error={!editingTransaction?.paymentMethod}>
                             <InputLabel>שיטת תשלום</InputLabel>
                             <Select
-                              value={getPaymentMethodLabel(editingTransaction?.paymentMethod) || 'מזומן'}
+                              value={editingTransaction?.paymentMethod || ''}
                               onChange={(e) => setEditingTransaction({ ...editingTransaction, paymentMethod: e.target.value })}
                               label="שיטת תשלום"
                             >
-                              <MenuItem value="מזומן">מזומן</MenuItem>
-                              <MenuItem value="אשראי אור יהודה">אשראי אור יהודה</MenuItem>
-                              <MenuItem value="אשראי רוטשילד">אשראי רוטשילד</MenuItem>
-                              <MenuItem value="העברה מזרחי">העברה מזרחי</MenuItem>
-                              <MenuItem value="ביט מזרחי">ביט מזרחי</MenuItem>
-                              <MenuItem value="פייבוקס מזרחי">פייבוקס מזרחי</MenuItem>
-                              <MenuItem value="העברה פועלים">העברה פועלים</MenuItem>
-                              <MenuItem value="ביט פועלים">ביט פועלים</MenuItem>
-                              <MenuItem value="פייבוקס פועלים">פייבוקס פועלים</MenuItem>
-                              <MenuItem value="אחר">אחר</MenuItem>
+                              {PAYMENT_METHODS[editingTransaction?.complex || 'rothschild'].map((method) => (
+                                <MenuItem key={method.id} value={method.id}>
+                                  {method.label}
+                                </MenuItem>
+                              ))}
                             </Select>
+                            {!editingTransaction?.paymentMethod && <FormHelperText>שדה חובה</FormHelperText>}
                           </FormControl>
 
                           <TextField
@@ -2201,31 +2631,32 @@ const FinancialManagementPage = () => {
                             label="תיאור"
                             value={editingTransaction?.description || ''}
                             onChange={(e) => setEditingTransaction({ ...editingTransaction, description: e.target.value })}
+                            required
+                            error={!editingTransaction?.description}
+                            helperText={!editingTransaction?.description ? 'שדה חובה' : ''}
                           />
 
-                          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-                            <DatePicker
-                              label="תאריך"
-                              value={editingTransaction?.date || null}
-                              onChange={(date) => setEditingTransaction({ ...editingTransaction, date })}
-                              slotProps={{ textField: { fullWidth: true } }}
-                            />
-                          </LocalizationProvider>
+                          <TextField
+                            fullWidth
+                            label="תאריך"
+                            type="date"
+                            value={editingTransaction?.date ? format(parseISO(editingTransaction.date), 'yyyy-MM-dd') : ''}
+                            onChange={(e) => setEditingTransaction({ ...editingTransaction, date: e.target.value })}
+                            InputLabelProps={{
+                              shrink: true,
+                            }}
+                            required
+                            error={!editingTransaction?.date}
+                            helperText={!editingTransaction?.date ? 'שדה חובה' : ''}
+                          />
                         </Stack>
                       </DialogContent>
                       <DialogActions>
-                        <Button
-                          onClick={handleCloseEditDialog}
-                          color="inherit"
-                        >
+                        <Button onClick={handleCloseEditDialog}>
                           ביטול
                         </Button>
-                        <Button
-                          onClick={handleUpdateTransaction}
-                          color="primary"
-                          disabled={loading}
-                        >
-                          {loading ? <CircularProgress size={24} /> : 'עדכן'}
+                        <Button onClick={handleEditTransaction} variant="contained">
+                          שמור
                         </Button>
                       </DialogActions>
                     </Dialog>
