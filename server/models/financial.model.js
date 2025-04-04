@@ -28,19 +28,23 @@ const transactionSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+  complex: {
+    type: String,
+    enum: ['rothschild', 'extraRooms'],
+    required: true
+  },
   paymentMethod: {
     type: String,
     enum: [
-      'cash', 'מזומן',
-      'creditOr', 'אשראי אור יהודה',
-      'creditRothschild', 'אשראי רוטשילד',
-      'mizrahi', 'העברה מזרחי',
-      'bitMizrahi', 'ביט מזרחי',
-      'payboxMizrahi', 'פייבוקס מזרחי',
-      'poalim', 'העברה פועלים',
-      'bitPoalim', 'ביט פועלים',
-      'payboxPoalim', 'פייבוקס פועלים',
-      'other', 'אחר'
+      'cash',
+      'creditRothschild',
+      'creditExtraRooms',
+      'bankTransferRothschild',
+      'bankTransferExtraRooms',
+      'bitRothschild',
+      'bitExtraRooms',
+      'payboxRothschild',
+      'payboxExtraRooms'
     ],
     required: true
   }
@@ -53,6 +57,11 @@ const categorySchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
+    required: true
+  },
+  complex: {
+    type: String,
+    enum: ['rothschild', 'extraRooms'],
     required: true
   },
   categories: {
@@ -73,13 +82,16 @@ const initialBalanceSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  // מפה של שיטת תשלום -> יתרה התחלתית
+  complex: {
+    type: String,
+    enum: ['rothschild', 'extraRooms'],
+    required: true
+  },
   balances: {
     type: Map,
     of: Number,
     default: {}
   },
-  // תאריך עדכון אחרון
   lastUpdated: {
     type: Date,
     default: Date.now

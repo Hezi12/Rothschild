@@ -73,7 +73,7 @@ import {
   NightsStay as NightsStayIcon
 } from '@mui/icons-material';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
-import { format, parseISO, startOfMonth, endOfMonth, getMonth, getYear, subMonths, differenceInMonths } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, getMonth, getYear, subMonths, differenceInMonths, addMonths } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { AuthContext } from '../context/AuthContext';
 import { BookingContext } from '../context/BookingContext';
@@ -99,6 +99,7 @@ import {
   RadialBarChart,
   RadialBar
 } from 'recharts';
+import axios from 'axios';
 
 // קומפוננטה של סרגל צדדי
 const MinimalSidebar = styled(Box)(({ theme }) => ({
@@ -463,6 +464,10 @@ const IncomeReportPage = () => {
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [comparisonData, setComparisonData] = useState(null);
   const [dynamicPaymentMethods, setDynamicPaymentMethods] = useState([]);
+  // מצבים עבור SimpleBookings
+  const [simpleBookings, setSimpleBookings] = useState([]);
+  const [loadingSimpleBookings, setLoadingSimpleBookings] = useState(false);
+  const [simpleBookingsError, setSimpleBookingsError] = useState(null);
 
   // ערכים אפשריים לאמצעי תשלום
   const defaultPaymentMethods = [
@@ -471,7 +476,7 @@ const IncomeReportPage = () => {
     { value: 'creditOr', label: 'כרטיס אשראי - אור' },
     { value: 'creditRothschild', label: 'כרטיס אשראי - רוטשילד' },
     { value: 'mizrahi', label: 'העברה בנקאית - מזרחי' },
-    { value: 'poalim', label: 'העברה בנקאית - פועלים' },
+    { value: 'poalim', label: 'העברה פועלים' },
     { value: 'other', label: 'אחר' }
   ];
 
@@ -503,6 +508,43 @@ const IncomeReportPage = () => {
       setLoadingRooms(false);
     }
   };
+
+  // פונקציה לטעינת הזמנות מ-SimpleBookings
+  const fetchSimpleBookings = useCallback(async () => {
+    try {
+      setLoadingSimpleBookings(true);
+      setSimpleBookingsError(null);
+      
+      // טעינת כל ההזמנות מהשרת (ללא פילטור לפי תאריך בצד השרת)
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/simple-bookings`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      if (response.data && response.data.success) {
+        console.log('נטענו הזמנות SimpleBookings:', response.data.simpleBookings);
+        
+        // פילטור ההזמנות לפי החודש שנבחר
+        const firstDayOfMonth = startOfMonth(selectedMonth);
+        const lastDayOfMonth = endOfMonth(selectedMonth);
+        
+        const filteredBookings = response.data.simpleBookings.filter(booking => {
+          if (!booking.date) return false;
+          
+          const bookingDate = new Date(booking.date);
+          return bookingDate >= firstDayOfMonth && bookingDate <= lastDayOfMonth && 
+                 booking.isPaid && booking.paymentMethod && booking.amount > 0;
+        });
+        
+        console.log('הזמנות מסונננות לחודש זה:', filteredBookings);
+        setSimpleBookings(filteredBookings);
+      }
+    } catch (error) {
+      console.error('שגיאה בטעינת הזמנות SimpleBookings:', error);
+      setSimpleBookingsError('שגיאה בטעינת הזמנות מחדרים נוספים');
+    } finally {
+      setLoadingSimpleBookings(false);
+    }
+  }, [selectedMonth]);
 
   // פונקציה להשוואת נתונים בין תקופות
   const calculateComparisonData = (currentData, previousMonths = 6) => {
@@ -566,7 +608,10 @@ const IncomeReportPage = () => {
     
     // טעינת חדרים
     fetchRooms();
-  }, []);
+    
+    // טעינת הזמנות SimpleBookings
+    fetchSimpleBookings();
+  }, [fetchBookings, fetchSimpleBookings, startDate, endDate]);
 
   // אפקט לעדכון ההזמנות כאשר החודש משתנה
   useEffect(() => {
@@ -580,6 +625,9 @@ const IncomeReportPage = () => {
       startDate: format(firstDayOfMonth, 'yyyy-MM-dd'),
       endDate: format(lastDayOfMonth, 'yyyy-MM-dd')
     });
+    
+    // עדכון הזמנות SimpleBookings לחודש החדש
+    fetchSimpleBookings();
   }, [selectedMonth]);
 
   // פונקצית עזר לחישוב אחוזי תפוסה חכמים
@@ -738,7 +786,7 @@ const IncomeReportPage = () => {
         else if (method === 'creditOr') label = 'כרטיס אשראי - אור';
         else if (method === 'creditRothschild') label = 'כרטיס אשראי - רוטשילד';
         else if (method === 'mizrahi') label = 'העברה בנקאית - מזרחי';
-        else if (method === 'poalim') label = 'העברה בנקאית - פועלים';
+        else if (method === 'poalim') label = 'העברה פועלים';
         else if (method === 'other') label = 'אחר';
         
         return {
@@ -787,7 +835,7 @@ const IncomeReportPage = () => {
       'creditOr': 'כרטיס אשראי - אור',
       'creditRothschild': 'כרטיס אשראי - רוטשילד',
       'mizrahi': 'העברה בנקאית - מזרחי',
-      'poalim': 'העברה בנקאית - פועלים',
+      'poalim': 'העברה פועלים',
       'other': 'אחר'
     };
     
@@ -1029,613 +1077,1054 @@ const IncomeReportPage = () => {
     let csvContent = "data:text/csv;charset=utf-8,";
     
     // כותרות העמודות בהתאם ללשונית הנוכחית
-    if (tabValue === 0) {
-      // ייצוא הכנסות לפי חדר
-      csvContent += "מספר חדר,מספר לילות,הכנסה ללילה (₪),סה\"כ הכנסות (₪)\n";
-      combinedRoomData.forEach(item => {
-        csvContent += `${item.roomNumber},${item.nights},${item.perNightAmount.toFixed(2)},${item.totalAmount.toFixed(2)}\n`;
-      });
-    } else if (tabValue === 1) {
-      // ייצוא הכנסות לפי אמצעי תשלום
-      csvContent += "אמצעי תשלום,מספר הזמנות,סה\"כ הכנסות (₪),אחוז\n";
-      incomeByPaymentMethod.forEach(item => {
-        csvContent += `${item.label},${item.count},${item.totalAmount.toFixed(2)},${((item.totalAmount / totalIncome) * 100).toFixed(1)}%\n`;
-      });
-    } else if (tabValue === 2) {
-      // ייצוא הכנסות לפי ימים בחודש
-      csvContent += "יום בחודש,תאריך,הכנסה (₪)\n";
-      incomeByDayOfMonth.forEach(item => {
-        const date = format(item.date, 'dd/MM/yyyy');
-        csvContent += `${item.day},${date},${item.totalAmount.toFixed(2)}\n`;
-      });
+    if (mainTabValue === 0) {
+      // ייצוא מהטאב הראשון - הכנסות רגילות
+      if (tabValue === 0) {
+        // ייצוא הכנסות לפי חדר
+        csvContent += "מספר חדר,מספר לילות,הכנסה ללילה (₪),סה\"כ הכנסות (₪)\n";
+        combinedRoomData.forEach(item => {
+          csvContent += `${item.roomNumber},${item.nights},${item.perNightAmount.toFixed(2)},${item.totalAmount.toFixed(2)}\n`;
+        });
+      } else if (tabValue === 1) {
+        // ייצוא הכנסות לפי אמצעי תשלום
+        csvContent += "אמצעי תשלום,מספר הזמנות,סה\"כ הכנסות (₪),אחוז\n";
+        incomeByPaymentMethod.forEach(item => {
+          csvContent += `${item.label},${item.count},${item.totalAmount.toFixed(2)},${((item.totalAmount / totalIncome) * 100).toFixed(1)}%\n`;
+        });
+      } else if (tabValue === 2) {
+        // ייצוא הכנסות לפי ימים בחודש
+        csvContent += "יום בחודש,תאריך,הכנסה (₪)\n";
+        incomeByDayOfMonth.forEach(item => {
+          const date = format(item.date, 'dd/MM/yyyy');
+          csvContent += `${item.day},${date},${item.totalAmount.toFixed(2)}\n`;
+        });
+      }
+    } else if (mainTabValue === 1) {
+      // ייצוא מהטאב השני - הכנסות מחדרים נוספים
+      if (tabValue === 0) {
+        // ייצוא הכנסות לפי חדר נוסף
+        csvContent += "מיקום,חדר,מספר הזמנות,מספר לילות,הכנסה ללילה (₪),סה\"כ הכנסות (₪)\n";
+        simpleBookingsIncomeByRoom.forEach(item => {
+          csvContent += `${item.locationName},${item.roomId},${item.bookings},${item.nights},${item.perNightAmount.toFixed(2)},${item.totalAmount.toFixed(2)}\n`;
+        });
+      } else if (tabValue === 1) {
+        // ייצוא הכנסות לפי אמצעי תשלום
+        csvContent += "אמצעי תשלום,מספר הזמנות,סה\"כ הכנסות (₪),אחוז\n";
+        simpleBookingsIncomeByPaymentMethod.forEach(item => {
+          csvContent += `${item.label},${item.count},${item.totalAmount.toFixed(2)},${((item.totalAmount / simpleBookingsTotalIncome) * 100).toFixed(1)}%\n`;
+        });
+      } else if (tabValue === 2) {
+        // ייצוא הכנסות לפי ימים בחודש
+        csvContent += "יום בחודש,תאריך,הכנסה (₪)\n";
+        simpleBookingsIncomeByDayOfMonth.forEach(item => {
+          const date = format(item.date, 'dd/MM/yyyy');
+          csvContent += `${item.day},${date},${item.totalAmount.toFixed(2)}\n`;
+        });
+      }
     }
     
     // יצירת קישור להורדה
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `דוח_הכנסות_${formatMonthAndYear(selectedMonth).replace(' ', '_')}.csv`);
+    link.setAttribute("download", `דוח_הכנסות_${formatMonthAndYear(selectedMonth).replace(' ', '_')}_${mainTabValue === 0 ? 'רגיל' : 'חדרים_נוספים'}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
+  // חישובים עבור SimpleBookings
+  // חישוב סה"כ הכנסות מהזמנות SimpleBookings
+  const simpleBookingsTotalIncome = useMemo(() => {
+    return simpleBookings.reduce((sum, booking) => sum + (booking.amount || 0), 0);
+  }, [simpleBookings]);
+
+  // חישוב הכנסות לפי חדרים בדף SimpleBookings
+  const simpleBookingsIncomeByRoom = useMemo(() => {
+    if (!simpleBookings || simpleBookings.length === 0) return [];
+
+    // קיבוץ הזמנות לפי חדר ומיקום
+    const rooms = {};
+    
+    simpleBookings.forEach(booking => {
+      const key = `${booking.location}-${booking.roomId}`;
+      
+      if (!rooms[key]) {
+        rooms[key] = {
+          roomId: booking.roomId,
+          location: booking.location,
+          locationName: booking.location === 'rothschild' ? 'רוטשילד' : 'אור יהודה',
+          roomName: `${booking.location === 'rothschild' ? 'רוטשילד' : 'אור יהודה'} - חדר ${booking.roomId}`,
+          nights: 0,
+          totalAmount: 0,
+          bookings: 0,
+          fill: booking.location === 'rothschild' ? '#4caf50' : '#2196f3'
+        };
+      }
+      
+      rooms[key].bookings += 1;
+      rooms[key].totalAmount += booking.amount || 0;
+      rooms[key].nights += booking.nights || 1;
+    });
+    
+    // המרה לפורמט מערך והוספת נתוני ממוצע
+    const result = Object.values(rooms).map(room => {
+      return {
+        ...room,
+        perNightAmount: room.nights > 0 ? room.totalAmount / room.nights : 0
+      };
+    });
+    
+    // מיון לפי הכנסה כוללת
+    result.sort((a, b) => b.totalAmount - a.totalAmount);
+    
+    return result;
+  }, [simpleBookings]);
+
+  // חישוב הכנסות לפי אמצעי תשלום בדף SimpleBookings
+  const simpleBookingsIncomeByPaymentMethod = useMemo(() => {
+    if (!simpleBookings || simpleBookings.length === 0) return [];
+    
+    // קבוצה לפי אמצעי תשלום
+    const groupedByMethod = simpleBookings.reduce((acc, booking) => {
+      // שימוש ב-'other' רק אם אין לנו אמצעי תשלום כלל
+      const method = booking.paymentMethod || 'other';
+      
+      if (!acc[method]) {
+        acc[method] = {
+          amount: 0,
+          count: 0,
+          label: getPaymentMethodLabel(method)
+        };
+      }
+      
+      acc[method].amount += booking.amount || 0;
+      acc[method].count += 1;
+      
+      return acc;
+    }, {});
+    
+    // המרה למערך עבור הגרף
+    const result = Object.keys(groupedByMethod).map((method, index) => ({
+      name: groupedByMethod[method].label,
+      value: groupedByMethod[method].amount,
+      count: groupedByMethod[method].count,
+      label: groupedByMethod[method].label,
+      totalAmount: groupedByMethod[method].amount,
+      color: CHART_COLORS[index % CHART_COLORS.length],
+      id: method
+    }));
+    
+    // מיון לפי סכום בסדר יורד
+    result.sort((a, b) => b.value - a.value);
+    
+    return result;
+  }, [simpleBookings, getPaymentMethodLabel]);
+
+  // חישוב הכנסות לפי ימים בחודש בדף SimpleBookings
+  const simpleBookingsIncomeByDayOfMonth = useMemo(() => {
+    if (!simpleBookings || simpleBookings.length === 0) return [];
+
+    // יצירת מבנה נתונים לכל ימי החודש
+    const daysInMonth = new Date(
+      selectedMonth.getFullYear(),
+      selectedMonth.getMonth() + 1,
+      0
+    ).getDate();
+    
+    // יוצר מערך עם רשומה לכל יום בחודש
+    const dailyData = Array.from({ length: daysInMonth }, (_, index) => {
+      const day = index + 1;
+      return {
+        day,
+        date: new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), day),
+        displayDate: `${day}/${selectedMonth.getMonth() + 1}`,
+        totalAmount: 0,
+        count: 0
+      };
+    });
+
+    // מעבר על ההזמנות וקיבוץ לפי ימים
+    simpleBookings.forEach(booking => {
+      const bookingDate = new Date(booking.date);
+      const day = bookingDate.getDate();
+      
+      // וידוא שאנחנו בחודש הנכון
+      if (
+        bookingDate.getMonth() === selectedMonth.getMonth() &&
+        bookingDate.getFullYear() === selectedMonth.getFullYear() &&
+        day <= daysInMonth
+      ) {
+        // הוספת הסכום ליום המתאים
+        dailyData[day - 1].totalAmount += booking.amount || 0;
+        dailyData[day - 1].count += 1;
+      }
+    });
+
+    return dailyData;
+  }, [simpleBookings, selectedMonth]);
+
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-      {/* סרגל צדדי */}
-      <MinimalSidebar>
-        <SidebarButton title="לוח מחוונים" placement="right" isActive={currentPath === '/dashboard'}>
-          <IconButton
-            component={RouterLink}
-            to="/dashboard"
-            aria-label="dashboard"
+      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        {/* סרגל צדדי */}
+        <MinimalSidebar>
+          <SidebarButton
+            title="לוח מחוונים"
+            placement="right"
+            isActive={currentPath === '/dashboard'}
           >
-            <DashboardIcon sx={{ color: isActive => isActive ? '#3498db' : theme.palette.text.secondary, '&:hover': { color: '#2980b9' } }} />
-          </IconButton>
-        </SidebarButton>
-        
-        <SidebarButton title="יומן הזמנות" placement="right" isActive={currentPath === '/dashboard/bookings-calendar'}>
-          <IconButton
-            component={RouterLink}
-            to="/dashboard/bookings-calendar"
-            aria-label="bookings-calendar"
-          >
-            <CalendarMonthIcon sx={{ color: isActive => isActive ? '#e74c3c' : theme.palette.text.secondary, '&:hover': { color: '#c0392b' } }} />
-          </IconButton>
-        </SidebarButton>
-        
-        <SidebarButton title="106 / Airport" placement="right" isActive={currentPath === '/dashboard/simple-bookings'}>
-          <IconButton
-            component={RouterLink}
-            to="/dashboard/simple-bookings"
-            aria-label="airport"
-          >
-            <HotelIcon sx={{ color: isActive => isActive ? '#f39c12' : theme.palette.text.secondary, '&:hover': { color: '#d35400' } }} />
-          </IconButton>
-        </SidebarButton>
-        
-        <SidebarButton title="דו״ח הכנסות" placement="right" isActive={currentPath === '/dashboard/income-report'}>
-          <IconButton
-            component={RouterLink}
-            to="/dashboard/income-report"
-            aria-label="income-report"
-          >
-            <AssessmentIcon sx={{ color: isActive => isActive ? '#9b59b6' : theme.palette.text.secondary, '&:hover': { color: '#8e44ad' } }} />
-          </IconButton>
-        </SidebarButton>
-        
-        <SidebarButton title="ניהול פיננסי" placement="right" isActive={currentPath === '/dashboard/financial-management'}>
-          <IconButton
-            component={RouterLink}
-            to="/dashboard/financial-management"
-            aria-label="financial"
-          >
-            <AccountBalanceIcon sx={{ color: isActive => isActive ? '#16a085' : theme.palette.text.secondary, '&:hover': { color: '#1abc9c' } }} />
-          </IconButton>
-        </SidebarButton>
-        
-        <Box sx={{ flexGrow: 1 }} /> {/* מרווח גמיש שידחוף את האייקון הבא לתחתית */}
-        
-        <SidebarButton title="אתר הבית" placement="right" isActive={currentPath === '/'}>
-          <IconButton
-            component={RouterLink}
-            to="/"
-            aria-label="home"
-          >
-            <LanguageIcon sx={{ color: isActive => isActive ? '#2ecc71' : theme.palette.text.secondary, '&:hover': { color: '#27ae60' } }} />
-          </IconButton>
-        </SidebarButton>
-      </MinimalSidebar>
-
-      <Container maxWidth="xl" sx={{ mt: 3, mb: 6 }}>
-        {/* כותרת תמציתית */}
-        <Paper 
-          sx={{ 
-            p: 2, 
-            mb: 3, 
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderRadius: 2,
-            boxShadow: '0 2px 10px rgba(0,0,0,0.05)'
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6" component="h1" sx={{ fontSize: '1.1rem', fontWeight: 500 }}>
-              הכנסות {formatMonthAndYear(selectedMonth)}
-            </Typography>
-            <IconButton size="small" onClick={goToPreviousMonth}>
-              <ArrowForwardIcon fontSize="small" />
+            <IconButton
+              component={Link}
+              to="/dashboard"
+              aria-label="dashboard"
+            >
+              <DashboardIcon />
             </IconButton>
-            <IconButton size="small" onClick={goToNextMonth}>
-              <ArrowBackIcon fontSize="small" />
-            </IconButton>
-            <Tooltip title="חזרה לחודש נוכחי">
-              <IconButton size="small" onClick={goToCurrentMonth}>
-                <TodayIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-          <Button 
-            variant="outlined" 
-            size="small"
-            startIcon={<DownloadIcon />} 
-            onClick={downloadCSV}
-            sx={{ borderRadius: 1.5 }}
+          </SidebarButton>
+                    
+          <SidebarButton
+            title="יומן הזמנות"
+            placement="right"
+            isActive={currentPath === '/dashboard/bookings-calendar'}
           >
-            ייצוא
-          </Button>
-        </Paper>
+            <IconButton
+              component={Link}
+              to="/dashboard/bookings-calendar"
+              aria-label="bookings-calendar"
+            >
+              <CalendarMonthIcon />
+            </IconButton>
+          </SidebarButton>
+                    
+          <SidebarButton
+            title="106 / Airport"
+            placement="right"
+            isActive={currentPath === '/dashboard/simple-bookings'}
+          >
+            <IconButton
+              component={Link}
+              to="/dashboard/simple-bookings"
+              aria-label="airport"
+            >
+              <HotelIcon />
+            </IconButton>
+          </SidebarButton>
+                    
+          <SidebarButton
+            title="דו״ח הכנסות"
+            placement="right"
+            isActive={currentPath === '/dashboard/income-report'}
+          >
+            <IconButton
+              component={Link}
+              to="/dashboard/income-report"
+              aria-label="income-report"
+            >
+              <AssessmentIcon />
+            </IconButton>
+          </SidebarButton>
+        </MinimalSidebar>
 
-        {/* טאבים עליונים */}
-        <Paper 
-          elevation={0}
-          sx={{
-            mb: 3,
-            borderRadius: 2,
-            boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-            border: '1px solid',
-            borderColor: 'divider'
-          }}
-        >
-          <Tabs
-            value={mainTabValue}
-            onChange={(e, newValue) => setMainTabValue(newValue)}
-            sx={{
-              '& .MuiTab-root': { fontWeight: 500, py: 1.5 },
-              '& .Mui-selected': { fontWeight: 600 }
+        <Container maxWidth="xl" sx={{ mt: 3, mb: 6 }}>
+          {/* כותרת תמציתית */}
+          <Paper 
+            sx={{ 
+              p: 2, 
+              mb: 3, 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderRadius: 2,
+              boxShadow: '0 2px 10px rgba(0,0,0,0.05)'
             }}
           >
-            <Tab label="דף הכנסות" />
-            <Tab label="טאב עתידי 1" disabled />
-            <Tab label="טאב עתידי 2" disabled />
-          </Tabs>
-        </Paper>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6" component="h1" sx={{ fontSize: '1.1rem', fontWeight: 500 }}>
+                הכנסות {formatMonthAndYear(selectedMonth)}
+              </Typography>
+              <IconButton size="small" onClick={goToPreviousMonth}>
+                <ArrowForwardIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" onClick={goToNextMonth}>
+                <ArrowBackIcon fontSize="small" />
+              </IconButton>
+              <Tooltip title="חזרה לחודש נוכחי">
+                <IconButton size="small" onClick={goToCurrentMonth}>
+                  <TodayIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+            <Button 
+              variant="outlined" 
+              size="small"
+              startIcon={<DownloadIcon />} 
+              onClick={downloadCSV}
+              sx={{ borderRadius: 1.5 }}
+            >
+              ייצוא
+            </Button>
+          </Paper>
 
-        {/* סה"כ הכנסות ואחוזי תפוסה */}
-        <Grid container spacing={3} mb={3}>
-          <Grid item xs={12} md={4}>
-            <StatCard
-              icon={<MonetizationOnIcon />}
-              title="סה״כ הכנסות"
-              value={`₪${totalIncome.toLocaleString()}`}
-              subtext={`בחודש ${formatMonthAndYear(selectedMonth)}`}
-              color={theme.palette.primary.main}
-            />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <StatCard
-              icon={<NightsStayIcon />}
-              title="ממוצע ללילה"
-              value={`₪${averagePerNight.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-              subtext={`סה"כ ${totalNights} לילות`}
-              color="#4caf50"
-            />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <StatCard
-              icon={<DonutLargeIcon />}
-              title="תפוסה כללית"
-              value={`${occupancyData.overallOccupancy.occupancyPercent || 0}%`}
-              subtext={occupancyData.overallOccupancy.isCurrentMonth ? 
-                `${occupancyData.overallOccupancy.pastOccupancyPercent || 0}% תפוסה עד היום` : 
-                `${occupancyData.overallOccupancy.totalOccupiedDays || 0} מתוך ${occupancyData.overallOccupancy.totalPossibleDays || 0} ימי אירוח`}
-              color="#9c27b0"
-            />
-          </Grid>
-        </Grid>
-
-        {/* תוכן לפי לשוניות */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 3,
-            borderRadius: 3,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-            border: '1px solid',
-            borderColor: 'divider'
-          }}
-        >
-          {/* בחירת תצוגה */}
-          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-            <Tabs 
-              value={tabValue} 
-              onChange={(e, newValue) => setTabValue(newValue)}
-              sx={{ 
-                '& .MuiTab-root': { fontWeight: 500 },
+          {/* טאבים עליונים */}
+          <Paper 
+            elevation={0}
+            sx={{
+              mb: 3,
+              borderRadius: 2,
+              boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+              border: '1px solid',
+              borderColor: 'divider'
+            }}
+          >
+            <Tabs
+              value={mainTabValue}
+              onChange={(e, newValue) => setMainTabValue(newValue)}
+              sx={{
+                '& .MuiTab-root': { fontWeight: 500, py: 1.5 },
                 '& .Mui-selected': { fontWeight: 600 }
               }}
             >
-              <Tab icon={<RoomIcon />} iconPosition="start" label="הכנסות לפי חדרים" />
-              <Tab icon={<PaymentIcon />} iconPosition="start" label="הכנסות לפי אמצעי תשלום" />
-              <Tab icon={<DateRangeIcon />} iconPosition="start" label="הכנסות יומיות" />
+              <Tab label="דף הכנסות" />
+              <Tab label="הכנסות חדרים נוספים" />
+              <Tab label="טאב עתידי 2" disabled />
             </Tabs>
-          </Box>
+          </Paper>
 
-          {/* תצוגת מידע לפי חדרים */}
-          {tabValue === 0 && (
-            <Grid container spacing={3}>
-              {/* כותרת אזור החדרים */}
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="h6" fontWeight={600}>
-                    ביצועים לפי חדרים
-                  </Typography>
-                  {combinedRoomData.length > 0 && (
-                    <Typography variant="body2" color="text.secondary">
-                      {combinedRoomData.length} חדרים
-                    </Typography>
-                  )}
-                </Box>
+          {/* תוכן הטאב הראשון - דף הכנסות רגיל */}
+          {mainTabValue === 0 && (
+            <>
+              {/* סה"כ הכנסות ואחוזי תפוסה */}
+              <Grid container spacing={3} mb={3}>
+                <Grid item xs={12} md={4}>
+                  <StatCard
+                    icon={<MonetizationOnIcon />}
+                    title="סה״כ הכנסות"
+                    value={`₪${totalIncome.toLocaleString()}`}
+                    subtext={`בחודש ${formatMonthAndYear(selectedMonth)}`}
+                    color={theme.palette.primary.main}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <StatCard
+                    icon={<NightsStayIcon />}
+                    title="ממוצע ללילה"
+                    value={`₪${averagePerNight.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+                    subtext={`סה"כ ${totalNights} לילות`}
+                    color="#4caf50"
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <StatCard
+                    icon={<DonutLargeIcon />}
+                    title="תפוסה כללית"
+                    value={`${occupancyData.overallOccupancy.occupancyPercent || 0}%`}
+                    subtext={occupancyData.overallOccupancy.isCurrentMonth ? 
+                      `${occupancyData.overallOccupancy.pastOccupancyPercent || 0}% תפוסה עד היום` : 
+                      `${occupancyData.overallOccupancy.totalOccupiedDays || 0} מתוך ${occupancyData.overallOccupancy.totalPossibleDays || 0} ימי אירוח`}
+                    color="#9c27b0"
+                  />
+                </Grid>
               </Grid>
 
-              {/* אריחי חדרים */}
-              {loading ? (
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                    <CircularProgress />
-                  </Box>
-                </Grid>
-              ) : combinedRoomData.length === 0 ? (
-                <Grid item xs={12}>
-                  <Paper
-                    sx={{
-                      p: 3,
-                      textAlign: 'center',
-                      borderRadius: 2,
-                      bgcolor: alpha(theme.palette.error.main, 0.05)
+              {/* תוכן לפי לשוניות */}
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3,
+                  borderRadius: 3,
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                  border: '1px solid',
+                  borderColor: 'divider'
+                }}
+              >
+                {/* בחירת תצוגה */}
+                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                  <Tabs 
+                    value={tabValue} 
+                    onChange={(e, newValue) => setTabValue(newValue)}
+                    sx={{ 
+                      '& .MuiTab-root': { fontWeight: 500 },
+                      '& .Mui-selected': { fontWeight: 600 }
                     }}
                   >
-                    <Typography>לא נמצאו נתוני הכנסות לחדרים בתקופה זו</Typography>
-                  </Paper>
-                </Grid>
-              ) : (
-                <>
-                  {combinedRoomData.map((roomData, index) => (
-                    <Grid item xs={6} sm={4} md={3} lg={2} key={roomData.roomId || index}>
-                      <Card
-                        sx={{
-                          height: '100%',
-                          borderRadius: 2,
-                          overflow: 'hidden',
-                          boxShadow: '0 1px 5px rgba(0,0,0,0.05)',
-                          transition: 'transform 0.2s, box-shadow 0.2s',
-                          '&:hover': {
-                            transform: 'translateY(-3px)',
-                            boxShadow: '0 5px 15px rgba(0,0,0,0.08)'
-                          },
-                          display: 'flex',
-                          flexDirection: 'column',
-                          position: 'relative',
+                    <Tab icon={<RoomIcon />} iconPosition="start" label="הכנסות לפי חדרים" />
+                    <Tab icon={<PaymentIcon />} iconPosition="start" label="הכנסות לפי אמצעי תשלום" />
+                    <Tab icon={<DateRangeIcon />} iconPosition="start" label="הכנסות יומיות" />
+                  </Tabs>
+                </Box>
+
+                {/* תצוגת מידע לפי חדרים */}
+                {tabValue === 0 && (
+                  <Grid container spacing={3}>
+                    {/* כותרת אזור החדרים */}
+                    <Grid item xs={12}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography variant="h6" fontWeight={600}>
+                          ביצועים לפי חדרים
+                        </Typography>
+                        {combinedRoomData.length > 0 && (
+                          <Typography variant="body2" color="text.secondary">
+                            {combinedRoomData.length} חדרים
+                          </Typography>
+                        )}
+                      </Box>
+                    </Grid>
+
+                    {/* אריחי חדרים */}
+                    {loading ? (
+                      <Grid item xs={12}>
+                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                          <CircularProgress />
+                        </Box>
+                      </Grid>
+                    ) : combinedRoomData.length === 0 ? (
+                      <Grid item xs={12}>
+                        <Paper
+                          sx={{
+                            p: 3,
+                            textAlign: 'center',
+                            borderRadius: 2,
+                            bgcolor: alpha(theme.palette.error.main, 0.05)
+                          }}
+                        >
+                          <Typography>לא נמצאו נתוני הכנסות לחדרים בתקופה זו</Typography>
+                        </Paper>
+                      </Grid>
+                    ) : (
+                      <>
+                        {combinedRoomData.map((roomData, index) => (
+                          <Grid item xs={6} sm={4} md={3} lg={2} key={roomData.roomId || index}>
+                            <RoomCard 
+                              roomData={roomData} 
+                              theme={theme} 
+                              currentDay={new Date().getDate()}
+                              daysInMonth={occupancyData.overallOccupancy.daysInMonth || 30}
+                            />
+                          </Grid>
+                        ))}
+                      </>
+                    )}
+
+                    {/* סיכום בתחתית העמוד */}
+                    {combinedRoomData.length > 0 && (
+                      <Grid item xs={12}>
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 2,
+                            mt: 2,
+                            borderRadius: 2,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            bgcolor: alpha(theme.palette.background.default, 0.6)
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary">
+                            * אחוזי התפוסה מחושבים לפי מספר הלילות בהם החדר מושכר ביחס למספר הימים בחודש.
+                            {occupancyData.overallOccupancy.isCurrentMonth && ' עבור החודש הנוכחי, מוצגים אחוזי תפוסה רק מהימים שחלפו מתחילת החודש.'}
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    )}
+                  </Grid>
+                )}
+
+                {/* תצוגת מידע לפי אמצעי תשלום */}
+                {tabValue === 1 && (
+                  <Grid container spacing={4}>
+                    <Grid item xs={12} lg={7}>
+                      <Typography variant="h6" gutterBottom fontWeight={600}>
+                        התפלגות הכנסות לפי אמצעי תשלום
+                      </Typography>
+                      <Box sx={{ height: 400, mt: 2 }}>
+                        {loading ? (
+                          <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                            <CircularProgress />
+                          </Box>
+                        ) : incomeByPaymentMethod.length === 0 ? (
+                          <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography>לא נמצאו נתונים לאמצעי התשלום</Typography>
+                          </Box>
+                        ) : (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={incomeByPaymentMethod}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={80}
+                                outerRadius={140}
+                                paddingAngle={2}
+                                dataKey="value"
+                                nameKey="name"
+                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                labelLine={false}
+                              >
+                                {incomeByPaymentMethod.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip content={<CustomTooltip />} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        )}
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} lg={5}>
+                      <TableContainer sx={{ maxHeight: 400, overflowY: 'auto', borderRadius: 2 }}>
+                        <Table stickyHeader>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>אמצעי תשלום</TableCell>
+                              <TableCell align="center">מספר הזמנות</TableCell>
+                              <TableCell align="right">סה"כ הכנסות</TableCell>
+                              <TableCell align="right">אחוז</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {loading ? (
+                              <TableRow>
+                                <TableCell colSpan={4} align="center">
+                                  <CircularProgress size={30} sx={{ my: 2 }} />
+                                </TableCell>
+                              </TableRow>
+                            ) : incomeByPaymentMethod.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={4} align="center">
+                                  לא נמצאו נתוני הכנסות לאמצעי התשלום
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              incomeByPaymentMethod.map((item, index) => (
+                                <TableRow key={index} sx={{
+                                  '&:nth-of-type(odd)': { bgcolor: alpha(theme.palette.primary.main, 0.02) }
+                                }}>
+                                  <TableCell>
+                                    <Box display="flex" alignItems="center">
+                                      <Box 
+                                        sx={{ 
+                                          width: 12, 
+                                          height: 12, 
+                                          borderRadius: '50%', 
+                                          mr: 1,
+                                          bgcolor: item.color
+                                        }} 
+                                      />
+                                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                        <PaymentIcon sx={{ mr: 0.5, fontSize: '1rem', color: item.color }} />
+                                        {item.label}
+                                      </Box>
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell align="center">{item.count}</TableCell>
+                                  <TableCell align="right">₪{item.totalAmount.toLocaleString()}</TableCell>
+                                  <TableCell align="right">
+                                    {((item.totalAmount / totalIncome) * 100).toFixed(1)}%
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            )}
+                            {/* שורת סיכום */}
+                            {incomeByPaymentMethod.length > 0 && (
+                              <TableRow sx={{ 
+                                backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                                fontWeight: 'bold'
+                              }}>
+                                <TableCell><strong>סה"כ</strong></TableCell>
+                                <TableCell align="center"><strong>{filteredData.length}</strong></TableCell>
+                                <TableCell align="right"><strong>₪{totalIncome.toLocaleString()}</strong></TableCell>
+                                <TableCell align="right"><strong>100%</strong></TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </Grid>
+                  </Grid>
+                )}
+
+                {/* תצוגת הכנסות יומיות */}
+                {tabValue === 2 && (
+                  <Grid container spacing={3}>
+                    <Grid item xs={12}>
+                      <Typography variant="h6" gutterBottom fontWeight={600}>
+                        הכנסות יומיות בחודש {formatMonthAndYear(selectedMonth)}
+                      </Typography>
+                      <Box sx={{ height: 400, mt: 2 }}>
+                        {loading ? (
+                          <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                            <CircularProgress />
+                          </Box>
+                        ) : incomeByDayOfMonth.length === 0 ? (
+                          <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography>לא נמצאו נתונים לחודש זה</Typography>
+                          </Box>
+                        ) : (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart 
+                              data={incomeByDayOfMonth}
+                              margin={{ top: 10, right: 10, left: 20, bottom: 30 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={alpha('#000', 0.09)} />
+                              <XAxis 
+                                dataKey="day" 
+                                label={{ 
+                                  value: 'ימים בחודש', 
+                                  position: 'insideBottom', 
+                                  offset: -10,
+                                  fill: theme.palette.text.secondary
+                                }}
+                                tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
+                                axisLine={false}
+                                tickLine={false}
+                              />
+                              <YAxis 
+                                tickFormatter={(value) => `₪${value.toLocaleString()}`}
+                                axisLine={false}
+                                tickLine={false}
+                              />
+                              <RechartsTooltip 
+                                formatter={(value) => [`₪${value.toLocaleString()}`, 'הכנסה']}
+                                labelFormatter={(day) => `יום ${day}`}
+                                cursor={{ fill: alpha(theme.palette.primary.main, 0.1) }}
+                              />
+                              <Bar 
+                                dataKey="totalAmount" 
+                                name="הכנסה" 
+                                radius={[4, 4, 0, 0]}
+                                barSize={18}
+                              >
+                                {incomeByDayOfMonth.map((entry, index) => {
+                                  // צביעת סופי שבוע בצבע שונה
+                                  const date = new Date(entry.date);
+                                  const isWeekend = date.getDay() === 5 || date.getDay() === 6; // יום שישי או שבת
+                                  return (
+                                    <Cell 
+                                      key={`cell-${index}`} 
+                                      fill={isWeekend ? '#f44336' : theme.palette.primary.main} 
+                                      fillOpacity={entry.totalAmount > 0 ? 1 : 0.3} // שקיפות נמוכה לימים ללא הכנסות
+                                    />
+                                  );
+                                })}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        )}
+                      </Box>
+                    </Grid>
+
+                    <Grid item xs={12}>
+                      <Paper 
+                        elevation={0} 
+                        sx={{ 
+                          p: 2, 
+                          borderRadius: 2, 
+                          bgcolor: alpha(theme.palette.primary.main, 0.03),
                           border: '1px solid',
-                          borderColor: alpha(theme.palette.primary.main, 0.15)
+                          borderColor: 'divider'
                         }}
                       >
-                        {/* כותרת עם מספר חדר */}
-                        <Box
-                          sx={{
-                            height: '40px',
-                            background: theme.palette.primary.main,
-                            position: 'relative',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            py: 0.5
-                          }}
-                        >
-                          <Typography
-                            variant="h6"
-                            component="div"
-                            sx={{
-                              fontWeight: 600,
-                              color: '#fff',
-                              fontSize: '1rem'
-                            }}
-                          >
-                            חדר {roomData.roomNumber}
-                          </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 3, mb: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Box sx={{ width: 16, height: 16, borderRadius: 1, bgcolor: theme.palette.primary.main, mr: 1 }} />
+                            <Typography variant="body2">ימי חול</Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Box sx={{ width: 16, height: 16, borderRadius: 1, bgcolor: '#f44336', mr: 1 }} />
+                            <Typography variant="body2">סופי שבוע (שישי-שבת)</Typography>
+                          </Box>
                         </Box>
-                        
-                        <CardContent sx={{ p: 1.5, pt: 2, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                          {/* תפוסה */}
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                            <Typography variant="body2" color="text.secondary">
-                              תפוסה:
-                            </Typography>
-                            <Chip 
-                              label={`${occupancyData.overallOccupancy.isCurrentMonth ? 
-                                roomData.pastOccupancyPercent : 
-                                roomData.occupancyPercent}%`} 
-                              size="small"
-                              sx={{ 
-                                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                                color: theme.palette.primary.main,
-                                fontWeight: 600
-                              }}
-                            />
-                          </Box>
-                          
-                          {/* נתונים כספיים */}
-                          <Box sx={{ mt: 1 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                              <Typography variant="body2" color="text.secondary" fontSize="0.8rem">
-                                הכנסה ללילה:
-                              </Typography>
-                              <Typography variant="body2" fontWeight={500}>
-                                ₪{roomData.perNightAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                              </Typography>
-                            </Box>
-                            
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                              <Typography variant="body2" color="text.secondary" fontSize="0.8rem">
-                                לילות:
-                              </Typography>
-                              <Typography variant="body2" fontWeight={500}>
-                                {roomData.nights}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          
-                          <Divider sx={{ my: 1 }} />
-                          
-                          <Box sx={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center',
-                            mt: 'auto'
-                          }}>
-                            <Typography variant="subtitle2">
-                              סה"כ:
-                            </Typography>
-                            <Typography variant="subtitle1" fontWeight={700} color="primary">
-                              ₪{roomData.totalAmount.toLocaleString()}
-                            </Typography>
-                          </Box>
-                        </CardContent>
-                      </Card>
+                        <Typography variant="subtitle2" color="text.secondary">
+                          * ההכנסות מחושבות לפי לילות. כל הזמנה מחולקת למספר הלילות שלה, והסכום לפי לילה מתווסף לכל אחד מהימים.
+                        </Typography>
+                      </Paper>
                     </Grid>
-                  ))}
-                </>
-              )}
+                  </Grid>
+                )}
+              </Paper>
+            </>
+          )}
 
-              {/* סיכום בתחתית העמוד */}
-              {combinedRoomData.length > 0 && (
-                <Grid item xs={12}>
-                  <Paper
-                    elevation={0}
-                    sx={{
-                      p: 2,
-                      mt: 2,
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      bgcolor: alpha(theme.palette.background.default, 0.6)
+          {/* תוכן הטאב השני - הכנסות SimpleBookings */}
+          {mainTabValue === 1 && (
+            <>
+              {/* סה"כ הכנסות מחדרים נוספים */}
+              <Grid container spacing={3} mb={3}>
+                <Grid item xs={12} md={4}>
+                  <StatCard
+                    icon={<MonetizationOnIcon />}
+                    title="סה״כ הכנסות חדרים נוספים"
+                    value={`₪${simpleBookingsTotalIncome.toLocaleString()}`}
+                    subtext={`בחודש ${formatMonthAndYear(selectedMonth)}`}
+                    color="#ff9800"
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <StatCard
+                    icon={<NightsStayIcon />}
+                    title="מספר הזמנות"
+                    value={simpleBookings.length}
+                    subtext="הזמנות ששולמו בחודש זה"
+                    color="#4caf50"
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <StatCard
+                    icon={<AttachMoneyIcon />}
+                    title="ממוצע להזמנה"
+                    value={`₪${simpleBookings.length > 0 ? (simpleBookingsTotalIncome / simpleBookings.length).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0}`}
+                    subtext="הכנסה ממוצעת להזמנה"
+                    color="#9c27b0"
+                  />
+                </Grid>
+              </Grid>
+
+              {/* תוכן לפי לשוניות */}
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3,
+                  borderRadius: 3,
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                  border: '1px solid',
+                  borderColor: 'divider'
+                }}
+              >
+                {/* בחירת תצוגה */}
+                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                  <Tabs 
+                    value={tabValue} 
+                    onChange={(e, newValue) => setTabValue(newValue)}
+                    sx={{ 
+                      '& .MuiTab-root': { fontWeight: 500 },
+                      '& .Mui-selected': { fontWeight: 600 }
                     }}
                   >
-                    <Typography variant="body2" color="text.secondary">
-                      * אחוזי התפוסה מחושבים לפי מספר הלילות בהם החדר מושכר ביחס למספר הימים בחודש.
-                      {occupancyData.overallOccupancy.isCurrentMonth && ' עבור החודש הנוכחי, מוצגים אחוזי תפוסה רק מהימים שחלפו מתחילת החודש.'}
-                    </Typography>
-                  </Paper>
-                </Grid>
-              )}
-            </Grid>
-          )}
-
-          {/* תצוגת מידע לפי אמצעי תשלום */}
-          {tabValue === 1 && (
-            <Grid container spacing={4}>
-              <Grid item xs={12} lg={7}>
-                <Typography variant="h6" gutterBottom fontWeight={600}>
-                  התפלגות הכנסות לפי אמצעי תשלום
-                </Typography>
-                <Box sx={{ height: 400, mt: 2 }}>
-                  {loading ? (
-                    <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                      <CircularProgress />
-                    </Box>
-                  ) : incomeByPaymentMethod.length === 0 ? (
-                    <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                      <Typography>לא נמצאו נתונים לאמצעי התשלום</Typography>
-                    </Box>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={incomeByPaymentMethod}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={80}
-                          outerRadius={140}
-                          paddingAngle={2}
-                          dataKey="value"
-                          nameKey="name"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          labelLine={false}
-                        >
-                          {incomeByPaymentMethod.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <RechartsTooltip content={<CustomTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  )}
+                    <Tab icon={<RoomIcon />} iconPosition="start" label="הכנסות לפי חדרים" />
+                    <Tab icon={<PaymentIcon />} iconPosition="start" label="הכנסות לפי אמצעי תשלום" />
+                    <Tab icon={<DateRangeIcon />} iconPosition="start" label="הכנסות יומיות" />
+                  </Tabs>
                 </Box>
-              </Grid>
-              <Grid item xs={12} lg={5}>
-                <TableContainer sx={{ maxHeight: 400, overflowY: 'auto', borderRadius: 2 }}>
-                  <Table stickyHeader>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>אמצעי תשלום</TableCell>
-                        <TableCell align="center">מספר הזמנות</TableCell>
-                        <TableCell align="right">סה"כ הכנסות</TableCell>
-                        <TableCell align="right">אחוז</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {loading ? (
-                        <TableRow>
-                          <TableCell colSpan={4} align="center">
-                            <CircularProgress size={30} sx={{ my: 2 }} />
-                          </TableCell>
-                        </TableRow>
-                      ) : incomeByPaymentMethod.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={4} align="center">
-                            לא נמצאו נתוני הכנסות לאמצעי התשלום
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        incomeByPaymentMethod.map((item, index) => (
-                          <TableRow key={index} sx={{
-                            '&:nth-of-type(odd)': { bgcolor: alpha(theme.palette.primary.main, 0.02) }
-                          }}>
-                            <TableCell>
-                              <Box display="flex" alignItems="center">
-                                <Box 
-                                  sx={{ 
-                                    width: 12, 
-                                    height: 12, 
-                                    borderRadius: '50%', 
-                                    mr: 1,
-                                    bgcolor: item.color
-                                  }} 
-                                />
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <PaymentIcon sx={{ mr: 0.5, fontSize: '1rem', color: item.color }} />
-                                  {item.label}
+
+                {/* תצוגת מידע לפי חדרים */}
+                {tabValue === 0 && (
+                  <Grid container spacing={3}>
+                    {/* כותרת אזור החדרים */}
+                    <Grid item xs={12}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography variant="h6" fontWeight={600}>
+                          הכנסות לפי חדרים נוספים
+                        </Typography>
+                        {simpleBookingsIncomeByRoom.length > 0 && (
+                          <Typography variant="body2" color="text.secondary">
+                            {simpleBookingsIncomeByRoom.length} חדרים
+                          </Typography>
+                        )}
+                      </Box>
+                    </Grid>
+
+                    {/* אריחי חדרים */}
+                    {loadingSimpleBookings ? (
+                      <Grid item xs={12}>
+                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                          <CircularProgress />
+                        </Box>
+                      </Grid>
+                    ) : simpleBookingsIncomeByRoom.length === 0 ? (
+                      <Grid item xs={12}>
+                        <Box sx={{ textAlign: 'center', p: 4, color: 'text.secondary' }}>
+                          <Typography>לא נמצאו נתוני הכנסות מחדרים נוספים לחודש זה</Typography>
+                        </Box>
+                      </Grid>
+                    ) : (
+                      <>
+                        {/* חדרי SimpleBookings */}
+                        {simpleBookingsIncomeByRoom.map((roomData) => (
+                          <Grid item xs={12} sm={6} md={4} lg={3} key={`${roomData.location}-${roomData.roomId}`}>
+                            <Card
+                              sx={{
+                                height: '100%',
+                                borderRadius: 2,
+                                overflow: 'hidden',
+                                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                '&:hover': {
+                                  transform: 'translateY(-5px)',
+                                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
+                                },
+                                display: 'flex',
+                                flexDirection: 'column',
+                                position: 'relative',
+                                border: '1px solid',
+                                borderColor: alpha(roomData.fill, 0.3)
+                              }}
+                            >
+                              {/* רקע עם שם החדר */}
+                              <Box
+                                sx={{
+                                  height: '60px',
+                                  background: `linear-gradient(135deg, ${alpha(roomData.fill, 0.9)} 0%, ${alpha(roomData.fill, 0.5)} 100%)`,
+                                  position: 'relative',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  py: 1
+                                }}
+                              >
+                                <Box sx={{ display: 'flex', alignItems: 'center', zIndex: 1 }}>
+                                  <RoomIcon sx={{ color: '#fff', mr: 1 }} />
+                                  <Typography
+                                    variant="h6"
+                                    component="div"
+                                    sx={{
+                                      fontWeight: 700,
+                                      color: '#fff',
+                                      textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                                      zIndex: 2
+                                    }}
+                                  >
+                                    {roomData.roomName}
+                                  </Typography>
                                 </Box>
                               </Box>
-                            </TableCell>
-                            <TableCell align="center">{item.count}</TableCell>
-                            <TableCell align="right">₪{item.totalAmount.toLocaleString()}</TableCell>
-                            <TableCell align="right">
-                              {((item.totalAmount / totalIncome) * 100).toFixed(1)}%
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                      {/* שורת סיכום */}
-                      {incomeByPaymentMethod.length > 0 && (
-                        <TableRow sx={{ 
-                          backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                          fontWeight: 'bold'
-                        }}>
-                          <TableCell><strong>סה"כ</strong></TableCell>
-                          <TableCell align="center"><strong>{filteredData.length}</strong></TableCell>
-                          <TableCell align="right"><strong>₪{totalIncome.toLocaleString()}</strong></TableCell>
-                          <TableCell align="right"><strong>100%</strong></TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Grid>
-            </Grid>
-          )}
 
-          {/* תצוגת הכנסות יומיות */}
-          {tabValue === 2 && (
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom fontWeight={600}>
-                  הכנסות יומיות בחודש {formatMonthAndYear(selectedMonth)}
-                </Typography>
-                <Box sx={{ height: 400, mt: 2 }}>
-                  {loading ? (
-                    <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                      <CircularProgress />
-                    </Box>
-                  ) : incomeByDayOfMonth.length === 0 ? (
-                    <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                      <Typography>לא נמצאו נתונים לחודש זה</Typography>
-                    </Box>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart 
-                        data={incomeByDayOfMonth}
-                        margin={{ top: 10, right: 10, left: 20, bottom: 30 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={alpha('#000', 0.09)} />
-                        <XAxis 
-                          dataKey="day" 
-                          label={{ 
-                            value: 'ימים בחודש', 
-                            position: 'insideBottom', 
-                            offset: -10,
-                            fill: theme.palette.text.secondary
-                          }}
-                          tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <YAxis 
-                          tickFormatter={(value) => `₪${value.toLocaleString()}`}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <RechartsTooltip 
-                          formatter={(value) => [`₪${value.toLocaleString()}`, 'הכנסה']}
-                          labelFormatter={(day) => `יום ${day}`}
-                          cursor={{ fill: alpha(theme.palette.primary.main, 0.1) }}
-                        />
-                        <Bar 
-                          dataKey="totalAmount" 
-                          name="הכנסה" 
-                          radius={[4, 4, 0, 0]}
-                          barSize={18}
-                        >
-                          {incomeByDayOfMonth.map((entry, index) => {
-                            // צביעת סופי שבוע בצבע שונה
-                            const date = new Date(entry.date);
-                            const isWeekend = date.getDay() === 5 || date.getDay() === 6; // יום שישי או שבת
-                            return (
-                              <Cell 
-                                key={`cell-${index}`} 
-                                fill={isWeekend ? '#f44336' : theme.palette.primary.main} 
-                                fillOpacity={entry.totalAmount > 0 ? 1 : 0.3} // שקיפות נמוכה לימים ללא הכנסות
+                              <CardContent sx={{ p: 2, pt: 2.5, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                                      <MonetizationOnIcon fontSize="small" sx={{ mr: 0.5, color: roomData.fill, opacity: 0.6 }} />
+                                      הכנסה ללילה:
+                                    </Typography>
+                                    <Typography variant="body1" fontWeight={600}>
+                                      ₪{roomData.perNightAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </Typography>
+                                  </Box>
+                                  
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                                      <EventNoteIcon fontSize="small" sx={{ mr: 0.5, color: roomData.fill, opacity: 0.6 }} />
+                                      סה"כ לילות:
+                                    </Typography>
+                                    <Typography variant="body1" fontWeight={600}>
+                                      {roomData.nights}
+                                    </Typography>
+                                  </Box>
+                                  
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                                      <NightsStayIcon fontSize="small" sx={{ mr: 0.5, color: roomData.fill, opacity: 0.6 }} />
+                                      מספר הזמנות:
+                                    </Typography>
+                                    <Typography variant="body1" fontWeight={600}>
+                                      {roomData.bookings}
+                                    </Typography>
+                                  </Box>
+                                  
+                                  <Box sx={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    mt: 1,
+                                    py: 1.5,
+                                    px: 1.5,
+                                    borderRadius: 1.5,
+                                    bgcolor: alpha(roomData.fill, 0.08),
+                                    border: '1px dashed',
+                                    borderColor: alpha(roomData.fill, 0.3)
+                                  }}>
+                                    <Typography variant="subtitle2" color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
+                                      <AttachMoneyIcon fontSize="small" sx={{ mr: 0.5, color: roomData.fill }} />
+                                      סה"כ הכנסות:
+                                    </Typography>
+                                    <Typography variant="h6" fontWeight={700} color={roomData.fill} sx={{ textShadow: '0 0 1px rgba(0,0,0,0.05)' }}>
+                                      ₪{roomData.totalAmount.toLocaleString()}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              </CardContent>
+                            </Card>
+                          </Grid>
+                        ))}
+                      </>
+                    )}
+                  </Grid>
+                )}
+
+                {/* תצוגת הכנסות לפי אמצעי תשלום */}
+                {tabValue === 1 && (
+                  <Grid container spacing={4}>
+                    <Grid item xs={12} lg={7}>
+                      <Typography variant="h6" gutterBottom fontWeight={600}>
+                        התפלגות הכנסות לפי אמצעי תשלום
+                      </Typography>
+                      <Box sx={{ height: 400, mt: 2 }}>
+                        {loadingSimpleBookings ? (
+                          <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                            <CircularProgress />
+                          </Box>
+                        ) : simpleBookingsIncomeByPaymentMethod.length === 0 ? (
+                          <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography>לא נמצאו נתונים לאמצעי התשלום</Typography>
+                          </Box>
+                        ) : (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={simpleBookingsIncomeByPaymentMethod}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={80}
+                                outerRadius={140}
+                                paddingAngle={2}
+                                dataKey="value"
+                                nameKey="name"
+                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                labelLine={false}
+                              >
+                                {simpleBookingsIncomeByPaymentMethod.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip content={<CustomTooltip />} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        )}
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} lg={5}>
+                      <TableContainer sx={{ maxHeight: 400, overflowY: 'auto', borderRadius: 2 }}>
+                        <Table stickyHeader>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>אמצעי תשלום</TableCell>
+                              <TableCell align="center">מספר הזמנות</TableCell>
+                              <TableCell align="right">סה"כ הכנסות</TableCell>
+                              <TableCell align="right">אחוז</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {loadingSimpleBookings ? (
+                              <TableRow>
+                                <TableCell colSpan={4} align="center">
+                                  <CircularProgress size={30} sx={{ my: 2 }} />
+                                </TableCell>
+                              </TableRow>
+                            ) : simpleBookingsIncomeByPaymentMethod.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={4} align="center">
+                                  <Typography variant="body2" color="text.secondary">
+                                    אין נתונים להצגה
+                                  </Typography>
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              simpleBookingsIncomeByPaymentMethod.map((method) => (
+                                <TableRow key={method.id} hover>
+                                  <TableCell>
+                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                      <Box
+                                        sx={{
+                                          width: 14,
+                                          height: 14,
+                                          borderRadius: '50%',
+                                          backgroundColor: method.color,
+                                          mr: 1
+                                        }}
+                                      />
+                                      {method.name}
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell align="center">{method.count}</TableCell>
+                                  <TableCell align="right">₪{method.totalAmount.toLocaleString()}</TableCell>
+                                  <TableCell align="right">
+                                    {((method.value / simpleBookingsTotalIncome) * 100).toFixed(1)}%
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            )}
+                            
+                            {simpleBookingsIncomeByPaymentMethod.length > 0 && (
+                              <TableRow sx={{ 
+                                backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                                fontWeight: 'bold'
+                              }}>
+                                <TableCell><strong>סה"כ</strong></TableCell>
+                                <TableCell align="center"><strong>{simpleBookings.length}</strong></TableCell>
+                                <TableCell align="right"><strong>₪{simpleBookingsTotalIncome.toLocaleString()}</strong></TableCell>
+                                <TableCell align="right"><strong>100%</strong></TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </Grid>
+                  </Grid>
+                )}
+
+                {/* תצוגת הכנסות יומיות */}
+                {tabValue === 2 && (
+                  <Grid container spacing={3}>
+                    <Grid item xs={12}>
+                      <Typography variant="h6" gutterBottom fontWeight={600}>
+                        הכנסות יומיות מחדרים נוספים בחודש {formatMonthAndYear(selectedMonth)}
+                      </Typography>
+                      <Box sx={{ height: 400, mt: 2 }}>
+                        {loadingSimpleBookings ? (
+                          <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                            <CircularProgress />
+                          </Box>
+                        ) : simpleBookingsIncomeByDayOfMonth.every(day => day.totalAmount === 0) ? (
+                          <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography>לא נמצאו נתונים לחודש זה</Typography>
+                          </Box>
+                        ) : (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart 
+                              data={simpleBookingsIncomeByDayOfMonth}
+                              margin={{ top: 10, right: 10, left: 20, bottom: 30 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={alpha('#000', 0.09)} />
+                              <XAxis 
+                                dataKey="day" 
+                                label={{ 
+                                  value: 'ימים בחודש', 
+                                  position: 'insideBottom', 
+                                  offset: -10,
+                                  fill: theme.palette.text.secondary
+                                }}
+                                tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
+                                axisLine={false}
+                                tickLine={false}
                               />
-                            );
-                          })}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </Box>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Paper 
-                  elevation={0} 
-                  sx={{ 
-                    p: 2, 
-                    borderRadius: 2, 
-                    bgcolor: alpha(theme.palette.primary.main, 0.03),
-                    border: '1px solid',
-                    borderColor: 'divider'
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 3, mb: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Box sx={{ width: 16, height: 16, borderRadius: 1, bgcolor: theme.palette.primary.main, mr: 1 }} />
-                      <Typography variant="body2">ימי חול</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Box sx={{ width: 16, height: 16, borderRadius: 1, bgcolor: '#f44336', mr: 1 }} />
-                      <Typography variant="body2">סופי שבוע (שישי-שבת)</Typography>
-                    </Box>
-                  </Box>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    * ההכנסות מחושבות לפי לילות. כל הזמנה מחולקת למספר הלילות שלה, והסכום לפי לילה מתווסף לכל אחד מהימים.
-                  </Typography>
-                </Paper>
-              </Grid>
-            </Grid>
+                              <YAxis 
+                                tickFormatter={(value) => `₪${value.toLocaleString()}`}
+                                axisLine={false}
+                                tickLine={false}
+                              />
+                              <RechartsTooltip 
+                                formatter={(value) => [`₪${value.toLocaleString()}`, 'הכנסה']}
+                                labelFormatter={(day) => `יום ${day}`}
+                                cursor={{ fill: alpha(theme.palette.primary.main, 0.1) }}
+                              />
+                              <Bar 
+                                dataKey="totalAmount" 
+                                fill="#ff9800"
+                                radius={[4, 4, 0, 0]}
+                                maxBarSize={30}
+                              />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        )}
+                      </Box>
+                    </Grid>
+                  </Grid>
+                )}
+              </Paper>
+            </>
           )}
-        </Paper>
-      </Container>
+        </Container>
+      </Box>
     </LocalizationProvider>
   );
 };
