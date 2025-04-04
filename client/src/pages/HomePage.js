@@ -4,6 +4,7 @@ import axios from 'axios';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
 import he from 'date-fns/locale/he';
 import { addDays, differenceInDays } from 'date-fns';
 import { 
@@ -191,8 +192,7 @@ const HomePage = () => {
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
   
   const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrow = addDays(today, 1);
   
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -210,6 +210,8 @@ const HomePage = () => {
   const [searchFocused, setSearchFocused] = useState(false);
   
   const searchSectionRef = useRef(null);
+  const [checkInOpen, setCheckInOpen] = useState(false);
+  const [checkOutOpen, setCheckOutOpen] = useState(false);
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -258,11 +260,22 @@ const HomePage = () => {
     }
   }, [location.state]);
 
-  const handleDateChange = (field, value) => {
+  const handleCheckInChange = (newValue) => {
     setBookingData(prev => ({
       ...prev,
-      [field]: value
+      checkIn: newValue,
+      checkOut: null
     }));
+    setCheckInOpen(false);
+    setCheckOutOpen(true);
+  };
+
+  const handleCheckOutChange = (newValue) => {
+    setBookingData(prev => ({
+      ...prev,
+      checkOut: newValue
+    }));
+    setCheckOutOpen(false);
   };
 
   const handleGuestsMenuOpen = (event) => {
@@ -284,7 +297,9 @@ const HomePage = () => {
 
   const calculateNights = () => {
     if (bookingData.checkIn && bookingData.checkOut) {
-      return differenceInDays(bookingData.checkOut, bookingData.checkIn);
+      const checkIn = new Date(bookingData.checkIn.setHours(0, 0, 0, 0));
+      const checkOut = new Date(bookingData.checkOut.setHours(0, 0, 0, 0));
+      return Math.round((checkOut - checkIn) / (1000 * 60 * 60 * 24));
     }
     return 0;
   };
@@ -295,8 +310,9 @@ const HomePage = () => {
       return;
     }
 
-    if (calculateNights() < 1) {
-      setSearchError('תאריך צ׳ק אאוט חייב להיות לפחות יום אחד אחרי צ׳ק אין');
+    const nights = calculateNights();
+    if (nights <= 0) {
+      setSearchError('תאריך צ׳ק אאוט חייב להיות אחרי תאריך צ׳ק אין');
       return;
     }
 
@@ -348,512 +364,584 @@ const HomePage = () => {
     }
   };
 
-  return (
-    <Box sx={{ 
-      maxWidth: '1400px', 
-      mx: 'auto',
-      px: { xs: 2, sm: 3, md: 4 },
-      py: { xs: 2, md: 3 },
-      backgroundColor: alpha(theme.palette.background.default, 0.7),
-      backgroundImage: 'linear-gradient(to bottom, #f8f9fa, #ffffff)',
-      minHeight: '100vh',
-      position: 'relative'
-    }}>
-      <Paper
-        ref={searchSectionRef}
-        elevation={3}
-        sx={{
-          p: { xs: 3, sm: 4 },
-          mb: 6,
-          borderRadius: 4,
-          border: searchFocused ? `2px solid ${theme.palette.primary.main}` : 'none',
-          transition: 'all 0.3s ease',
-          boxShadow: searchFocused 
-            ? `0 8px 32px ${alpha(theme.palette.primary.main, 0.15)}`
-            : '0 8px 24px rgba(0,0,0,0.05)',
-          background: 'linear-gradient(135deg, #ffffff, #f9f9ff)',
-          position: 'relative',
-          overflow: 'hidden',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '5px',
-            background: 'linear-gradient(90deg, #42a5f5, #1976d2, #0d47a1)',
-            opacity: 0.8
-          },
-          backdropFilter: 'blur(8px)'
+  const renderDatePicker = (field, label) => {
+    const DatePickerComponent = isMobile ? MobileDatePicker : DatePicker;
+    const isCheckIn = field === 'checkIn';
+    
+    return (
+      <DatePickerComponent
+        label={label}
+        value={bookingData[field]}
+        onChange={isCheckIn ? handleCheckInChange : handleCheckOutChange}
+        minDate={isCheckIn ? new Date() : addDays(bookingData.checkIn, 1)}
+        format="dd/MM/yyyy"
+        open={isCheckIn ? checkInOpen : checkOutOpen}
+        onClose={() => isCheckIn ? setCheckInOpen(false) : setCheckOutOpen(false)}
+        onOpen={() => isCheckIn ? setCheckInOpen(true) : setCheckOutOpen(true)}
+        views={['day']}
+        components={{
+          ActionBar: () => null
         }}
-      >
-        <Grid container spacing={3} alignItems="center">
-          <Grid item xs={12} sm={6} md={3}>
-            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-              <DatePicker
-                label="תאריך כניסה"
-                value={bookingData.checkIn}
-                onChange={(newValue) => handleDateChange('checkIn', newValue)}
-                disablePast
-                sx={{ width: '100%' }}
-                slotProps={{
-                  textField: {
-                    variant: 'outlined',
-                    fullWidth: true,
-                    size: isMobile ? "small" : "medium",
-                    sx: {
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                          boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.1)}`
-                        },
-                        '&.Mui-focused': {
-                          boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.2)}`
-                        }
-                      }
-                    }
-                  },
-                  actionBar: {
-                    actions: ['clear', 'today'],
+        slotProps={{
+          textField: {
+            fullWidth: true,
+            variant: "outlined",
+            placeholder: isCheckIn ? "בחר תאריך כניסה" : "בחר תאריך יציאה",
+            sx: {
+              height: isMobile ? '40px' : '56px',
+              '& .MuiOutlinedInput-root': {
+                height: '100%',
+                backgroundColor: 'white',
+                borderRadius: 2,
+                borderWidth: '1.5px',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  borderWidth: '1.5px',
+                  boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.1)}`
+                }
+              },
+              '& .MuiInputLabel-root': {
+                color: theme.palette.text.primary,
+                fontSize: '1rem',
+                fontWeight: 500,
+                transform: 'translate(14px, -8px) scale(0.75)',
+                '&.Mui-focused': {
+                  color: theme.palette.primary.main
+                }
+              },
+              '& .MuiOutlinedInput-input': {
+                fontSize: '0.9rem',
+                padding: '12px 14px',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center'
+              },
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: theme.palette.primary.main,
+                borderWidth: '1.5px'
+              }
+            },
+          },
+          toolbar: {
+            hidden: false,
+            toolbarTitle: isCheckIn ? "בחר תאריך כניסה" : "בחר תאריך יציאה",
+            sx: {
+              '& .MuiTypography-root': {
+                fontSize: '1.2rem',
+                fontWeight: 'bold',
+                textAlign: 'center',
+                width: '100%',
+                padding: '12px 0',
+                borderBottom: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+              }
+            }
+          },
+          layout: {
+            sx: {
+              '& .MuiPickersLayout-toolbar': {
+                display: 'flex',
+                justifyContent: 'center',
+                '& .MuiDatePickerToolbar-title': {
+                  display: 'none'
+                },
+                '& .MuiPickersToolbar-content': {
+                  display: 'none'
+                }
+              },
+              '& .MuiDayCalendar-header': {
+                '& .MuiTypography-root': {
+                  fontSize: '0.9rem',
+                  fontWeight: 'bold',
+                }
+              },
+              '& .MuiPickersCalendarHeader-label': {
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+              },
+              '& .MuiPickersDay-root': {
+                fontSize: '1rem',
+                '&.Mui-selected': {
+                  backgroundColor: theme.palette.primary.main,
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: theme.palette.primary.dark,
                   }
-                }}
-              />
-            </LocalizationProvider>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-              <DatePicker
-                label="תאריך יציאה"
-                value={bookingData.checkOut}
-                onChange={(newValue) => handleDateChange('checkOut', newValue)}
-                disablePast
-                minDate={addDays(bookingData.checkIn, 1)}
-                sx={{ width: '100%' }}
-                slotProps={{
-                  textField: {
-                    variant: 'outlined',
-                    fullWidth: true,
-                    size: isMobile ? "small" : "medium",
-                    sx: {
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                          boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.1)}`
-                        },
-                        '&.Mui-focused': {
-                          boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.2)}`
-                        }
-                      }
+                }
+              }
+            }
+          },
+          day: {
+            sx: {
+              '&.MuiPickersDay-today': {
+                borderColor: theme.palette.primary.main,
+              }
+            }
+          }
+        }}
+        sx={{
+          width: '100%',
+          height: '100%',
+          '& .MuiPickersDay-root': {
+            '&.Mui-selected': {
+              backgroundColor: theme.palette.primary.main,
+              color: 'white',
+            },
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+            },
+          },
+        }}
+      />
+    );
+  };
+
+  return (
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
+      <Box sx={{ 
+        maxWidth: '1400px', 
+        mx: 'auto',
+        px: { xs: 2, sm: 3, md: 4 },
+        py: { xs: 2, md: 3 },
+        backgroundColor: alpha(theme.palette.background.default, 0.7),
+        backgroundImage: 'linear-gradient(to bottom, #f8f9fa, #ffffff)',
+        minHeight: '100vh',
+        position: 'relative'
+      }}>
+        <Paper
+          ref={searchSectionRef}
+          elevation={3}
+          sx={{
+            p: { xs: 3, sm: 4 },
+            mb: 6,
+            borderRadius: 4,
+            border: searchFocused ? `2px solid ${theme.palette.primary.main}` : 'none',
+            transition: 'all 0.3s ease',
+            boxShadow: searchFocused 
+              ? `0 8px 32px ${alpha(theme.palette.primary.main, 0.15)}`
+              : '0 8px 24px rgba(0,0,0,0.05)',
+            background: 'linear-gradient(135deg, #ffffff, #f9f9ff)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '5px',
+              background: 'linear-gradient(90deg, #42a5f5, #1976d2, #0d47a1)',
+              opacity: 0.8
+            },
+            backdropFilter: 'blur(8px)'
+          }}
+        >
+          <Grid container spacing={3} alignItems="center">
+            <Grid item xs={12} sm={6} md={3}>
+              {renderDatePicker('checkIn', 'תאריך כניסה')}
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              {renderDatePicker('checkOut', 'תאריך יציאה')}
+            </Grid>
+            <Grid item xs={6} sm={6} md={3}>
+              <Box>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={handleGuestsMenuOpen}
+                  endIcon={<ArrowDropDownIcon />}
+                  size={isMobile ? "small" : "medium"}
+                  sx={{ 
+                    height: isMobile ? 40 : 56, 
+                    justifyContent: 'space-between', 
+                    px: 2,
+                    borderRadius: 2,
+                    borderWidth: '1.5px',
+                    fontWeight: 500,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      borderWidth: '1.5px',
+                      boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.1)}`
                     }
-                  },
-                  actionBar: {
-                    actions: ['clear', 'today'],
-                  }
-                }}
-              />
-            </LocalizationProvider>
-          </Grid>
-          <Grid item xs={6} sm={6} md={3}>
-            <Box>
+                  }}
+                >
+                  <Typography variant="body1" fontWeight="medium">
+                    {`${bookingData.guests} אורחים, ${bookingData.rooms} חדרים`}
+                  </Typography>
+                </Button>
+                <Menu
+                  id="guests-menu"
+                  anchorEl={guestsMenuAnchor}
+                  open={Boolean(guestsMenuAnchor)}
+                  onClose={handleGuestsMenuClose}
+                  anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                  }}
+                  transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                  sx={{ mt: 1 }}
+                  PaperProps={{
+                    style: {
+                      width: isMobile ? '90%' : '300px',
+                      padding: '16px',
+                      borderRadius: '12px',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.08)'
+                    }
+                  }}
+                >
+                  <Box sx={{ p: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography>אורחים</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', p: 0.5, borderRadius: 2, bgcolor: 'background.paper' }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleGuestsRoomsChange('guests', Math.max(1, bookingData.guests - 1))}
+                          sx={{ color: theme.palette.primary.main }}
+                        >
+                          <RemoveIcon fontSize="small" />
+                        </IconButton>
+                        <Typography sx={{ mx: 2, minWidth: '24px', textAlign: 'center', fontWeight: 'medium' }}>
+                          {bookingData.guests}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleGuestsRoomsChange('guests', bookingData.guests + 1)}
+                          sx={{ color: theme.palette.primary.main }}
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography>חדרים</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', p: 0.5, borderRadius: 2, bgcolor: 'background.paper' }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleGuestsRoomsChange('rooms', Math.max(1, bookingData.rooms - 1))}
+                          sx={{ color: theme.palette.primary.main }}
+                        >
+                          <RemoveIcon fontSize="small" />
+                        </IconButton>
+                        <Typography sx={{ mx: 2, minWidth: '24px', textAlign: 'center', fontWeight: 'medium' }}>
+                          {bookingData.rooms}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleGuestsRoomsChange('rooms', Math.min(10, bookingData.rooms + 1))}
+                          sx={{ color: theme.palette.primary.main }}
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </Box>
+                    
+                    <Button 
+                      variant="contained" 
+                      fullWidth 
+                      sx={{ 
+                        mt: 2, 
+                        borderRadius: '50px',
+                        py: 1,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                      }} 
+                      onClick={handleGuestsMenuClose}
+                    >
+                      אישור
+                    </Button>
+                  </Box>
+                </Menu>
+              </Box>
+            </Grid>
+            <Grid item xs={6} sm={6} md={3}>
               <Button
-                variant="outlined"
+                variant="contained"
+                color="primary"
                 fullWidth
-                onClick={handleGuestsMenuOpen}
-                endIcon={<ArrowDropDownIcon />}
+                startIcon={<SearchIcon />}
+                onClick={handleCheckAvailability}
+                disabled={searchLoading}
                 size={isMobile ? "small" : "medium"}
                 sx={{ 
                   height: isMobile ? 40 : 56, 
-                  justifyContent: 'space-between', 
-                  px: 2,
                   borderRadius: 2,
-                  borderWidth: '1.5px',
-                  fontWeight: 500,
+                  fontWeight: 'bold',
+                  boxShadow: '0 6px 12px rgba(25, 118, 210, 0.2)',
                   transition: 'all 0.3s ease',
+                  backgroundColor: theme.palette.primary.main,
                   '&:hover': {
-                    borderWidth: '1.5px',
-                    boxShadow: `0 4px 8px ${alpha(theme.palette.primary.main, 0.1)}`
+                    backgroundColor: theme.palette.primary.dark,
+                    boxShadow: '0 8px 16px rgba(25, 118, 210, 0.3)',
+                    transform: 'translateY(-2px)'
                   }
                 }}
               >
-                <Typography variant="body1" fontWeight="medium">
-                  {`${bookingData.guests} אורחים, ${bookingData.rooms} חדרים`}
-                </Typography>
+                {searchLoading ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  'חפש זמינות'
+                )}
               </Button>
-              <Menu
-                id="guests-menu"
-                anchorEl={guestsMenuAnchor}
-                open={Boolean(guestsMenuAnchor)}
-                onClose={handleGuestsMenuClose}
-                anchorOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'right',
-                }}
-                transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-                sx={{ mt: 1 }}
-                PaperProps={{
-                  style: {
-                    width: isMobile ? '90%' : '300px',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.08)'
-                  }
-                }}
-              >
-                <Box sx={{ p: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography>אורחים</Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', p: 0.5, borderRadius: 2, bgcolor: 'background.paper' }}>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleGuestsRoomsChange('guests', Math.max(1, bookingData.guests - 1))}
-                        sx={{ color: theme.palette.primary.main }}
-                      >
-                        <RemoveIcon fontSize="small" />
-                      </IconButton>
-                      <Typography sx={{ mx: 2, minWidth: '24px', textAlign: 'center', fontWeight: 'medium' }}>
-                        {bookingData.guests}
-                      </Typography>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleGuestsRoomsChange('guests', bookingData.guests + 1)}
-                        sx={{ color: theme.palette.primary.main }}
-                      >
-                        <AddIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography>חדרים</Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', p: 0.5, borderRadius: 2, bgcolor: 'background.paper' }}>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleGuestsRoomsChange('rooms', Math.max(1, bookingData.rooms - 1))}
-                        sx={{ color: theme.palette.primary.main }}
-                      >
-                        <RemoveIcon fontSize="small" />
-                      </IconButton>
-                      <Typography sx={{ mx: 2, minWidth: '24px', textAlign: 'center', fontWeight: 'medium' }}>
-                        {bookingData.rooms}
-                      </Typography>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleGuestsRoomsChange('rooms', Math.min(10, bookingData.rooms + 1))}
-                        sx={{ color: theme.palette.primary.main }}
-                      >
-                        <AddIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </Box>
-                  
-                  <Button 
-                    variant="contained" 
-                    fullWidth 
-                    sx={{ 
-                      mt: 2, 
-                      borderRadius: '50px',
-                      py: 1,
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }} 
-                    onClick={handleGuestsMenuClose}
-                  >
-                    אישור
-                  </Button>
-                </Box>
-              </Menu>
-            </Box>
+            </Grid>
           </Grid>
-          <Grid item xs={6} sm={6} md={3}>
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              startIcon={<SearchIcon />}
-              onClick={handleCheckAvailability}
-              disabled={searchLoading}
-              size={isMobile ? "small" : "medium"}
+
+          {searchError && (
+            <Alert 
+              severity="error" 
               sx={{ 
-                height: isMobile ? 40 : 56, 
+                mt: 2, 
                 borderRadius: 2,
-                fontWeight: 'bold',
-                boxShadow: '0 6px 12px rgba(25, 118, 210, 0.2)',
-                transition: 'all 0.3s ease',
-                backgroundColor: theme.palette.primary.main,
-                '&:hover': {
-                  backgroundColor: theme.palette.primary.dark,
-                  boxShadow: '0 8px 16px rgba(25, 118, 210, 0.3)',
-                  transform: 'translateY(-2px)'
+                '& .MuiAlert-icon': {
+                  fontSize: '1.2rem'
                 }
               }}
             >
-              {searchLoading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                'חפש זמינות'
-              )}
-            </Button>
-          </Grid>
-        </Grid>
+              {searchError}
+            </Alert>
+          )}
 
-        {searchError && (
-          <Alert 
-            severity="error" 
-            sx={{ 
-              mt: 2, 
-              borderRadius: 2,
-              '& .MuiAlert-icon': {
-                fontSize: '1.2rem'
-              }
-            }}
-          >
-            {searchError}
-          </Alert>
-        )}
+          <Box sx={{ 
+            mt: 3, 
+            pt: 1, 
+            display: 'flex', 
+            flexDirection: { xs: 'column', sm: 'row' },
+            justifyContent: { xs: 'center', sm: 'space-between' }, 
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
+              sx={{
+                p: 1.5,
+                border: '1px solid',
+                borderColor: alpha(theme.palette.primary.main, 0.4),
+                borderRadius: 2,
+                display: 'inline-block',
+                px: 3,
+                backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                textAlign: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                fontWeight: 500,
+                flex: { xs: '1 1 100%', sm: '1 1 auto' },
+                width: { xs: '100%', sm: 'auto' },
+                minWidth: { sm: '280px' },
+                mr: { sm: 2 }
+              }}
+            >
+              <Typography component="span" variant="body2" color="primary" sx={{ 
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 1 
+              }}>
+                <LocalOfferIcon fontSize="small" />
+                מחירים מיוחדים להזמנות דרך האתר - חסכו עד 15%
+              </Typography>
+            </Typography>
 
-        <Box sx={{ 
-          mt: 3, 
-          pt: 1, 
-          display: 'flex', 
-          flexDirection: { xs: 'column', sm: 'row' },
-          justifyContent: { xs: 'center', sm: 'space-between' }, 
-          alignItems: 'center',
-          gap: 2
-        }}>
+            <RadioGroup
+              row
+              value={bookingData.isTourist ? 'tourist' : 'israeli'}
+              onChange={(e) => setBookingData(prev => ({ ...prev, isTourist: e.target.value === 'tourist' }))}
+              sx={{ 
+                flexWrap: 'nowrap',
+                '& .MuiFormControlLabel-root': { 
+                  marginLeft: 0, 
+                  marginRight: 0 
+                },
+                display: 'flex',
+                justifyContent: 'center',
+                flex: { xs: '1 1 100%', sm: '0 0 auto' },
+                width: { xs: '100%', sm: 'auto' }
+              }}
+            >
+              <FormControlLabel
+                value="israeli"
+                control={<Radio color="primary" size="small" />}
+                label={
+                  <Box>
+                    <Typography variant="body2" component="span">
+                      תושב ישראל
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                      מחירים כוללים מע״מ (18%)
+                    </Typography>
+                  </Box>
+                }
+                sx={{ 
+                  mr: { xs: 1, sm: 3 },
+                  minWidth: { xs: '120px', sm: 'auto' }
+                }}
+              />
+              <FormControlLabel
+                value="tourist"
+                control={<Radio color="primary" size="small" />}
+                label={
+                  <Box>
+                    <Typography variant="body2" component="span">
+                      תייר
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                      פטור ממע״מ בהצגת דרכון בצ׳ק אין
+                    </Typography>
+                  </Box>
+                }
+                sx={{ 
+                  minWidth: { xs: '120px', sm: 'auto' }
+                }}
+              />
+            </RadioGroup>
+          </Box>
+        </Paper>
+
+        <Box sx={{ mb: 6, px: { xs: 0, md: 0 } }}>
           <Typography 
-            variant="body2" 
-            color="text.secondary"
-            sx={{
-              p: 1.5,
-              border: '1px solid',
-              borderColor: alpha(theme.palette.primary.main, 0.4),
-              borderRadius: 2,
-              display: 'inline-block',
-              px: 3,
-              backgroundColor: alpha(theme.palette.primary.main, 0.05),
-              textAlign: 'center',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-              fontWeight: 500,
-              flex: { xs: '1 1 100%', sm: '1 1 auto' },
-              width: { xs: '100%', sm: 'auto' },
-              minWidth: { sm: '280px' },
-              mr: { sm: 2 }
-            }}
-          >
-            <Typography component="span" variant="body2" color="primary" sx={{ 
+            variant={isMobile ? "h5" : "h4"} 
+            component="h2" 
+            align="center" 
+            sx={{ 
+              mb: { xs: 4, sm: 5 }, 
               fontWeight: 'bold',
+              position: 'relative',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 1 
-            }}>
-              <LocalOfferIcon fontSize="small" />
-              מחירים מיוחדים להזמנות דרך האתר - חסכו עד 15%
-            </Typography>
-          </Typography>
-
-          <RadioGroup
-            row
-            value={bookingData.isTourist ? 'tourist' : 'israeli'}
-            onChange={(e) => setBookingData(prev => ({ ...prev, isTourist: e.target.value === 'tourist' }))}
-            sx={{ 
-              flexWrap: 'nowrap',
-              '& .MuiFormControlLabel-root': { 
-                marginLeft: 0, 
-                marginRight: 0 
-              },
-              display: 'flex',
-              justifyContent: 'center',
-              flex: { xs: '1 1 100%', sm: '0 0 auto' },
-              width: { xs: '100%', sm: 'auto' }
+              color: theme.palette.primary.dark,
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                width: '80px',
+                height: '3px',
+                bottom: '-12px',
+                background: 'linear-gradient(90deg, #42a5f5, #1976d2)',
+                borderRadius: '50px'
+              }
             }}
           >
-            <FormControlLabel
-              value="israeli"
-              control={<Radio color="primary" size="small" />}
-              label={
-                <Box>
-                  <Typography variant="body2" component="span">
-                    תושב ישראל
+            <LocationIcon sx={{ mr: 1.5, verticalAlign: 'middle', color: theme.palette.primary.main }} />
+            אודות
+          </Typography>
+
+          <Grid container spacing={4} sx={{ mt: 2 }}>
+            <Grid item xs={12} md={6}>
+              <Paper elevation={2} sx={{ 
+                p: 4, 
+                borderRadius: 4, 
+                height: '100%',
+                background: 'linear-gradient(to bottom right, #ffffff, #f5f9ff)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.05)',
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+              }}>
+                <Typography variant="body1" paragraph lineHeight={1.8}>
+                  אנו ממוקמים במרכז העיר פתח תקווה, במרחק הליכה קצר ממגוון מסעדות וחנויות מקומיות. המקום מספק חנייה לאורחים ונגישות לתחבורה ציבורית. המקום מציע חדרים נוחים ומאובזרים, המתאימים לזוגות וליחידים הזקוקים לשהייה באזור. עם צ'ק-אין עצמי נוח בכל שעה, אנו מציעים תמורה מלאה למחיר משתלם במיוחד.
+                </Typography>
+
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="h6" gutterBottom sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '1.1rem',
+                    color: theme.palette.primary.dark
+                  }}>
+                    <LocationIcon sx={{ mr: 1, color: 'primary.main' }} />
+                    מיקום
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
-                    מחירים כוללים מע״מ (18%)
+                  <Typography variant="body1" paragraph sx={{ 
+                    pl: 3,
+                    borderLeft: `3px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                    lineHeight: 1.8
+                  }}>
+                    רחוב רוטשילד 79, פתח תקווה | במרכז העיר, קרוב לקניון הגדול ולבתי החולים בלינסון ושניידר
                   </Typography>
                 </Box>
-              }
-              sx={{ 
-                mr: { xs: 1, sm: 3 },
-                minWidth: { xs: '120px', sm: 'auto' }
-              }}
-            />
-            <FormControlLabel
-              value="tourist"
-              control={<Radio color="primary" size="small" />}
-              label={
-                <Box>
-                  <Typography variant="body2" component="span">
-                    תייר
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
-                    פטור ממע״מ בהצגת דרכון בצ׳ק אין
-                  </Typography>
-                </Box>
-              }
-              sx={{ 
-                minWidth: { xs: '120px', sm: 'auto' }
-              }}
-            />
-          </RadioGroup>
-        </Box>
-      </Paper>
+              </Paper>
+            </Grid>
 
-      <Box sx={{ mb: 6, px: { xs: 0, md: 0 } }}>
-        <Typography 
-          variant={isMobile ? "h5" : "h4"} 
-          component="h2" 
-          align="center" 
-          sx={{ 
-            mb: { xs: 4, sm: 5 }, 
-            fontWeight: 'bold',
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: theme.palette.primary.dark,
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              width: '80px',
-              height: '3px',
-              bottom: '-12px',
-              background: 'linear-gradient(90deg, #42a5f5, #1976d2)',
-              borderRadius: '50px'
-            }
-          }}
-        >
-          <LocationIcon sx={{ mr: 1.5, verticalAlign: 'middle', color: theme.palette.primary.main }} />
-          אודות
-        </Typography>
-
-        <Grid container spacing={4} sx={{ mt: 2 }}>
-          <Grid item xs={12} md={6}>
-            <Paper elevation={2} sx={{ 
-              p: 4, 
-              borderRadius: 4, 
-              height: '100%',
-              background: 'linear-gradient(to bottom right, #ffffff, #f5f9ff)',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.05)',
-              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
-            }}>
-              <Typography variant="body1" paragraph lineHeight={1.8}>
-                אנו ממוקמים במרכז העיר פתח תקווה, במרחק הליכה קצר ממגוון מסעדות וחנויות מקומיות. המקום מספק חנייה לאורחים ונגישות לתחבורה ציבורית. המקום מציע חדרים נוחים ומאובזרים, המתאימים לזוגות וליחידים הזקוקים לשהייה באזור. עם צ'ק-אין עצמי נוח בכל שעה, אנו מציעים תמורה מלאה למחיר משתלם במיוחד.
-              </Typography>
-
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="h6" gutterBottom sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center',
-                  fontWeight: 'bold',
-                  fontSize: '1.1rem',
-                  color: theme.palette.primary.dark
-                }}>
-                  <LocationIcon sx={{ mr: 1, color: 'primary.main' }} />
-                  מיקום
-                </Typography>
-                <Typography variant="body1" paragraph sx={{ 
-                  pl: 3,
-                  borderLeft: `3px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-                  lineHeight: 1.8
-                }}>
-                  רחוב רוטשילד 79, פתח תקווה | במרכז העיר, קרוב לקניון הגדול ולבתי החולים בלינסון ושניידר
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <Paper 
-              elevation={3} 
-              sx={{ 
-                height: '100%', 
-                overflow: 'hidden',
-                borderRadius: 4,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-                border: `1px solid ${alpha(theme.palette.grey[300], 0.8)}`,
-                '&:hover': {
-                  boxShadow: '0 10px 28px rgba(0,0,0,0.12)',
-                },
-                transition: 'all 0.3s ease'
-              }}
-            >
-              <Box
-                component="iframe"
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3379.8881269602824!2d34.884986!3d32.089128!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x151d366440afbecd%3A0x99ad886c7d7ebb2f!2sRothschild%20St%2079%2C%20Petah%20Tikva!5e0!3m2!1sen!2sil!4v1709767271407!5m2!1sen!2sil"
-                sx={{
-                  border: 0,
-                  width: '100%',
-                  height: '100%',
-                  minHeight: { xs: '250px', md: '100%' }
+            <Grid item xs={12} md={6}>
+              <Paper 
+                elevation={3} 
+                sx={{ 
+                  height: '100%', 
+                  overflow: 'hidden',
+                  borderRadius: 4,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                  border: `1px solid ${alpha(theme.palette.grey[300], 0.8)}`,
+                  '&:hover': {
+                    boxShadow: '0 10px 28px rgba(0,0,0,0.12)',
+                  },
+                  transition: 'all 0.3s ease'
                 }}
-                allowFullScreen=""
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            </Paper>
+              >
+                <Box
+                  component="iframe"
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3379.8881269602824!2d34.884986!3d32.089128!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x151d366440afbecd%3A0x99ad886c7d7ebb2f!2sRothschild%20St%2079%2C%20Petah%20Tikva!5e0!3m2!1sen!2sil!4v1709767271407!5m2!1sen!2sil"
+                  sx={{
+                    border: 0,
+                    width: '100%',
+                    height: '100%',
+                    minHeight: { xs: '250px', md: '100%' }
+                  }}
+                  allowFullScreen=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </Paper>
+            </Grid>
           </Grid>
-        </Grid>
+        </Box>
+
+        <Box sx={{ mt: { xs: 6, sm: 8 }, mb: 8 }}>
+          <Typography 
+            variant="h4" 
+            component="h2" 
+            align="center" 
+            sx={{ 
+              mb: { xs: 4, sm: 5 }, 
+              fontWeight: 'bold',
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: theme.palette.primary.dark,
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                width: '80px',
+                height: '3px',
+                bottom: '-12px',
+                background: 'linear-gradient(90deg, #42a5f5, #1976d2)',
+                borderRadius: '50px'
+              }
+            }}
+          >
+            <HotelIcon sx={{ mr: 1.5, verticalAlign: 'middle', color: theme.palette.primary.main }} />
+            החדרים שלנו
+          </Typography>
+
+          {galleryLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress size={40} thickness={4} sx={{ color: theme.palette.primary.main }} />
+            </Box>
+          ) : gallery && gallery.images && gallery.images.length > 0 ? (
+            <Box sx={{ mt: 4 }}>
+              <MaterialGalleryCarousel gallery={gallery} isMobile={isMobile} theme={theme} />
+            </Box>
+          ) : (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <Typography variant="body1" color="text.secondary">
+                אין תמונות בגלריה כרגע
+              </Typography>
+            </Box>
+          )}
+        </Box>
+
+        <ChatBox />
       </Box>
-
-      <Box sx={{ mt: { xs: 6, sm: 8 }, mb: 8 }}>
-        <Typography 
-          variant="h4" 
-          component="h2" 
-          align="center" 
-          sx={{ 
-            mb: { xs: 4, sm: 5 }, 
-            fontWeight: 'bold',
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: theme.palette.primary.dark,
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              width: '80px',
-              height: '3px',
-              bottom: '-12px',
-              background: 'linear-gradient(90deg, #42a5f5, #1976d2)',
-              borderRadius: '50px'
-            }
-          }}
-        >
-          <HotelIcon sx={{ mr: 1.5, verticalAlign: 'middle', color: theme.palette.primary.main }} />
-          החדרים שלנו
-        </Typography>
-
-        {galleryLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress size={40} thickness={4} sx={{ color: theme.palette.primary.main }} />
-          </Box>
-        ) : gallery && gallery.images && gallery.images.length > 0 ? (
-          <Box sx={{ mt: 4 }}>
-            <MaterialGalleryCarousel gallery={gallery} isMobile={isMobile} theme={theme} />
-          </Box>
-        ) : (
-          <Box sx={{ py: 4, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              אין תמונות בגלריה כרגע
-            </Typography>
-          </Box>
-        )}
-      </Box>
-
-      <ChatBox />
-    </Box>
+    </LocalizationProvider>
   );
 };
 
