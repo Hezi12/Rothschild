@@ -17,6 +17,11 @@ router.get('/', roomController.getRooms);
 // @access  Public
 router.post('/check-availability', roomController.checkAvailability);
 
+// @route   POST /api/rooms/check-multiple-availability
+// @desc    בדיקת זמינות למספר חדרים
+// @access  Public
+router.post('/check-multiple-availability', roomController.checkMultipleAvailability);
+
 // @route   GET /api/rooms/:id
 // @desc    קבלת חדר לפי מזהה
 // @access  Public

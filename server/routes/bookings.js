@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { check } = require('express-validator');
 const bookingController = require('../controllers/bookingController');
-const { protect, admin } = require('../middleware/auth');
+const roomController = require('../controllers/roomController');
+const { protect, admin, authorize } = require('../middleware/auth');
 const Booking = require('../models/Booking');
 const { sendCancellationAlert } = require('../utils/emailService');
 
@@ -15,6 +16,9 @@ router
   .route('/')
   .get(bookingController.getBookings)
   .post(bookingController.createBooking);
+
+// יצירת הזמנה מרובת חדרים
+router.post('/multi-room', roomController.createMultiRoomBooking);
 
 // ניתובים ספציפיים להזמנה - מזהה מסוים
 router

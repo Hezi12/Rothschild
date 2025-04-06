@@ -42,10 +42,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 // Import Routes
 const roomRoutes = require('./routes/rooms');
-const roomRoutesNew = require('./routes/roomRoutes');
-// הסרת bookingRoutes הישן
 const bookingRoutes = require('./routes/bookings');
-const bookingRoutesNew = require('./routes/bookingRoutes');
 const authRoutes = require('./routes/auth');
 const chatRoutes = require('./routes/chatRoutes');
 const galleryRoutes = require('./routes/gallery');
@@ -57,10 +54,7 @@ const financialRoutes = require('./routes/financial.routes');
 
 // Routes
 app.use('/api/rooms', roomRoutes);
-app.use('/api/rooms', roomRoutesNew);
-// הסרת שימוש בניתובי bookingRoutes הישנים
 app.use('/api/bookings', bookingRoutes);
-app.use('/api/bookings', bookingRoutesNew);
 app.use('/api/simple-bookings', require('./routes/simpleBookings'));
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
