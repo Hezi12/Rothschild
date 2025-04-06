@@ -25,6 +25,7 @@ import BookingsNewPage from './pages/BookingsNewPage';
 import SimpleBookingList from './pages/SimpleBookingList';
 import IncomeReportPage from './pages/IncomeReportPage';
 import FinancialManagementPage from './pages/FinancialManagementPage';
+import BookingsManager from './pages/BookingsManager';
 
 // רכיבים
 import Layout from './components/Layout';
@@ -95,6 +96,7 @@ function App() {
                   <DashboardPage />
                 </ProtectedRoute>
               } />
+              <Route path="/dashboard/bookings-manager" element={<ProtectedRoute><BookingsManager /></ProtectedRoute>} />
               <Route path="/dashboard/bookings-calendar" element={<ProtectedRoute><BookingListView /></ProtectedRoute>} />
               <Route path="/dashboard/bookings-new" element={<ProtectedRoute><BookingsNewPage /></ProtectedRoute>} />
               <Route path="/dashboard/simple-bookings" element={<ProtectedRoute><SimpleBookingList /></ProtectedRoute>} />

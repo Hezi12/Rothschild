@@ -31,7 +31,8 @@ import {
   InfoOutlined as InfoOutlinedIcon,
   Language as LanguageIcon,
   Summarize as SummarizeIcon,
-  AccountBalance as AccountBalanceIcon
+  AccountBalance as AccountBalanceIcon,
+  EventNote as EventNoteIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -480,6 +481,17 @@ const DashboardPage = () => {
               ניהול כספים
             </Typography>
           </Box>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={4} lg={3}>
+          <Link to="/dashboard/bookings-manager" style={{ textDecoration: 'none' }}>
+            <AppIconButton color="#4a90e2">
+              <EventNoteIcon sx={{ color: 'white', fontSize: 30 }} />
+              <Typography variant="caption" sx={{ color: 'white', mt: 0.5 }}>
+                ניהול הזמנות
+              </Typography>
+            </AppIconButton>
+          </Link>
         </Grid>
       </Grid>
 

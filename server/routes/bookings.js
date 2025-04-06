@@ -6,6 +6,7 @@ const roomController = require('../controllers/roomController');
 const { protect, admin, authorize } = require('../middleware/auth');
 const Booking = require('../models/Booking');
 const { sendCancellationAlert } = require('../utils/emailService');
+const Room = require('../models/Room');
 
 /**
  * ניתובי API חדשים ומשופרים למערכת ההזמנות
@@ -19,6 +20,111 @@ router
 
 // יצירת הזמנה מרובת חדרים
 router.post('/multi-room', roomController.createMultiRoomBooking);
+
+// @route   GET /api/bookings/search
+// @desc    חיפוש הזמנות לפי פרמטרים שונים
+// @access  Private
+router.get('/search', protect, async (req, res) => {
+  try {
+    console.log('=== חיפוש הזמנות ===');
+    console.log('פרמטרי חיפוש:', req.query);
+
+    const { 
+      guestName, 
+      phone, 
+      email, 
+      roomNumber, 
+      dateFrom, 
+      dateTo, 
+      status, 
+      isPaid 
+    } = req.query;
+
+    // בניית שאילתת החיפוש
+    const query = {};
+
+    // נתוני אורח
+    if (guestName) {
+      query['guest.name'] = { $regex: guestName, $options: 'i' };
+    }
+    if (phone) {
+      query['guest.phone'] = { $regex: phone, $options: 'i' };
+    }
+    if (email) {
+      query['guest.email'] = { $regex: email, $options: 'i' };
+    }
+
+    // חדר
+    if (roomNumber) {
+      // בדיקה אם יש צורך לחפש לפי חדר
+      const rooms = await Room.find({ roomNumber: parseInt(roomNumber) });
+      const roomIds = rooms.map(room => room._id);
+      query.room = { $in: roomIds };
+    }
+
+    // תאריכים
+    if (dateFrom && dateTo) {
+      const fromDate = new Date(dateFrom);
+      const toDate = new Date(dateTo);
+      
+      // בדיקת חפיפה בתאריכים
+      query.$or = [
+        { 
+          checkIn: { 
+            $gte: fromDate, 
+            $lte: toDate 
+          } 
+        },
+        { 
+          checkOut: { 
+            $gte: fromDate, 
+            $lte: toDate 
+          } 
+        },
+        { 
+          $and: [
+            { checkIn: { $lte: fromDate } },
+            { checkOut: { $gte: toDate } }
+          ]
+        }
+      ];
+    }
+
+    // סטטוס הזמנה
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    // סטטוס תשלום
+    if (isPaid === 'true') {
+      query.isPaid = true;
+    } else if (isPaid === 'false') {
+      query.isPaid = false;
+    }
+
+    console.log('שאילתת חיפוש:', JSON.stringify(query));
+
+    // ביצוע החיפוש
+    const bookings = await Booking.find(query)
+      .populate('room', 'roomNumber type basePrice internalName')
+      .sort({ checkIn: -1 });
+
+    console.log(`נמצאו ${bookings.length} הזמנות תואמות`);
+
+    res.json({
+      success: true,
+      count: bookings.length,
+      data: bookings
+    });
+  } catch (error) {
+    console.error('שגיאה בחיפוש הזמנות:', error);
+    res.status(500).json({
+      success: false,
+      message: 'שגיאת שרת בעת חיפוש הזמנות',
+      error: error.message
+    });
+  }
+});
 
 // ניתובים ספציפיים להזמנה - מזהה מסוים
 router

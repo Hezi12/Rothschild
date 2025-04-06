@@ -95,6 +95,11 @@ killall node
 - **צד שרת**: Node.js, Express, MongoDB
 - **צד לקוח**: React, Material-UI
 
+## מסמכי פרויקט
+
+- [מסמך חזון לדף ניהול הזמנות מאוחד](docs/vision-booking-manager.md) - מסמך חזון לאיחוד דפי ניהול ההזמנות
+- [Vision Document for Unified Booking Management](docs/vision-booking-manager-en.md) - English version
+
 ## מבנה המערכת
 
 - **שרת**: Node.js + Express
