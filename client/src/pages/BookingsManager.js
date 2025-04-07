@@ -42,7 +42,8 @@ import {
   TableBody,
   TableRow,
   TableCell,
-  Chip
+  Chip,
+  Avatar
 } from '@mui/material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -70,11 +71,20 @@ import {
   CreditCard as CreditCardIcon,
   Edit as EditIcon,
   Clear as ClearIcon,
-  FlashOn as FlashOnIcon
+  FlashOn as FlashOnIcon,
+  WhatsApp as WhatsAppIcon,
+  Warning as WarningIcon,
+  Error as ErrorIcon,
+  Receipt as ReceiptIcon,
+  Print as PrintIcon,
+  ConfirmationNumber as ConfirmationNumberIcon,
+  BarChart as BarChartIcon,
+  Public as PublicIcon
 } from '@mui/icons-material';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { BookingContext } from '../context/BookingContext';
+import SvgIcon from '@mui/material/SvgIcon';
 
 // קומפוננטת סרגל צדדי
 const MinimalSidebar = styled(Box)(({ theme }) => ({
@@ -84,13 +94,13 @@ const MinimalSidebar = styled(Box)(({ theme }) => ({
   transform: 'translateY(-50%)',
   display: 'flex',
   flexDirection: 'column',
-  padding: '10px 0',
+  padding: '15px 0',
   backgroundColor: '#ffffff',
-  boxShadow: '0 3px 10px rgba(0,0,0,0.25)',
-  borderRadius: '0 8px 8px 0',
+  boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+  borderRadius: '0 16px 16px 0',
   zIndex: 1000,
-  gap: '5px',
-  width: '60px'
+  gap: '10px',
+  width: '70px'
 }));
 
 // קומפוננטת כפתור בסרגל
@@ -102,14 +112,16 @@ const SidebarButton = ({ children, title, placement, isActive }) => {
       {React.cloneElement(children, {
         sx: {
           padding: '12px',
-          color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
+          borderRadius: '50%',
+          color: isActive ? theme.palette.primary.main : 'inherit',
           backgroundColor: isActive ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
           '&:hover': {
-            backgroundColor: alpha(theme.palette.primary.main, 0.05)
+            backgroundColor: alpha(theme.palette.primary.main, 0.05),
+            transform: 'scale(1.05)',
           },
-          transition: 'all 0.3s ease',
-          borderLeft: isActive ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
-          borderRight: 'none'
+          transition: 'all 0.2s ease',
+          boxShadow: isActive ? `0 2px 8px ${alpha(theme.palette.primary.main, 0.25)}` : 'none',
+          ...children.props.sx
         }
       })}
     </Tooltip>
@@ -256,15 +268,6 @@ const BookingsManager = () => {
         console.log('שולח בקשת הזמנות לשרת');
         await contextFetchBookings({});
         
-        console.log(`התקבלו ${bookings.length} הזמנות מהשרת`);
-        
-        // סינון הזמנות מבוטלות
-        const activeBookings = bookings.filter(booking => booking.status !== 'canceled');
-        console.log(`מציג ${activeBookings.length} הזמנות פעילות (לא מבוטלות)`);
-        
-        // עדכון מצב ההזמנות
-        setFilteredBookings(activeBookings);
-        
         setLoading(false);
       } catch (error) {
         console.error('שגיאה בעת טעינת הזמנות:', error);
@@ -273,7 +276,7 @@ const BookingsManager = () => {
     };
     
     fetchBookingsData();
-  }, [contextFetchBookings, bookings]);
+  }, [contextFetchBookings]);
   
   // בדיקת הנתונים בעת שינוי הזמנות בקונטקסט
   useEffect(() => {
@@ -281,6 +284,10 @@ const BookingsManager = () => {
     console.log(`מספר הזמנות בקונטקסט: ${bookings ? bookings.length : 0}`);
     if (bookings && bookings.length > 0) {
       console.log(`דוגמה להזמנה ראשונה:`, bookings[0]);
+      
+      // סינון הזמנות מבוטלות ועדכון הזמנות מסוננות
+      const activeBookings = bookings.filter(booking => booking.status !== 'canceled');
+      setFilteredBookings(activeBookings);
     }
   }, [bookings]);
   
@@ -1246,6 +1253,1119 @@ const BookingsManager = () => {
       }
     }, [booking.startDate, booking.endDate, booking.pricePerNight, booking.tourist, focusedField]);
     
+    // פתיחת חלון חשבונית
+    const handleOpenInvoice = () => {
+      if (!booking || !booking._id) {
+        alert('לא ניתן להציג חשבונית להזמנה שעדיין לא נשמרה');
+        return;
+      }
+
+      // פתיחת חלון חדש לתצוגת החשבונית
+      const invoiceWindow = window.open('', '_blank', 'width=800,height=800');
+      
+      if (!invoiceWindow) {
+        alert('הדפדפן חסם את פתיחת החלון החדש. אנא אפשר חלונות קופצים עבור אתר זה.');
+        return;
+      }
+      
+      // הכנת הנתונים לתצוגת החשבונית
+      const roomDetails = rooms.find(r => r._id === booking.roomId);
+      const roomNumber = roomDetails ? roomDetails.roomNumber : 'לא ידוע';
+      
+      // חישוב תאריכים
+      const checkInDate = booking.startDate ? new Date(booking.startDate) : new Date();
+      const checkOutDate = booking.endDate ? new Date(booking.endDate) : new Date();
+      
+      // פורמט תאריכים לעברית
+      const formatHebrewDate = (date) => {
+        const options = { year: 'numeric', month: '2-digit', day: '2-digit' };
+        return date.toLocaleDateString('he-IL', options);
+      };
+      
+      // מע"מ וסכומים - תיקון החישובים
+      const vatRate = booking.tourist ? 0 : 0.18;
+      
+      // חישוב נכון - מניחים שהמחיר הבסיסי הוא ללא מע"מ
+      const pricePerNightNoVat = booking.pricePerNight ? parseFloat(booking.pricePerNight) / (1 + vatRate) : 0;
+      const totalNights = booking.nights || nightsCount || 1;
+      
+      // סכום לפני מע"מ = מחיר ללילה ללא מע"מ * מספר לילות
+      const totalWithoutVat = pricePerNightNoVat * totalNights;
+      
+      // סכום המע"מ = סכום לפני מע"מ * שיעור המע"מ
+      const totalVatAmount = booking.tourist ? 0 : (totalWithoutVat * vatRate);
+      
+      // סכום כולל = סכום לפני מע"מ + סכום המע"מ
+      const totalAmount = totalWithoutVat + totalVatAmount;
+
+      // שם הלקוח
+      const guestName = `${booking.firstName || booking.guest?.firstName || ''} ${booking.lastName || booking.guest?.lastName || ''}`.trim() || 'אורח';
+
+      // יצירת תוכן החשבונית בעברית
+      // שימוש ב-RTL ועיצוב מותאם לעברית
+      const invoiceContent = `
+        <!DOCTYPE html>
+        <html dir="rtl" lang="he">
+        <head>
+          <meta charset="UTF-8">
+          <title>INV-${booking.bookingNumber || booking._id?.substring(0, 6) || 'XXXXXX'}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap');
+            
+            body {
+              font-family: 'Rubik', sans-serif;
+              background-color: #f8f8f8;
+              margin: 0;
+              padding: 20px;
+              direction: rtl;
+              text-align: right;
+            }
+            
+            .invoice-container {
+              max-width: 800px;
+              margin: 0 auto;
+              background-color: white;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              border-radius: 4px;
+              padding: 30px;
+            }
+            
+            .invoice-header {
+              padding-bottom: 15px;
+              border-bottom: 1px solid #e0e0e0;
+              margin-bottom: 20px;
+              text-align: center;
+            }
+            
+            .company-name {
+              font-size: 24px;
+              font-weight: bold;
+              color: #333;
+              margin-bottom: 5px;
+            }
+            
+            .company-details {
+              font-size: 14px;
+              color: #666;
+              margin-bottom: 15px;
+              line-height: 1.4;
+            }
+            
+            .invoice-number {
+              font-size: 15px;
+              font-weight: 500;
+              color: #333;
+              margin-top: 10px;
+            }
+            
+            .invoice-date {
+              font-size: 14px;
+              color: #666;
+              margin-top: 5px;
+            }
+            
+            .invoice-title {
+              font-size: 24px;
+              font-weight: 500;
+              color: #333;
+              margin: 20px 0;
+              text-align: center;
+              position: relative;
+              padding-bottom: 10px;
+              border-bottom: 1px solid #eee;
+            }
+            
+            .customer-section {
+              margin: 20px 0;
+              padding: 10px 15px;
+              background-color: #f9f9f9;
+              border-radius: 4px;
+            }
+            
+            .customer-title {
+              font-size: 14px;
+              color: #666;
+              margin-bottom: 5px;
+            }
+            
+            .customer-name {
+              font-size: 16px;
+              font-weight: 500;
+              color: #333;
+            }
+            
+            .invoice-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 20px 0;
+            }
+            
+            .invoice-table th {
+              background-color: #f5f5f5;
+              color: #333;
+              padding: 10px;
+              text-align: right;
+              font-weight: 500;
+              font-size: 14px;
+              border-bottom: 1px solid #ddd;
+            }
+            
+            .invoice-table tr:nth-child(even) {
+              background-color: #fcfcfc;
+            }
+            
+            .invoice-table td {
+              padding: 10px;
+              border-bottom: 1px solid #eee;
+              color: #333;
+              font-size: 14px;
+            }
+            
+            .invoice-table .align-right {
+              text-align: left;
+            }
+            
+            .price-note {
+              font-size: 12px;
+              color: #888;
+              text-align: right;
+              margin-top: 5px;
+            }
+            
+            .invoice-total {
+              display: flex;
+              justify-content: flex-end;
+              margin-top: 20px;
+              font-size: 14px;
+            }
+            
+            .invoice-total-table {
+              width: 40%;
+              border-collapse: collapse;
+            }
+            
+            .invoice-total-table td {
+              padding: 8px 10px;
+              border-bottom: 1px solid #eee;
+            }
+            
+            .invoice-total-table .total-row {
+              font-weight: bold;
+              font-size: 16px;
+              background-color: #f9f9f9;
+              color: #333;
+              border-top: 1px solid #ddd;
+            }
+            
+            .invoice-notes {
+              margin-top: 20px;
+              padding: 15px;
+              background-color: #f9f9f9;
+              border-radius: 4px;
+              color: #666;
+            }
+            
+            .invoice-notes strong {
+              color: #333;
+            }
+            
+            .print-button {
+              display: block;
+              margin: 20px auto;
+              padding: 10px 20px;
+              background-color: #4a6da7;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              font-family: 'Rubik', sans-serif;
+              font-size: 14px;
+              font-weight: 500;
+            }
+            
+            .print-button:hover {
+              background-color: #3a5a8c;
+            }
+            
+            @media print {
+              body {
+                background-color: white;
+                padding: 0;
+              }
+              
+              .invoice-container {
+                box-shadow: none;
+                padding: 10px;
+              }
+              
+              .print-button {
+                display: none;
+              }
+              
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="no-print" style="text-align: center; margin-bottom: 20px;">
+            <button class="print-button" onclick="window.print()">הדפס חשבונית</button>
+          </div>
+          
+          <div class="invoice-container">
+            <div class="invoice-header">
+              <div class="company-name">דיאם אס הוטלס</div>
+              <div class="company-details">
+                רוטשילד 79, פתח תקווה<br>
+                ח.פ. 516679909
+              </div>
+              <div class="invoice-date">תאריך: ${formatHebrewDate(new Date())}</div>
+              <div class="invoice-number">מספר חשבונית: INV-${booking.bookingNumber || booking._id?.substring(0, 6) || 'XXXXXX'}</div>
+            </div>
+            
+            <div class="invoice-title">חשבונית מס מקור</div>
+            
+            <div class="customer-section">
+              <div class="customer-title">לכבוד:</div>
+              <div class="customer-name">${guestName}</div>
+            </div>
+            
+            <table class="invoice-table">
+              <thead>
+                <tr>
+                  <th>תיאור</th>
+                  <th>חדר</th>
+                  <th>תאריכים</th>
+                  <th>לילות</th>
+                  <th>מחיר ללילה (ללא מע"מ)</th>
+                  <th class="align-right">סה"כ</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>שירותי אירוח</td>
+                  <td>${roomNumber}</td>
+                  <td>${formatHebrewDate(checkInDate)} - ${formatHebrewDate(checkOutDate)}</td>
+                  <td>${totalNights}</td>
+                  <td>₪${pricePerNightNoVat.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                  <td class="align-right">₪${totalWithoutVat.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="price-note">* המחירים המוצגים הם ללא מע"מ</div>
+            
+            <div class="invoice-total">
+              <table class="invoice-total-table">
+                <tr>
+                  <td>סכום לפני מע"מ:</td>
+                  <td class="align-right">₪${totalWithoutVat.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                </tr>
+                <tr>
+                  <td>מע"מ (${booking.tourist ? '0' : '18'}%):</td>
+                  <td class="align-right">₪${totalVatAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                </tr>
+                <tr class="total-row">
+                  <td>סה"כ לתשלום:</td>
+                  <td class="align-right">₪${totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                </tr>
+              </table>
+            </div>
+            
+            ${booking.notes ? `
+            <div class="invoice-notes">
+              <p><strong>הערות:</strong></p>
+              <p>${booking.notes}</p>
+            </div>
+            ` : ''}
+          </div>
+          
+          <div class="no-print" style="text-align: center; margin-top: 20px;">
+            <button class="print-button" onclick="window.print()">הדפס חשבונית</button>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // כתיבת תוכן החשבונית לחלון החדש
+      invoiceWindow.document.open();
+      invoiceWindow.document.write(invoiceContent);
+      invoiceWindow.document.close();
+    };
+    
+    // פתיחת חלון חשבונית באנגלית
+    const handleOpenEnglishInvoice = () => {
+      if (!booking || !booking._id) {
+        alert('לא ניתן להציג חשבונית להזמנה שעדיין לא נשמרה');
+        return;
+      }
+
+      // פתיחת חלון חדש לתצוגת החשבונית
+      const invoiceWindow = window.open('', '_blank', 'width=800,height=800');
+      
+      if (!invoiceWindow) {
+        alert('הדפדפן חסם את פתיחת החלון החדש. אנא אפשר חלונות קופצים עבור אתר זה.');
+        return;
+      }
+      
+      // הכנת הנתונים לתצוגת החשבונית
+      const roomDetails = rooms.find(r => r._id === booking.roomId);
+      const roomNumber = roomDetails ? roomDetails.roomNumber : 'Unknown';
+      
+      // חישוב תאריכים
+      const checkInDate = booking.startDate ? new Date(booking.startDate) : new Date();
+      const checkOutDate = booking.endDate ? new Date(booking.endDate) : new Date();
+      
+      // פורמט תאריכים באנגלית
+      const formatEnglishDate = (date) => {
+        const options = { year: 'numeric', month: '2-digit', day: '2-digit' };
+        return date.toLocaleDateString('en-US', options);
+      };
+      
+      // מע"מ וסכומים - תיקון החישובים
+      const vatRate = booking.tourist ? 0 : 0.18;
+      
+      // חישוב נכון - מניחים שהמחיר הבסיסי הוא ללא מע"מ
+      const pricePerNightNoVat = booking.pricePerNight ? parseFloat(booking.pricePerNight) / (1 + vatRate) : 0;
+      const totalNights = booking.nights || nightsCount || 1;
+      
+      // סכום לפני מע"מ = מחיר ללילה ללא מע"מ * מספר לילות
+      const totalWithoutVat = pricePerNightNoVat * totalNights;
+      
+      // סכום המע"מ = סכום לפני מע"מ * שיעור המע"מ
+      const totalVatAmount = booking.tourist ? 0 : (totalWithoutVat * vatRate);
+      
+      // סכום כולל = סכום לפני מע"מ + סכום המע"מ
+      const totalAmount = totalWithoutVat + totalVatAmount;
+
+      // שם הלקוח
+      const guestName = `${booking.firstName || booking.guest?.firstName || ''} ${booking.lastName || booking.guest?.lastName || ''}`.trim() || 'Guest';
+
+      // יצירת תוכן החשבונית באנגלית
+      // שימוש ב-LTR ועיצוב מותאם לאנגלית
+      const invoiceContent = `
+        <!DOCTYPE html>
+        <html dir="ltr" lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>INV-${booking.bookingNumber || booking._id?.substring(0, 6) || 'XXXXXX'}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap');
+            
+            body {
+              font-family: 'Rubik', sans-serif;
+              background-color: #f8f8f8;
+              margin: 0;
+              padding: 20px;
+              direction: ltr;
+              text-align: left;
+            }
+            
+            .invoice-container {
+              max-width: 800px;
+              margin: 0 auto;
+              background-color: white;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              border-radius: 4px;
+              padding: 30px;
+            }
+            
+            .invoice-header {
+              padding-bottom: 15px;
+              border-bottom: 1px solid #e0e0e0;
+              margin-bottom: 20px;
+              text-align: center;
+            }
+            
+            .company-name {
+              font-size: 24px;
+              font-weight: bold;
+              color: #333;
+              margin-bottom: 5px;
+            }
+            
+            .company-details {
+              font-size: 14px;
+              color: #666;
+              margin-bottom: 15px;
+              line-height: 1.4;
+            }
+            
+            .invoice-number {
+              font-size: 15px;
+              font-weight: 500;
+              color: #333;
+              margin-top: 10px;
+            }
+            
+            .invoice-date {
+              font-size: 14px;
+              color: #666;
+              margin-top: 5px;
+            }
+            
+            .invoice-title {
+              font-size: 24px;
+              font-weight: 500;
+              color: #333;
+              margin: 20px 0;
+              text-align: center;
+              position: relative;
+              padding-bottom: 10px;
+              border-bottom: 1px solid #eee;
+            }
+            
+            .customer-section {
+              margin: 20px 0;
+              padding: 10px 15px;
+              background-color: #f9f9f9;
+              border-radius: 4px;
+            }
+            
+            .customer-title {
+              font-size: 14px;
+              color: #666;
+              margin-bottom: 5px;
+            }
+            
+            .customer-name {
+              font-size: 16px;
+              font-weight: 500;
+              color: #333;
+            }
+            
+            .invoice-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 20px 0;
+            }
+            
+            .invoice-table th {
+              background-color: #f5f5f5;
+              color: #333;
+              padding: 10px;
+              text-align: left;
+              font-weight: 500;
+              font-size: 14px;
+              border-bottom: 1px solid #ddd;
+            }
+            
+            .invoice-table tr:nth-child(even) {
+              background-color: #fcfcfc;
+            }
+            
+            .invoice-table td {
+              padding: 10px;
+              border-bottom: 1px solid #eee;
+              color: #333;
+              font-size: 14px;
+            }
+            
+            .invoice-table .align-right {
+              text-align: right;
+            }
+            
+            .price-note {
+              font-size: 12px;
+              color: #888;
+              text-align: left;
+              margin-top: 5px;
+            }
+            
+            .invoice-total {
+              display: flex;
+              justify-content: flex-end;
+              margin-top: 20px;
+              font-size: 14px;
+            }
+            
+            .invoice-total-table {
+              width: 40%;
+              border-collapse: collapse;
+            }
+            
+            .invoice-total-table td {
+              padding: 8px 10px;
+              border-bottom: 1px solid #eee;
+            }
+            
+            .invoice-total-table .total-row {
+              font-weight: bold;
+              font-size: 16px;
+              background-color: #f9f9f9;
+              color: #333;
+              border-top: 1px solid #ddd;
+            }
+            
+            .invoice-notes {
+              margin-top: 20px;
+              padding: 15px;
+              background-color: #f9f9f9;
+              border-radius: 4px;
+              color: #666;
+            }
+            
+            .invoice-notes strong {
+              color: #333;
+            }
+            
+            .print-button {
+              display: block;
+              margin: 20px auto;
+              padding: 10px 20px;
+              background-color: #4a6da7;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              font-family: 'Rubik', sans-serif;
+              font-size: 14px;
+              font-weight: 500;
+            }
+            
+            .print-button:hover {
+              background-color: #3a5a8c;
+            }
+            
+            @media print {
+              body {
+                background-color: white;
+                padding: 0;
+              }
+              
+              .invoice-container {
+                box-shadow: none;
+                padding: 10px;
+              }
+              
+              .print-button {
+                display: none;
+              }
+              
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="no-print" style="text-align: center; margin-bottom: 20px;">
+            <button class="print-button" onclick="window.print()">Print Invoice</button>
+          </div>
+          
+          <div class="invoice-container">
+            <div class="invoice-header">
+              <div class="company-name">DM Hotels</div>
+              <div class="company-details">
+                Rothschild 79, Petah Tikva<br>
+                ID. 516679909
+              </div>
+              <div class="invoice-date">Date: ${formatEnglishDate(new Date())}</div>
+              <div class="invoice-number">Invoice Number: INV-${booking.bookingNumber || booking._id?.substring(0, 6) || 'XXXXXX'}</div>
+            </div>
+            
+            <div class="invoice-title">Tax Invoice</div>
+            
+            <div class="customer-section">
+              <div class="customer-title">Bill To:</div>
+              <div class="customer-name">${guestName}</div>
+            </div>
+            
+            <table class="invoice-table">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Room</th>
+                  <th>Dates</th>
+                  <th>Nights</th>
+                  <th>Price per night (excl. VAT)</th>
+                  <th class="align-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Accommodation Services</td>
+                  <td>${roomNumber}</td>
+                  <td>${formatEnglishDate(checkInDate)} - ${formatEnglishDate(checkOutDate)}</td>
+                  <td>${totalNights}</td>
+                  <td>₪${pricePerNightNoVat.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                  <td class="align-right">₪${totalWithoutVat.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="price-note">* Prices shown are excluding VAT</div>
+            
+            <div class="invoice-total">
+              <table class="invoice-total-table">
+                <tr>
+                  <td>Amount before VAT:</td>
+                  <td class="align-right">₪${totalWithoutVat.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                </tr>
+                <tr>
+                  <td>VAT (${booking.tourist ? '0' : '18'}%):</td>
+                  <td class="align-right">₪${totalVatAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                </tr>
+                <tr class="total-row">
+                  <td>Total Amount:</td>
+                  <td class="align-right">₪${totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                </tr>
+              </table>
+            </div>
+            
+            ${booking.notes ? `
+            <div class="invoice-notes">
+              <p><strong>Notes:</strong></p>
+              <p>${booking.notes}</p>
+            </div>
+            ` : ''}
+          </div>
+          
+          <div class="no-print" style="text-align: center; margin-top: 20px;">
+            <button class="print-button" onclick="window.print()">Print Invoice</button>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // כתיבת תוכן החשבונית לחלון החדש
+      invoiceWindow.document.open();
+      invoiceWindow.document.write(invoiceContent);
+      invoiceWindow.document.close();
+    };
+    
+    // פתיחת חלון אישור הזמנה
+    const handleOpenBookingConfirmation = () => {
+      if (!booking || !booking._id) {
+        alert('לא ניתן להציג אישור הזמנה עבור הזמנה שעדיין לא נשמרה');
+        return;
+      }
+
+      // פתיחת חלון חדש לתצוגת אישור ההזמנה
+      const confirmationWindow = window.open('', '_blank', 'width=800,height=800');
+      
+      if (!confirmationWindow) {
+        alert('הדפדפן חסם את פתיחת החלון החדש. אנא אפשר חלונות קופצים עבור אתר זה.');
+        return;
+      }
+      
+      // הכנת הנתונים לתצוגת אישור ההזמנה
+      const roomDetails = rooms.find(r => r._id === booking.roomId);
+      const roomNumber = roomDetails ? roomDetails.roomNumber : 'לא ידוע';
+      const roomName = roomDetails ? roomDetails.name : '';
+      
+      // חישוב תאריכים
+      const checkInDate = booking.startDate ? new Date(booking.startDate) : new Date();
+      const checkOutDate = booking.endDate ? new Date(booking.endDate) : new Date();
+      
+      // פורמט תאריכים לעברית
+      const formatHebrewDate = (date) => {
+        const options = { year: 'numeric', month: '2-digit', day: '2-digit' };
+        return date.toLocaleDateString('he-IL', options);
+      };
+      
+      // מע"מ וסכומים
+      const vatRate = booking.tourist ? 0 : 0.18;
+      const pricePerNightNoVat = booking.pricePerNight ? parseFloat(booking.pricePerNight) : 0;
+      const totalNights = booking.nights || nightsCount || 1;
+      const totalWithoutVat = pricePerNightNoVat * totalNights;
+      const totalVatAmount = booking.tourist ? 0 : (totalWithoutVat * vatRate);
+      const totalAmount = totalWithoutVat + totalVatAmount;
+      
+      // שם הלקוח
+      const guestName = `${booking.firstName || booking.guest?.firstName || ''} ${booking.lastName || booking.guest?.lastName || ''}`.trim() || 'אורח';
+
+      // יצירת תוכן אישור ההזמנה
+      const confirmationContent = `
+        <!DOCTYPE html>
+        <html dir="rtl" lang="he">
+        <head>
+          <meta charset="UTF-8">
+          <title>אישור הזמנה: ${booking.bookingNumber || booking._id?.substring(0, 6) || 'XXXXXX'}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap');
+            
+            body {
+              font-family: 'Rubik', sans-serif;
+              background-color: #f8f8f8;
+              margin: 0;
+              padding: 20px;
+              direction: rtl;
+              text-align: right;
+            }
+            
+            .confirmation-container {
+              max-width: 800px;
+              margin: 0 auto;
+              background-color: white;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              border-radius: 4px;
+              padding: 30px;
+            }
+            
+            .confirmation-header {
+              padding-bottom: 15px;
+              border-bottom: 1px solid #e0e0e0;
+              margin-bottom: 20px;
+              text-align: center;
+            }
+            
+            .company-name {
+              font-size: 24px;
+              font-weight: bold;
+              color: #333;
+              margin-bottom: 5px;
+            }
+            
+            .company-details {
+              font-size: 14px;
+              color: #666;
+              margin-bottom: 15px;
+              line-height: 1.4;
+            }
+            
+            .confirmation-number {
+              font-size: 15px;
+              font-weight: 500;
+              color: #333;
+              margin-top: 10px;
+            }
+            
+            .confirmation-date {
+              font-size: 14px;
+              color: #666;
+              margin-top: 5px;
+            }
+            
+            .confirmation-title {
+              font-size: 24px;
+              font-weight: 500;
+              color: #333;
+              margin: 20px 0;
+              text-align: center;
+              position: relative;
+              padding-bottom: 10px;
+              border-bottom: 1px solid #eee;
+            }
+            
+            .guest-section {
+              margin: 20px 0;
+              padding: 10px 15px;
+              background-color: #f9f9f9;
+              border-radius: 4px;
+            }
+            
+            .guest-title {
+              font-size: 14px;
+              color: #666;
+              margin-bottom: 5px;
+            }
+            
+            .guest-name {
+              font-size: 16px;
+              font-weight: 500;
+              color: #333;
+            }
+            
+            .booking-details {
+              margin: 20px 0;
+              border: 1px solid #eee;
+              border-radius: 4px;
+              overflow: hidden;
+            }
+            
+            .booking-details-title {
+              background-color: #f5f5f5;
+              padding: 10px 15px;
+              font-weight: 500;
+              color: #333;
+              border-bottom: 1px solid #eee;
+            }
+            
+            .booking-details-content {
+              padding: 15px;
+            }
+            
+            .booking-details-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 15px;
+            }
+            
+            .booking-detail-item {
+              margin-bottom: 10px;
+            }
+            
+            .detail-label {
+              font-size: 12px;
+              color: #666;
+              margin-bottom: 2px;
+            }
+            
+            .detail-value {
+              font-size: 14px;
+              font-weight: 500;
+              color: #333;
+            }
+            
+            .room-details {
+              margin: 20px 0;
+              border: 1px solid #eee;
+              border-radius: 4px;
+              overflow: hidden;
+            }
+            
+            .price-details {
+              margin: 20px 0;
+              border: 1px solid #eee;
+              border-radius: 4px;
+              overflow: hidden;
+            }
+            
+            .price-table {
+              width: 100%;
+              border-collapse: collapse;
+            }
+            
+            .price-table td {
+              padding: 10px 15px;
+              border-bottom: 1px solid #eee;
+            }
+            
+            .price-table tr:last-child td {
+              border-bottom: none;
+            }
+            
+            .price-label {
+              font-size: 14px;
+              color: #333;
+            }
+            
+            .price-value {
+              font-size: 14px;
+              font-weight: 500;
+              color: #333;
+              text-align: left;
+            }
+            
+            .total-row {
+              background-color: #f9f9f9;
+              font-weight: bold;
+            }
+            
+            .cancellation-policy {
+              margin: 20px 0;
+              padding: 15px;
+              background-color: #f9f9f9;
+              border-radius: 4px;
+              border-left: 4px solid #4a6da7;
+            }
+            
+            .policy-title {
+              font-size: 16px;
+              font-weight: 500;
+              color: #333;
+              margin-bottom: 10px;
+            }
+            
+            .policy-text {
+              font-size: 14px;
+              color: #666;
+              line-height: 1.5;
+            }
+            
+            .print-button {
+              display: block;
+              margin: 20px auto;
+              padding: 10px 20px;
+              background-color: #4a6da7;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              font-family: 'Rubik', sans-serif;
+              font-size: 14px;
+              font-weight: 500;
+            }
+            
+            .print-button:hover {
+              background-color: #3a5a8c;
+            }
+            
+            @media print {
+              body {
+                background-color: white;
+                padding: 0;
+              }
+              
+              .confirmation-container {
+                box-shadow: none;
+                padding: 10px;
+              }
+              
+              .print-button {
+                display: none;
+              }
+              
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="no-print" style="text-align: center; margin-bottom: 20px;">
+            <button class="print-button" onclick="window.print()">הדפס אישור הזמנה</button>
+          </div>
+          
+          <div class="confirmation-container">
+            <div class="confirmation-header">
+              <div class="company-name">דיאם אס הוטלס</div>
+              <div class="company-details">
+                רוטשילד 79, פתח תקווה<br>
+                טלפון: 03-1234567
+              </div>
+              <div class="confirmation-date">תאריך: ${formatHebrewDate(new Date())}</div>
+              <div class="confirmation-number">מספר הזמנה: ${booking.bookingNumber || booking._id?.substring(0, 6) || 'XXXXXX'}</div>
+            </div>
+            
+            <div class="confirmation-title">אישור הזמנה</div>
+            
+            <div class="guest-section">
+              <div class="guest-title">שלום</div>
+              <div class="guest-name">${guestName}</div>
+            </div>
+            
+            <p>אנו שמחים לאשר את ביצוע ההזמנה שלך ומצפים לארח אותך.</p>
+            
+            <div class="booking-details">
+              <div class="booking-details-title">פרטי ההזמנה</div>
+              <div class="booking-details-content">
+                <div class="booking-details-grid">
+                  <div class="booking-detail-item">
+                    <div class="detail-label">תאריך הגעה (צ'ק אין)</div>
+                    <div class="detail-value">${formatHebrewDate(checkInDate)}</div>
+                  </div>
+                  <div class="booking-detail-item">
+                    <div class="detail-label">תאריך עזיבה (צ'ק אאוט)</div>
+                    <div class="detail-value">${formatHebrewDate(checkOutDate)}</div>
+                  </div>
+                  <div class="booking-detail-item">
+                    <div class="detail-label">מספר לילות</div>
+                    <div class="detail-value">${totalNights}</div>
+                  </div>
+                  <div class="booking-detail-item">
+                    <div class="detail-label">מספר חדר</div>
+                    <div class="detail-value">${roomNumber}</div>
+                  </div>
+                  <div class="booking-detail-item">
+                    <div class="detail-label">סוג חדר</div>
+                    <div class="detail-value">${roomName}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="price-details">
+              <div class="booking-details-title">פרטי תשלום</div>
+              <div class="booking-details-content">
+                <table class="price-table">
+                  <tr>
+                    <td class="price-label">מחיר ללילה (לפני מע"מ)</td>
+                    <td class="price-value">₪${pricePerNightNoVat.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                  </tr>
+                  <tr>
+                    <td class="price-label">מספר לילות</td>
+                    <td class="price-value">${totalNights}</td>
+                  </tr>
+                  <tr>
+                    <td class="price-label">סה"כ לפני מע"מ</td>
+                    <td class="price-value">₪${totalWithoutVat.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                  </tr>
+                  <tr>
+                    <td class="price-label">מע"מ (${booking.tourist ? '0' : '18'}%)</td>
+                    <td class="price-value">₪${totalVatAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                  </tr>
+                  <tr class="total-row">
+                    <td class="price-label">סה"כ לתשלום</td>
+                    <td class="price-value">₪${totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                  </tr>
+                </table>
+              </div>
+            </div>
+            
+            <div class="cancellation-policy">
+              <div class="policy-title">מדיניות ביטול</div>
+              <div class="policy-text">
+                <p>ביטול ללא חיוב אפשרי עד 24 שעות לפני מועד ההגעה.</p>
+                <p>ביטול הזמנה פחות מ-24 שעות לפני ההגעה או אי-הגעה יחויב במחיר של לילה אחד.</p>
+                <p>במקרה של עזיבה מוקדמת, לא יינתן החזר עבור הלילות שלא נוצלו.</p>
+              </div>
+            </div>
+            
+            <p>אנו מאחלים לך שהות נעימה ומהנה!</p>
+            <p>לשאלות או בקשות נוספות, אנא צור קשר בטלפון: 03-1234567</p>
+            
+            ${booking.notes ? `
+            <div style="margin-top: 20px; padding: 15px; background-color: #f9f9f9; border-radius: 4px;">
+              <p><strong>הערות:</strong></p>
+              <p>${booking.notes}</p>
+            </div>
+            ` : ''}
+          </div>
+          
+          <div class="no-print" style="text-align: center; margin-top: 20px;">
+            <button class="print-button" onclick="window.print()">הדפס אישור הזמנה</button>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // כתיבת תוכן אישור ההזמנה לחלון החדש
+      confirmationWindow.document.open();
+      confirmationWindow.document.write(confirmationContent);
+      confirmationWindow.document.close();
+    };
+    
+    // פונקציה לשליחת פרטי צ'ק-אין בוואטסאפ
+    const handleSendCheckinDetails = () => {
+      if (!booking || !booking.phone) {
+        alert('אין מספר טלפון שמור להזמנה זו');
+        return;
+      }
+      
+      // נתונים נדרשים
+      const roomDetails = rooms.find(r => r._id === booking.roomId);
+      const roomNumber = roomDetails ? roomDetails.roomNumber : '';
+      
+      // נקה את מספר הטלפון מתווים שאינם ספרות
+      const phoneNumber = booking.phone.replace(/\D/g, '');
+      const formattedPhone = phoneNumber.startsWith('0') ? '972' + phoneNumber.substring(1) : phoneNumber;
+      
+      // יצירת הודעת וואטסאפ עם טקסט במקום אמוג'ים
+      let message = `*שלום ${booking.firstName || 'אורח/ת יקר/ה'}!*\n\n`;
+      message += `הנה פרטי הצ'ק-אין שלך:\n\n`;
+      message += `🏠 כתובת: רוטשילד 79, פתח תקווה\n`;
+      message += `🚪 הכניסה ממש ליד הכניסה לסופרמרקט "יש בשכונה" יש דלת זכוכית\n`;
+      message += `2️⃣ קומה 2\n`;
+      message += `🔢 חדר ${roomNumber}\n\n`;
+      message += `🔑 החדר פתוח ומפתח בתוך החדר\n\n`;
+      message += `💡 שימו לב למים חמים צריך להדליק את הדוד\n\n`;
+      message += `לכל שאלה או בקשה אני זמין ואשמח לעזור.\n`;
+      message += `תודה ושהות נעימה! ✨`;
+      
+      // פתיחת וואטסאפ עם ההודעה
+      const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank');
+      
+      // הצגת דיאלוג שמזכיר למשתמש לשלוח תמונה
+      setTimeout(() => {
+        const sendImage = window.confirm('הודעת וואטסאפ נפתחה. האם ברצונך לשלוח גם את תמונת הכניסה לבניין לאחר שליחת ההודעה?');
+        if (sendImage) {
+          alert('לאחר שליחת ההודעה, לחץ על סיכה (📎) בשורת ההודעה בוואטסאפ ובחר "תמונות וסרטונים" כדי לשלוח את תמונת הכניסה לבניין.');
+        }
+      }, 1000);
+    };
+    
     return (
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>
@@ -1258,58 +2378,7 @@ const BookingsManager = () => {
                 : 'הזמנה חדשה'}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={booking.isPaid}
-                    onChange={(e) => {
-                      // כאשר מסמנים כשולם, מגדירים אמצעי תשלום ברירת מחדל אם לא קיים
-                      const updatedBooking = {
-                        ...booking,
-                        isPaid: e.target.checked
-                      };
-                      
-                      // אם מסמנים כשולם וטרם הוגדר אמצעי תשלום, הגדר ברירת מחדל
-                      if (e.target.checked && !booking.paymentMethod) {
-                        updatedBooking.paymentMethod = 'cash';
-                        console.log('הגדרת אמצעי תשלום ברירת מחדל: מזומן');
-                      }
-                      
-                      setBooking(updatedBooking);
-                    }}
-                    color="success"
-                  />
-                }
-                label="שולם"
-                labelPlacement="start"
-                sx={{ mr: 1, minWidth: 80 }}
-              />
-              
-              {/* תפריט בחירת אמצעי תשלום - מוצג רק כאשר סטטוס התשלום הוא 'שולם' */}
-              {booking.isPaid && (
-                <FormControl size="small" sx={{ minWidth: 120, mr: 1 }}>
-                  <InputLabel id="payment-method-label">אמצעי תשלום</InputLabel>
-                  <Select
-                    labelId="payment-method-label"
-                    id="payment-method-select"
-                    value={booking.paymentMethod || 'cash'}
-                    onChange={(e) => setBooking({...booking, paymentMethod: e.target.value})}
-                    label="אמצעי תשלום"
-                  >
-                    <MenuItem value="cash">מזומן</MenuItem>
-                    <MenuItem value="creditOr">אשראי אור יהודה</MenuItem>
-                    <MenuItem value="creditRothschild">אשראי רוטשילד</MenuItem>
-                    <MenuItem value="mizrahi">העברה מזרחי</MenuItem>
-                    <MenuItem value="bitMizrahi">ביט מזרחי</MenuItem>
-                    <MenuItem value="payboxMizrahi">פייבוקס מזרחי</MenuItem>
-                    <MenuItem value="poalim">העברה פועלים</MenuItem>
-                    <MenuItem value="bitPoalim">ביט פועלים</MenuItem>
-                    <MenuItem value="payboxPoalim">פייבוקס פועלים</MenuItem>
-                    <MenuItem value="other">אחר</MenuItem>
-                  </Select>
-                </FormControl>
-              )}
-              
+              {/* אייקון ביטול להזמנה */}
               {isEditMode && booking.status !== 'canceled' && (
                 <Tooltip title="ביטול הזמנה">
                   <Button 
@@ -1327,6 +2396,156 @@ const BookingsManager = () => {
             </Box>
           </Box>
         </DialogTitle>
+        
+        {/* סרגל עליון חדש לאייקונים */}
+        {isEditMode && (
+          <Box 
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: 2,
+              mt: -1,
+              mb: 2,
+              px: 2,
+              pb: 2,
+              borderBottom: '1px solid',
+              borderColor: 'divider'
+            }}
+          >
+            <Tooltip title="חשבונית בעברית">
+              <IconButton
+                color="primary"
+                onClick={handleOpenInvoice}
+                sx={{
+                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                  borderRadius: '12px',
+                  p: 1.5,
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.primary.main, 0.15),
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                <ReceiptIcon />
+              </IconButton>
+            </Tooltip>
+            
+            <Tooltip title="חשבונית באנגלית">
+              <IconButton
+                color="secondary"
+                onClick={handleOpenEnglishInvoice}
+                sx={{
+                  bgcolor: alpha(theme.palette.secondary.main, 0.08),
+                  borderRadius: '12px',
+                  p: 1.5,
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.secondary.main, 0.15),
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <ReceiptIcon />
+                  <Typography variant="caption" sx={{ ml: 0.5, fontWeight: 'bold' }}>EN</Typography>
+                </Box>
+              </IconButton>
+            </Tooltip>
+            
+            <Tooltip title="אישור הזמנה">
+              <IconButton
+                color="info"
+                onClick={handleOpenBookingConfirmation}
+                sx={{
+                  bgcolor: alpha(theme.palette.info.main, 0.08),
+                  borderRadius: '12px',
+                  p: 1.5,
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.info.main, 0.15),
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                <ConfirmationNumberIcon />
+              </IconButton>
+            </Tooltip>
+            
+            <Tooltip title="שלח פרטי צ'ק-אין בוואטסאפ">
+              <IconButton
+                color="success"
+                onClick={handleSendCheckinDetails}
+                sx={{
+                  bgcolor: alpha(theme.palette.success.light, 0.08),
+                  borderRadius: '12px',
+                  p: 1.5,
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.success.light, 0.15),
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                <WhatsAppIcon />
+              </IconButton>
+            </Tooltip>
+            
+            <Divider orientation="vertical" flexItem />
+            
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={booking.isPaid}
+                  onChange={(e) => {
+                    // כאשר מסמנים כשולם, מגדירים אמצעי תשלום ברירת מחדל אם לא קיים
+                    const updatedBooking = {
+                      ...booking,
+                      isPaid: e.target.checked
+                    };
+                    
+                    // אם מסמנים כשולם וטרם הוגדר אמצעי תשלום, הגדר ברירת מחדל
+                    if (e.target.checked && !booking.paymentMethod) {
+                      updatedBooking.paymentMethod = 'cash';
+                      console.log('הגדרת אמצעי תשלום ברירת מחדל: מזומן');
+                    }
+                    
+                    setBooking(updatedBooking);
+                  }}
+                  color="success"
+                />
+              }
+              label="שולם"
+              labelPlacement="start"
+              sx={{ mr: 1, minWidth: 80 }}
+            />
+            
+            {/* תפריט בחירת אמצעי תשלום - מוצג רק כאשר סטטוס התשלום הוא 'שולם' */}
+            {booking.isPaid && (
+              <FormControl size="small" sx={{ minWidth: 120, mr: 1 }}>
+                <InputLabel id="payment-method-label">אמצעי תשלום</InputLabel>
+                <Select
+                  labelId="payment-method-label"
+                  id="payment-method-select"
+                  value={booking.paymentMethod || 'cash'}
+                  onChange={(e) => setBooking({...booking, paymentMethod: e.target.value})}
+                  label="אמצעי תשלום"
+                >
+                  <MenuItem value="cash">מזומן</MenuItem>
+                  <MenuItem value="creditOr">אשראי אור יהודה</MenuItem>
+                  <MenuItem value="creditRothschild">אשראי רוטשילד</MenuItem>
+                  <MenuItem value="mizrahi">העברה מזרחי</MenuItem>
+                  <MenuItem value="bitMizrahi">ביט מזרחי</MenuItem>
+                  <MenuItem value="payboxMizrahi">פייבוקס מזרחי</MenuItem>
+                  <MenuItem value="poalim">העברה פועלים</MenuItem>
+                  <MenuItem value="bitPoalim">ביט פועלים</MenuItem>
+                  <MenuItem value="payboxPoalim">פייבוקס פועלים</MenuItem>
+                  <MenuItem value="other">אחר</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+          </Box>
+        )}
         
         <DialogContent>
           <Grid container spacing={2}>
@@ -1368,6 +2587,26 @@ const BookingsManager = () => {
                       size="small"
                       value={booking.phone}
                       onChange={(e) => setBooking({...booking, phone: e.target.value})}
+                      InputProps={{
+                        endAdornment: booking.phone ? (
+                          <InputAdornment position="end">
+                            <Tooltip title="פתח וואטסאפ">
+                              <IconButton 
+                                edge="end" 
+                                size="small"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  // נוריד את כל התווים שאינם ספרות
+                                  const phoneNumber = booking.phone.replace(/\D/g, '');
+                                  window.open(`https://wa.me/${phoneNumber.startsWith('0') ? '972' + phoneNumber.substring(1) : phoneNumber}`, '_blank');
+                                }}
+                              >
+                                <WhatsAppIcon fontSize="small" sx={{ color: '#25D366' }} />
+                              </IconButton>
+                            </Tooltip>
+                          </InputAdornment>
+                        ) : null
+                      }}
                     />
                   </Grid>
                   <Grid item xs={6} sm={3}>
@@ -2354,10 +3593,15 @@ const BookingsManager = () => {
                   }}
                   sx={{ 
                     cursor: 'pointer',
-                    bgcolor: hasBooking ? alpha(statusColor, 0.1) : 'white',
+                    bgcolor: hasBooking ? 
+                      // בדיקה אם יש סימן קריאה בהערות - צבע אדום
+                      (booking.notes && booking.notes.includes('!') ? alpha('#f44336', 0.2) : alpha(statusColor, 0.1)) 
+                      : 'white',
                     borderLeft: hasBooking && isCheckInDay ? `3px solid ${statusColor}` : null,
                     '&:hover': {
-                      bgcolor: hasBooking ? alpha(statusColor, 0.15) : alpha(theme.palette.primary.light, 0.05),
+                      bgcolor: hasBooking ? 
+                        (booking.notes && booking.notes.includes('!') ? alpha('#f44336', 0.25) : alpha(statusColor, 0.15)) 
+                        : alpha(theme.palette.primary.light, 0.05),
                       transform: 'translateY(-2px)',
                       boxShadow: '0 4px 8px rgba(0,0,0,0.05)'
                     }
@@ -2386,14 +3630,105 @@ const BookingsManager = () => {
                       
                       {/* הוסרו תאריכי צ'ק-אין וצ'ק-אאוט */}
                       
-                      {/* העברת האייקון של עריכה לתחתית האריח */}
+                      {/* העברת האייקון של עריכה לתחתית האריח + הוספת אייקון וואטסאפ לתאריכים רלוונטיים */}
                       <Box sx={{ 
                         display: 'flex', 
                         justifyContent: 'flex-end',
                         alignItems: 'center',
                         p: 0.5,
-                        mt: 'auto'
+                        mt: 'auto',
+                        gap: 0.5
                       }}>
+                        {/* אייקון אזהרה אם יש הערות */}
+                        {booking.notes && booking.notes.trim() !== '' && (
+                          <Tooltip title={booking.notes}>
+                            <CellIconButton 
+                              size="small" 
+                              sx={{ 
+                                color: booking.notes.includes('!') ? '#f44336' : '#ff9800'
+                              }}
+                            >
+                              {booking.notes.includes('!') ? <ErrorIcon /> : <WarningIcon />}
+                            </CellIconButton>
+                          </Tooltip>
+                        )}
+
+                        {/* נקודה אדומה אם ההזמנה לא שולמה והתאריך חלף או נוכחי */}
+                        {(() => {
+                          // בדיקת תאריך
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          
+                          const bookingDate = new Date(day);
+                          bookingDate.setHours(0, 0, 0, 0);
+                          
+                          // בדיקה אם התאריך חלף או נוכחי
+                          const isPastOrToday = bookingDate.getTime() <= today.getTime();
+                          
+                          // בדיקה אם ההזמנה לא שולמה
+                          const isNotPaid = 
+                            (booking.isPaid === false) || 
+                            (booking.paymentStatus === 'pending' || booking.paymentStatus === 'unpaid');
+                          
+                          if (isPastOrToday && isNotPaid) {
+                            return (
+                              <Box 
+                                sx={{ 
+                                  width: '8px', 
+                                  height: '8px', 
+                                  borderRadius: '50%', 
+                                  bgcolor: '#f44336',
+                                  boxShadow: '0 0 4px rgba(244, 67, 54, 0.5)'
+                                }} 
+                              />
+                            );
+                          }
+                          return null;
+                        })()}
+                        
+                        {/* אייקון וואטסאפ רק להזמנות של היום, אתמול ומחר */}
+                        {(() => {
+                          // בדיקה אם התאריך הוא היום, אתמול או מחר
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          
+                          const tomorrow = new Date(today);
+                          tomorrow.setDate(tomorrow.getDate() + 1);
+                          
+                          const yesterday = new Date(today);
+                          yesterday.setDate(yesterday.getDate() - 1);
+                          
+                          const bookingDate = new Date(day);
+                          bookingDate.setHours(0, 0, 0, 0);
+                          
+                          const isRelevantDate = 
+                            bookingDate.getTime() === today.getTime() || 
+                            bookingDate.getTime() === yesterday.getTime() || 
+                            bookingDate.getTime() === tomorrow.getTime();
+                          
+                          // קבלת מספר הטלפון
+                          const phoneNumber = booking.phone || 
+                                            (booking.guest && booking.guest.phone ? booking.guest.phone : '');
+                          
+                          if (isRelevantDate && phoneNumber) {
+                            return (
+                              <CellIconButton 
+                                size="small" 
+                                sx={{ color: '#25D366' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // נוריד את כל התווים שאינם ספרות
+                                  const cleanPhone = phoneNumber.replace(/\D/g, '');
+                                  window.open(`https://wa.me/${cleanPhone.startsWith('0') ? '972' + cleanPhone.substring(1) : cleanPhone}`, '_blank');
+                                }}
+                              >
+                                <WhatsAppIcon />
+                              </CellIconButton>
+                            );
+                          }
+                          return null;
+                        })()}
+                        
                         <CellIconButton 
                           size="small" 
                           color="primary"
@@ -2502,37 +3837,43 @@ const BookingsManager = () => {
       <MinimalSidebar>
         <SidebarButton title="דשבורד" placement="right" isActive={currentPath === '/dashboard'}>
           <IconButton component={RouterLink} to="/dashboard">
-            <DashboardIcon />
+            <DashboardIcon sx={{ fontSize: '1.5rem', color: '#3f51b5' }} />
           </IconButton>
         </SidebarButton>
         
-        <SidebarButton title="ניהול הזמנות" placement="right" isActive={currentPath === '/bookings'}>
-          <IconButton component={RouterLink} to="/bookings">
-            <CalendarMonthIcon />
+        <SidebarButton title="דוחות הכנסה" placement="right" isActive={currentPath === '/dashboard/income-report'}>
+          <IconButton component={RouterLink} to="/dashboard/income-report">
+            <BarChartIcon sx={{ fontSize: '1.5rem', color: '#4caf50' }} />
           </IconButton>
         </SidebarButton>
         
-        <SidebarButton title="ניהול חדרים" placement="right" isActive={currentPath === '/rooms'}>
-          <IconButton component={RouterLink} to="/rooms">
-            <HotelIcon />
+        <SidebarButton title="אתר הבית" placement="right" isActive={currentPath === '/'}>
+          <IconButton component={RouterLink} to="/">
+            <PublicIcon sx={{ fontSize: '1.5rem', color: '#1976d2' }} />
           </IconButton>
         </SidebarButton>
         
-        <SidebarButton title="דוחות ונתונים" placement="right" isActive={currentPath === '/reports'}>
-          <IconButton component={RouterLink} to="/reports">
-            <AssessmentIcon />
+        <SidebarButton title="Booking.com" placement="right">
+          <IconButton 
+            onClick={() => window.open('https://account.booking.com/sign-in?op_token=EgVvYXV0aCKyAQoUNlo3Mm9IT2QzNk5uN3prM3BpcmgSCWF1dGhvcml6ZRoaaHR0cHM6Ly9hZG1pbi5ib29raW5nLmNvbS8qOnsiYXV0aF9hdHRlbXB0X2lkIjoiN2RhZmRmODMtMThhNi00NmU4LTlkNDQtOGJkMDZhZTMxNzEwIn0yK05ibmdTNDlGZ0poWHd6RXNNRjNqOFliZU16VGpyTUZSaWxzamprbTllUDA6BFMyNTZCBGNvZGUqEzCwm8Hl4dMnOgBCAFjwhab84DI', '_blank')}
+          >
+            <Avatar sx={{ width: 28, height: 28, fontSize: '1.2rem', bgcolor: '#0896ff', fontWeight: 'bold' }}>B</Avatar>
           </IconButton>
         </SidebarButton>
         
-        <SidebarButton title="ניהול כספים" placement="right" isActive={currentPath === '/finance'}>
-          <IconButton component={RouterLink} to="/finance">
-            <AccountBalanceIcon />
+        <SidebarButton title="Expedia" placement="right">
+          <IconButton 
+            onClick={() => window.open('https://www.expediapartnercentral.com/Account/Logon?returnUrl=https%3A%2F%2Fapps.expediapartnercentral.com%2Flodging%2Fhome%2Fhome%3Fhtid%3D25818583', '_blank')}
+          >
+            <Avatar sx={{ width: 28, height: 28, fontSize: '1.2rem', bgcolor: '#00355F', fontWeight: 'bold' }}>E</Avatar>
           </IconButton>
         </SidebarButton>
         
-        <SidebarButton title="הגדרות שפה" placement="right" isActive={currentPath === '/languages'}>
-          <IconButton component={RouterLink} to="/languages">
-            <LanguageIcon />
+        <SidebarButton title="CreditGuard" placement="right">
+          <IconButton 
+            onClick={() => window.open('https://console.creditguard.co.il/html/login.html', '_blank')}
+          >
+            <CreditCardIcon sx={{ fontSize: '1.5rem', color: '#F27935' }} />
           </IconButton>
         </SidebarButton>
       </MinimalSidebar>
