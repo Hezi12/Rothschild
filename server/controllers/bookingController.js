@@ -811,6 +811,8 @@ exports.updateBooking = async (req, res) => {
     if (creditCard) updatedFields.creditCard = processedCreditCard;
     if (status) updatedFields.status = status;
     if (paymentStatus) updatedFields.paymentStatus = paymentStatus;
+    // Add check and update for paymentMethod
+    if (req.body.paymentMethod) updatedFields.paymentMethod = req.body.paymentMethod;
     if (notes !== undefined) updatedFields.notes = notes;
     if (req.body.isTourist !== undefined) updatedFields.isTourist = req.body.isTourist;
     
@@ -865,6 +867,9 @@ exports.updateBooking = async (req, res) => {
       fields: responseBooking.creditCard ? Object.keys(responseBooking.creditCard) : 'אין',
       values: responseBooking.creditCard ? Object.values(responseBooking.creditCard) : 'אין'
     });
+    
+    // הוספת הלוג כאן
+    // console.log('שולח תגובה ללקוח עם הנתונים הבאים:', responseBooking);
     
     res.json({
       success: true,

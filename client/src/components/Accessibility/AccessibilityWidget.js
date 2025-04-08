@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   Box, 
   Button, 
@@ -42,6 +43,7 @@ import './AccessibilityWidget.css';
 
 const AccessibilityWidget = () => {
   const theme = useTheme();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   
   // מצבי נגישות
@@ -273,6 +275,11 @@ const AccessibilityWidget = () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [keyboardNavigation]);
+
+  // Check if the current path starts with /dashboard
+  if (location.pathname.startsWith('/dashboard')) {
+    return null; // Don't render the widget on dashboard pages
+  }
 
   return (
     <>

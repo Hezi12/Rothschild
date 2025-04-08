@@ -15,13 +15,10 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import RoomsListPage from './pages/RoomsListPage';
 import NotFoundPage from './pages/NotFoundPage';
-import CalendarLinksPage from './pages/CalendarLinksPage';
 import SearchResultsPage from './pages/SearchResultsPage';
 import CancellationRequestPage from './pages/CancellationRequestPage';
 import CancellationRedirectPage from './pages/CancellationRedirectPage';
 import GalleryManagementPage from './pages/GalleryManagementPage';
-import BookingListView from './pages/BookingListView';
-import BookingsNewPage from './pages/BookingsNewPage';
 import SimpleBookingList from './pages/SimpleBookingList';
 import IncomeReportPage from './pages/IncomeReportPage';
 import FinancialManagementPage from './pages/FinancialManagementPage';
@@ -97,8 +94,6 @@ function App() {
                 </ProtectedRoute>
               } />
               <Route path="/dashboard/bookings-manager" element={<ProtectedRoute><BookingsManager /></ProtectedRoute>} />
-              <Route path="/dashboard/bookings-calendar" element={<ProtectedRoute><BookingListView /></ProtectedRoute>} />
-              <Route path="/dashboard/bookings-new" element={<ProtectedRoute><BookingsNewPage /></ProtectedRoute>} />
               <Route path="/dashboard/simple-bookings" element={<ProtectedRoute><SimpleBookingList /></ProtectedRoute>} />
               <Route path="/dashboard/income-report" element={<ProtectedRoute><IncomeReportPage /></ProtectedRoute>} />
               <Route path="/dashboard/financial-management" element={<ProtectedRoute><FinancialManagementPage /></ProtectedRoute>} />
@@ -110,11 +105,6 @@ function App() {
               <Route path="dashboard/gallery" element={
                 <ProtectedRoute>
                   <GalleryManagementPage />
-                </ProtectedRoute>
-              } />
-              <Route path="dashboard/calendar-links" element={
-                <ProtectedRoute>
-                  <CalendarLinksPage />
                 </ProtectedRoute>
               } />
               

@@ -443,7 +443,7 @@ const BookingsManager = () => {
     // וידוא שדות סטטוס והתשלום
     adaptedBooking.status = booking.status || 'confirmed';
     adaptedBooking.isPaid = booking.isPaid || false;
-    adaptedBooking.paymentMethod = booking.paymentMethod || 'cash';
+    adaptedBooking.paymentMethod = booking.paymentMethod;
     adaptedBooking.tourist = booking.tourist || booking.isTourist || false;
     
     // עדכון שדות פרטי תשלום ואשראי - טיפול בפורמט אשראי חדש 
@@ -581,7 +581,7 @@ const BookingsManager = () => {
     // אתחול ערכי הדיאלוג בהתאם להזמנה שנבחרה או הזמנה חדשה
     useEffect(() => {
       if (selectedBooking) {
-        console.log('אתחול הזמנה קיימת:', selectedBooking);
+        console.log('[Dialog Init] Initializing with selectedBooking:', selectedBooking);
         
         // בדיקה אם זו הזמנה קיימת (יש מזהה)
         setIsEditMode(!!selectedBooking._id);
@@ -606,7 +606,7 @@ const BookingsManager = () => {
           tourist: selectedBooking.tourist || selectedBooking.isTourist || false,
           notes: selectedBooking.notes || "",
           status: selectedBooking.status || "confirmed",
-          paymentMethod: selectedBooking.paymentMethod || "cash",
+          paymentMethod: selectedBooking.paymentMethod,
           isPaid: selectedBooking.isPaid === true || selectedBooking.paymentStatus === 'paid',
           creditCard: selectedBooking.creditCard || "",
           cardHolderName: selectedBooking.cardHolderName || "",
@@ -624,6 +624,7 @@ const BookingsManager = () => {
         
         // עדכון הסטייט של הדיאלוג
         setBooking(bookingData);
+        console.log('[Dialog Init] Booking state set with paymentMethod:', bookingData.paymentMethod);
         
         // חישוב מספר לילות
         const start = bookingData.startDate;
@@ -835,6 +836,11 @@ const BookingsManager = () => {
         fieldValue = value;
       }
       
+      // הדפסה ספציפית עבור שינוי אמצעי תשלום
+      if (name === 'paymentMethod') {
+        console.log('[Input Change] paymentMethod changed to:', fieldValue);
+      }
+      
       // עדכון State של ההזמנה
       setBooking(prev => ({
         ...prev,
@@ -967,6 +973,8 @@ const BookingsManager = () => {
     // שמירת ההזמנה - הפונקציה שמופעלת כשלוחצים על כפתור שמירה
     const handleSaveClick = async () => {
       try {
+        console.log('[Save Click] Current booking state before validation:', booking);
+        console.log('[Save Click] paymentMethod in state before save:', booking.paymentMethod);
         // ולידציה
         const errors = validateBooking();
         if (Object.keys(errors).length > 0) {
@@ -1024,8 +1032,8 @@ const BookingsManager = () => {
           nights: nightsCount || 1,
           // הגדרת סטטוס
           status: booking.status || 'confirmed',
-          // הוספת אמצעי תשלום אם ההזמנה משולמת
-          paymentMethod: booking.isPaid ? (booking.paymentMethod || 'cash') : null,
+          // Always save the selected payment method, default to 'cash' if somehow empty
+          paymentMethod: booking.paymentMethod,
           paymentStatus: booking.isPaid ? 'paid' : 'pending',
           // שמירת פרטי האורח גם באובייקט האורח וגם בשורש ההזמנה
           guest: {
@@ -1049,7 +1057,8 @@ const BookingsManager = () => {
         delete bookingData.expiryDate;
         delete bookingData.cvv;
         
-        console.log('נתוני הזמנה לשמירה:', bookingData);
+        console.log('[Save Click] Final bookingData being sent:', bookingData);
+        console.log('[Save Click] paymentMethod in final bookingData:', bookingData.paymentMethod);
         
         console.log('נתוני כרטיס אשראי לשמירה:', {
           מספר_כרטיס: bookingData.creditCard.cardNumber,

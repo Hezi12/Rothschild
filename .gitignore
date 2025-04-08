@@ -49,5 +49,5 @@ tmp/
 temp/
 
 # קבצי העלאה
-uploads/
+server/uploads/
 rothschild-build.tar.gz
