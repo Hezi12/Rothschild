@@ -28,7 +28,7 @@ import {
   Construction as ConstructionIcon,
   AccountBalance as AccountBalanceIcon
 } from '@mui/icons-material';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../../context/AuthContext';
 
 const Layout = () => {
   const { isAuthenticated, isAdmin, logout, user } = useContext(AuthContext);

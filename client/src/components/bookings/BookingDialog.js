@@ -32,7 +32,7 @@ import EventIcon from '@mui/icons-material/Event';
 import PersonIcon from '@mui/icons-material/Person';
 import PaymentIcon from '@mui/icons-material/Payment';
 import NoteIcon from '@mui/icons-material/Note';
-import { BookingContext } from '../context/BookingContext';
+import { BookingContext } from '../../context/BookingContext';
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'מזומן' },

@@ -7,7 +7,15 @@ const Schema = mongoose.Schema;
  * 1. אין יותר כפילות בין הזמנות לחסימות (הזמנה היא הזמנה)
  * 2. טיפול שגוי באזורי זמן
  * 3. מבנה הגיוני יותר של שדות
+ * 4. עיגול עקבי של מחירים למניעת סטיות בהמרות
  */
+
+// פונקציית עזר לעיגול מחירים - זהה לזו שבצד הלקוח
+const roundTo = (value, decimals = 2) => {
+  if (!value || isNaN(value)) return 0;
+  const multiplier = Math.pow(10, decimals);
+  return Math.round(value * multiplier) / multiplier;
+};
 
 // סכמה ייעודית לפרטי כרטיס אשראי
 const CreditCardSchema = new Schema({
@@ -96,7 +104,11 @@ const BookingSchema = new Schema({
   },
   basePrice: {
     type: Number,
-    default: 400
+    default: 400,
+    get: function(v) {
+      // החזרת המחיר הבסיסי כמספר מעוגל
+      return v ? roundTo(v) : 0;
+    }
   },
   vatRate: {
     type: Number,
@@ -104,21 +116,41 @@ const BookingSchema = new Schema({
   },
   vatAmount: {
     type: Number,
-    default: 0
+    default: 0,
+    get: function(v) {
+      // החזרת סכום המע"מ כמספר מעוגל
+      return v ? roundTo(v) : 0;
+    }
   },
   totalPrice: {
     type: Schema.Types.Decimal128,
     required: true,
-    get: (v) => v ? parseFloat(v.toString()) : 0
+    get: function(v) {
+      // אם יש מחיר מקורי, השתמש בו
+      if (this.originalTotalPrice) {
+        const original = parseFloat(this.originalTotalPrice);
+        if (!isNaN(original)) {
+          return original;
+        }
+      }
+      // אחרת, החזר את המחיר המחושב מעוגל
+      return v ? roundTo(parseFloat(v.toString())) : 0;
+    }
   },
   originalTotalPrice: {
     type: String,
     default: '',
-    get: (v) => v || '', 
+    get: function(v) {
+      // וודא שמחזירים את הערך המדויק
+      return v || '';
+    }
   },
   paidAmount: {
     type: Number,
-    default: 0
+    default: 0,
+    get: function(v) {
+      return v ? roundTo(v) : 0;
+    }
   },
   isTourist: {
     type: Boolean,
@@ -126,7 +158,7 @@ const BookingSchema = new Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['credit', 'cash', 'creditOr', 'creditRothschild', 'mizrahi', 'poalim', 'other', ''],
+    enum: ['credit', 'cash', 'creditOr', 'creditRothschild', 'mizrahi', 'bitMizrahi', 'payboxMizrahi', 'poalim', 'bitPoalim', 'payboxPoalim', 'other', ''],
     default: ''
   },
   paymentStatus: {
@@ -209,6 +241,15 @@ const BookingSchema = new Schema({
   toObject: { virtuals: true, getters: true }
 });
 
+// וירטואל - מחיר לילה כולל מע"מ
+BookingSchema.virtual('priceWithVAT').get(function() {
+  if (this.isTourist) {
+    return this.basePrice; // לתייר אין מע"מ
+  }
+  const basePrice = this.basePrice || 0;
+  return roundTo(basePrice * (1 + (this.vatRate || 18) / 100));
+});
+
 // וידוא שתאריך צ'ק-אאוט מאוחר מתאריך צ'ק-אין
 BookingSchema.pre('save', function(next) {
   this.updatedAt = new Date();
@@ -248,6 +289,32 @@ BookingSchema.pre('save', function(next) {
     this.creditCard.cardholderName = this.creditCard.cardholderName || '';
   }
   
+  // עיגול מחירים לפני שמירה
+  if (this.basePrice) {
+    this.basePrice = roundTo(this.basePrice);
+  }
+  
+  if (this.vatAmount) {
+    this.vatAmount = roundTo(this.vatAmount);
+  }
+  
+  if (this.totalPrice && typeof this.totalPrice !== 'object') {
+    // אם totalPrice הוא מספר רגיל (לא Decimal128), נעגל אותו לפני המרה
+    const totalPriceNumber = roundTo(this.totalPrice);
+    this.totalPrice = totalPriceNumber;
+  }
+  
+  // אם אין originalTotalPrice, שמור את המחיר הכולל כמחרוזת גם בשדה מקור
+  if (!this.originalTotalPrice && this.totalPrice) {
+    if (typeof this.totalPrice === 'object') {
+      // Decimal128 - המרה למחרוזת
+      this.originalTotalPrice = this.totalPrice.toString();
+    } else {
+      // מספר רגיל - המרה למחרוזת
+      this.originalTotalPrice = this.totalPrice.toString();
+    }
+  }
+  
   next();
 });
 
@@ -268,6 +335,26 @@ BookingSchema.pre('findOneAndUpdate', function(next) {
     };
     
     console.log('כרטיס אשראי לאחר טיפול במידלוור:', update.$set.creditCard);
+  }
+  
+  // עיגול מחירים אם מעודכנים
+  if (update.$set && update.$set.basePrice) {
+    update.$set.basePrice = roundTo(update.$set.basePrice);
+  }
+  
+  if (update.$set && update.$set.vatAmount) {
+    update.$set.vatAmount = roundTo(update.$set.vatAmount);
+  }
+  
+  if (update.$set && update.$set.totalPrice) {
+    // אם מעדכנים את המחיר הכולל, נשמור אותו גם כמחרוזת במקור
+    const totalPriceValue = roundTo(update.$set.totalPrice);
+    update.$set.totalPrice = totalPriceValue;
+    
+    // שמירת הערך המקורי אם לא קיים
+    if (!update.$set.originalTotalPrice) {
+      update.$set.originalTotalPrice = totalPriceValue.toString();
+    }
   }
   
   next();

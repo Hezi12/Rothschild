@@ -56,7 +56,7 @@ import {
   Call as CallIcon,
   LocalOffer as LocalOfferIcon
 } from '@mui/icons-material';
-import ChatBox from '../components/ChatBox';
+import ChatBox from '../components/common/ChatBox';
 import Carousel from 'react-material-ui-carousel';
 
 const MaterialGalleryCarousel = ({ gallery, isMobile, theme }) => {

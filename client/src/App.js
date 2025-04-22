@@ -22,11 +22,11 @@ import GalleryManagementPage from './pages/GalleryManagementPage';
 import SimpleBookingList from './pages/SimpleBookingList';
 import IncomeReportPage from './pages/IncomeReportPage';
 import FinancialManagementPage from './pages/FinancialManagementPage';
-import BookingsManager from './pages/BookingsManager';
+import BookingsManagerPage from './pages/BookingsManager';
 
 // רכיבים
-import Layout from './components/Layout';
-import ProtectedRoute from './components/ProtectedRoute';
+import Layout from './components/layout/Layout';
+import ProtectedRoute from './components/common/ProtectedRoute';
 import AccessibilityWidget from './components/Accessibility/AccessibilityWidget';
 import AccessibilityStatement from './components/Accessibility/AccessibilityStatement';
 
@@ -93,7 +93,7 @@ function App() {
                   <DashboardPage />
                 </ProtectedRoute>
               } />
-              <Route path="/dashboard/bookings-manager" element={<ProtectedRoute><BookingsManager /></ProtectedRoute>} />
+              <Route path="/dashboard/bookings-manager" element={<ProtectedRoute><BookingsManagerPage /></ProtectedRoute>} />
               <Route path="/dashboard/simple-bookings" element={<ProtectedRoute><SimpleBookingList /></ProtectedRoute>} />
               <Route path="/dashboard/income-report" element={<ProtectedRoute><IncomeReportPage /></ProtectedRoute>} />
               <Route path="/dashboard/financial-management" element={<ProtectedRoute><FinancialManagementPage /></ProtectedRoute>} />
